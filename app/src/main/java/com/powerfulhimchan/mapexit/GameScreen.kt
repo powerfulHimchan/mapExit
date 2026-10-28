@@ -136,6 +136,7 @@ private fun Panel(
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             fontSize = 10.sp,
+            lineHeight = 14.sp,
             color = mint,
             modifier =
                 Modifier.fillMaxWidth()
@@ -159,6 +160,7 @@ private fun Controls(vm: GameModel, modifier: Modifier) {
         Text(
             if (vm.loadError != null) "저장 복구" else modeLabel(s),
             fontSize = 12.sp,
+            lineHeight = 16.sp,
             fontWeight = FontWeight.Bold,
             color = amber,
             maxLines = 2,
@@ -167,6 +169,7 @@ private fun Controls(vm: GameModel, modifier: Modifier) {
             Text(
                 s.trap?.instruction() ?: "",
                 fontSize = 12.sp,
+            lineHeight = 16.sp,
                 color = pale,
                 lineHeight = 18.sp,
                 modifier = Modifier.weight(1f),
@@ -174,7 +177,7 @@ private fun Controls(vm: GameModel, modifier: Modifier) {
         } else {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 val start = (selected - 1).coerceAtLeast(0)
-                options.drop(start).take(3).forEachIndexed { i, choice ->
+                options.drop(start).take(2).forEachIndexed { i, choice ->
                     val active = start + i == selected
                     Text(
                         (if (active) "▶ " else "  ") + choice.label,
@@ -193,7 +196,7 @@ private fun Controls(vm: GameModel, modifier: Modifier) {
             }
             Text(
                 if (options.isEmpty()) "" else "${selected+1} / ${options.size}",
-                fontSize = 10.sp,
+                fontSize = 10.sp, lineHeight = 12.sp,
                 color = muted,
             )
         }
@@ -207,7 +210,7 @@ private fun Controls(vm: GameModel, modifier: Modifier) {
         Text(
             "A 선택  /  B 실행",
             color = muted,
-            fontSize = 9.sp,
+            fontSize = 9.sp, lineHeight = 12.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
     }
@@ -269,11 +272,11 @@ private fun Status(s: State, p: Stats) {
     ) {
         Text(
             "LV.${s.level}  /  ${s.points} POINT",
-            fontSize = 12.sp,
+            fontSize = 12.sp, lineHeight = 16.sp,
             color = amber,
             fontWeight = FontWeight.Bold,
         )
-        Text("HP ${s.hp.toInt()} / ${p.hp.toInt()}", fontSize = 11.sp, color = mint)
+        Text("HP ${s.hp.toInt()} / ${p.hp.toInt()}", fontSize = 11.sp, lineHeight = 14.sp, color = mint)
         Box(Modifier.fillMaxWidth().height(6.dp).background(ink)) {
             Box(
                 Modifier.fillMaxWidth((s.hp / p.hp).toFloat().coerceIn(0f, 1f))
@@ -292,8 +295,8 @@ private fun Status(s: State, p: Stats) {
             )
         rows.forEach { (label, value) ->
             Row(Modifier.fillMaxWidth()) {
-                Text(label, fontSize = 10.sp, color = muted, modifier = Modifier.weight(1f))
-                Text(value, fontSize = 11.sp, color = pale, fontFamily = FontFamily.Monospace)
+                Text(label, fontSize = 10.sp, lineHeight = 14.sp, color = muted, modifier = Modifier.weight(1f))
+                Text(value, fontSize = 11.sp, lineHeight = 14.sp, color = pale, fontFamily = FontFamily.Monospace)
             }
         }
         Spacer(Modifier.height(2.dp))
