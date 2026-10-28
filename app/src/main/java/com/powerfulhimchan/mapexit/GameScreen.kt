@@ -280,22 +280,22 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
                                     delay(550)
                                     longReady = true
                                 }
-                            val released =
-                                try {
-                                    tryAwaitRelease()
-                                } finally {
-                                    job.cancel()
-                                }
-                            held = false
-                            vm.up(
-                                index,
-                                released,
-                                held =
-                                    !trap &&
-                                        b.holdChoice != null &&
-                                        SystemClock.uptimeMillis() - start >= 550,
-                            )
-                            longReady = false
+                            var released = false
+                            try {
+                                released = tryAwaitRelease()
+                            } finally {
+                                job.cancel()
+                                held = false
+                                longReady = false
+                                vm.up(
+                                    index,
+                                    released,
+                                    held =
+                                        !trap &&
+                                            b.holdChoice != null &&
+                                            SystemClock.uptimeMillis() - start >= 550,
+                                )
+                            }
                         }
                     )
             },
