@@ -36,15 +36,13 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
-            ./gradlew :app:connectedDebugAndroidTest --no-daemon
+            test_status=0
+            ./gradlew :app:connectedDebugAndroidTest --no-daemon || test_status=$?
             mkdir -p app/build/device-screenshots
-            adb pull /sdcard/Download/mapexit-explore.png app/build/device-screenshots/explore.png
-            adb pull /sdcard/Download/mapexit-battle.png app/build/device-screenshots/battle.png
-            adb pull /sdcard/Download/mapexit-trap.png app/build/device-screenshots/trap.png
-            adb pull /sdcard/Download/mapexit-preparation.png app/build/device-screenshots/preparation.png
-            adb pull /sdcard/Download/mapexit-compact.png app/build/device-screenshots/compact.png
-            adb pull /sdcard/Download/mapexit-shop.png app/build/device-screenshots/shop.png
-            adb pull /sdcard/Download/mapexit-equipment.png app/build/device-screenshots/equipment.png
+            for name in explore battle trap preparation compact shop equipment wall-depth third-person enemy-damage player-damage victory trap-guide-0 trap-guide-1 trap-guide-2 trap-guide-3 trap-guide-4 compact-victory compact-guide; do
+              adb pull "/sdcard/Download/mapexit-${name}.png" "app/build/device-screenshots/${name}.png" || true
+            done
+            exit "${test_status}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

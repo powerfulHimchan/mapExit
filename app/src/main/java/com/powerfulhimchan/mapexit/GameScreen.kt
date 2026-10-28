@@ -61,6 +61,11 @@ fun MapExitScreen(vm: GameModel) {
             }
         }
     }
+    LaunchedEffect(vm.currentImpact?.serial) {
+        val event = vm.currentImpact ?: return@LaunchedEffect
+        delay(1600)
+        vm.clearImpact(event.serial)
+    }
     BackHandler(s.mode == Mode.MENU) { vm.back() }
     MaterialTheme(
         colorScheme =
@@ -98,6 +103,9 @@ fun MapExitScreen(vm: GameModel) {
                     Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
                 }
             } else if (s.mode in listOf(Mode.SURFACE, Mode.MENU, Mode.INHERIT)) {
+                if (s.mode == Mode.SURFACE && vm.currentImpact?.target == ImpactTarget.PLAYER) {
+                    Text("받은 피해 ${vm.currentImpact!!.label()}", color = red, fontSize = 16.sp)
+                }
                 PreparationScreen(vm, Modifier.weight(1f))
             } else {
                 DungeonScreen(vm, clock, Modifier.weight(1f))
@@ -145,6 +153,7 @@ internal fun PixelCanvas(
 
 @Composable
 private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
+    vm.revision
     val s = vm.engine.state
     val p = vm.engine.stats()
     val buttons = vm.engine.controls.buttons()
@@ -154,13 +163,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
             Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
         ) {
-            PixelCanvas(
-                s,
-                clock,
-                Modifier.fillMaxWidth().weight(1f),
-                vm.visualEffect,
-                vm.visualEffectAt,
-            )
+            ScenePresentation(vm, clock, Modifier.fillMaxWidth().weight(1f))
             Text(
                 sceneMessage(s),
                 color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
@@ -318,6 +321,7 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
 
 @Composable
 private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
+    vm.revision
     val e = vm.engine
     val s = e.state
     val surface = s.mode == Mode.SURFACE
@@ -619,8 +623,10 @@ private fun directionHint(s: State): String =
 
 private fun sceneMessage(s: State): String =
     when {
+        s.mode == Mode.TRAP_GUIDE -> "설명을 확인한 뒤 B로 시작하세요 · 아직 제한 시간이 흐르지 않습니다"
+        s.mode == Mode.VICTORY -> "전투 종료 · 보상을 확인하고 계속하세요"
         s.mode == Mode.TRAP -> s.trap?.prompt() ?: "함정"
         s.enemy != null ->
-            "${s.enemy!!.name}  ${s.enemy!!.hp.toInt()}/${s.enemy!!.maxHp.toInt()} HP · ${if (s.mode == Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"}\n${s.message}"
+            "${if (s.mode == Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"} · ${s.message}"
         else -> s.message
     }

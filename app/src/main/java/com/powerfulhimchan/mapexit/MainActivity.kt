@@ -24,6 +24,10 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     private val downInTrap = BooleanArray(2)
     private val downContext = arrayOf("", "")
     private var lastActionAt = 0L
+    private var observedImpact = 0L
+    var currentImpact by mutableStateOf<BattleImpact?>(null)
+        private set
+
     var revision by mutableIntStateOf(0)
         private set
 
@@ -53,6 +57,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                 }
             else null
         engine = GameEngine(saved ?: State(), BuildConfig.DEBUG)
+        observedImpact = engine.state.impactSequence
     }
 
     fun down(button: Int) {
@@ -60,7 +65,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         downContext[button] = engine.controls.inputToken()
         downInTrap[button] = engine.state.mode == Mode.TRAP
         if (downInTrap[button]) engine.rawDown(button)
-        revision++
+        refresh()
     }
 
     fun up(button: Int, released: Boolean = true, held: Boolean = false) {
@@ -76,12 +81,12 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                 engine = GameEngine(State(), BuildConfig.DEBUG)
                 save()
             }
-            revision++
+            refresh()
             return
         }
         if (!released) {
             engine.pause()
-            revision++
+            refresh()
             return
         }
         if (downInTrap[button]) engine.rawUp(button)
@@ -105,24 +110,32 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             }
         }
         if (engine.state.mode != Mode.TRAP) save()
-        revision++
+        refresh()
     }
 
     fun choose(choice: Choice) {
         if (loadError != null) return
         engine.choose(choice)
         save()
-        revision++
+        refresh()
     }
 
     fun back() {
         engine.navigateBack()
         save()
-        revision++
+        refresh()
     }
 
     fun refresh() {
+        if (observedImpact != engine.state.impactSequence) {
+            observedImpact = engine.state.impactSequence
+            currentImpact = engine.state.lastImpact
+        } else if (engine.state.lastImpact == null) currentImpact = null
         revision++
+    }
+
+    fun clearImpact(serial: Long) {
+        if (currentImpact?.serial == serial) currentImpact = null
     }
 
     fun tick(delta: Long) {
@@ -136,14 +149,14 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             saveClock = 0
             save()
         }
-        if (animate) revision++
+        if (animate) refresh()
     }
 
     fun pause() {
         active = false
         engine.pause()
         save(blocking = true)
-        revision++
+        refresh()
     }
 
     fun save(blocking: Boolean = false) {

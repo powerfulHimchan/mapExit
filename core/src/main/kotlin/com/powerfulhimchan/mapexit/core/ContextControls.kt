@@ -53,6 +53,10 @@ class ContextControls(private val engine: GameEngine) {
                         ),
                     b("강공격", "strong").copy(holdLabel = "도주 시도", holdChoice = Choice("도주", "flee")),
                 )
+            Mode.VICTORY ->
+                listOf(ContextButton("전투 승리", enabled = false), b("결과 확인 · 계속", "battleContinue"))
+            Mode.TRAP_GUIDE ->
+                listOf(ContextButton("설명 확인", enabled = false), b("함정 시작", "trapStart"))
             Mode.COMBAT_DEFEND -> listOf(b("방어", "guard"), b("회피", "dodge"))
             Mode.MOVING -> listOf(ContextButton("이동 중", enabled = false), b("멈추기", "stop"))
             Mode.EXPLORE -> {

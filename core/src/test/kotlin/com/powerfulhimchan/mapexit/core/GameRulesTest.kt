@@ -318,6 +318,8 @@ class GameRulesTest {
             }
         }
         assertTrue(10 in s.devices)
+        assertEquals(Mode.VICTORY, s.mode)
+        choose(e, "battleContinue")
         assertEquals(Mode.FLOOR_CLEAR, s.mode)
     }
 
@@ -514,6 +516,8 @@ class GameRulesTest {
                 e.attack(false)
             }
         }
+        assertEquals(Mode.VICTORY, s.mode)
+        choose(e, "battleContinue")
         assertEquals(Mode.SURFACE, s.mode)
         assertTrue(e.choices().isNotEmpty())
     }
@@ -552,6 +556,8 @@ class GameRulesTest {
                 Mode.MOVING -> e.tick(250)
                 Mode.COMBAT_ATTACK -> e.attack(false)
                 Mode.COMBAT_DEFEND -> e.defend(false)
+                Mode.VICTORY -> choose(e, "battleContinue")
+                Mode.TRAP_GUIDE -> choose(e, "trapStart")
                 Mode.TRAP -> if (s.trap!!.phase == TrapPhase.RESULT) e.press(1) else e.tick(250)
                 Mode.FLOOR_CLEAR ->
                     if (s.floor == 50) choose(e, "ending")
