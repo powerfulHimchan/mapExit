@@ -326,6 +326,10 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
     val s = e.state
     val surface = s.mode == Mode.SURFACE
     val menu = s.menu?.type
+    val menuChoices = e.choices()
+    val ownedItems = s.inventory.toList()
+    val shopItems = s.shop.toList()
+    val wornSlots = s.equipment.toMap()
     val listState = rememberLazyListState()
     LaunchedEffect(s.mode, s.menu?.type, s.menu?.argument) { listState.scrollToItem(0) }
     val title =
@@ -479,12 +483,12 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             fontSize = 12.sp,
                         )
                     }
-                items(e.choices(), key = { "${it.action}:${it.argument}:${it.label}" }) { c ->
+                items(menuChoices, key = { "${it.action}:${it.argument}" }) { c ->
                     val gear =
                         when (menu) {
-                            "shop" -> s.shop.find { it.id == c.argument }
+                            "shop" -> shopItems.find { it.id == c.argument }
                             "inventory",
-                            "sell" -> s.inventory.find { it.id == c.argument }
+                            "sell" -> ownedItems.find { it.id == c.argument }
                             else -> null
                         }
                     val enabled =
@@ -513,6 +517,14 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                         )
+                        if (menu == "sell" && gear != null && gear.id in wornSlots.values) {
+                            Text(
+                                "장착 중 · 판매하면 장착이 해제됩니다",
+                                color = mint,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 5.dp),
+                            )
+                        }
                         gear?.let {
                             Text(
                                 it.summary(),
@@ -623,7 +635,7 @@ private fun directionHint(s: State): String =
 
 private fun sceneMessage(s: State): String =
     when {
-        s.mode == Mode.TRAP_GUIDE -> "설명을 확인한 뒤 B로 시작하세요 · 아직 제한 시간이 흐르지 않습니다"
+        s.mode == Mode.TRAP_GUIDE -> s.trap?.cue() ?: "곧 시작"
         s.mode == Mode.VICTORY -> "전투 종료 · 보상을 확인하고 계속하세요"
         s.mode == Mode.TRAP -> s.trap?.prompt() ?: "함정"
         s.enemy != null ->

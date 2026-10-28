@@ -79,9 +79,7 @@ class LaunchTest {
 
     private fun assertVictoryFeedbackLayout(scenario: ActivityScenario<MainActivity>) {
         var popupLabel = ""
-        scenario.onActivity {
-            popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}"
-        }
+        scenario.onActivity { popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
         val footer = bounds("B로 결과 확인 후 계속")
         val popup = bounds(popupLabel)
         assertTrue("Final damage must sit below the victory card", popup.top >= footer.bottom)
@@ -237,7 +235,7 @@ class LaunchTest {
     }
 
     @Test
-    fun combatFeedbackVictoryAndAllTrapBriefings() {
+    fun combatFeedbackVictoryAndAllAutomaticTrapCues() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity {
                 it.game.active = false
@@ -298,7 +296,7 @@ class LaunchTest {
                 assertEquals(gold, it.game.engine.state.gold)
             }
             for (type in 0..4) {
-                var title = ""
+                var cue = ""
                 scenario.onActivity {
                     val e = GameEngine(debugTools = true)
                     e.choose(e.choices().first { c -> c.action == "debug" })
@@ -307,21 +305,23 @@ class LaunchTest {
                             c.action == "testTrap" && c.argument == type.toLong()
                         }
                     )
-                    repeat(24) { e.tick(250) }
-                    assertEquals(Mode.TRAP_GUIDE, e.state.mode)
-                    assertEquals(0L, e.state.trap!!.elapsedMs)
-                    title = "함정 발견 · ${e.state.trap!!.title}"
+                    assertEquals(Mode.TRAP, e.state.mode)
+                    assertEquals(TrapPhase.PREPARE, e.state.trap!!.phase)
+                    cue = e.state.trap!!.cue()
                     it.game.engine = e
                     it.game.active = false
                     it.game.refresh()
                 }
-                bounds(title)
-                capture("trap-guide-$type")
-                tap("B 함정 시작")
+                bounds(cue)
+                capture("trap-cue-$type")
                 scenario.onActivity {
-                    assertEquals(Mode.TRAP, it.game.engine.state.mode)
-                    assertEquals(0L, it.game.engine.state.trap!!.elapsedMs)
+                    repeat(4) { _ -> it.game.engine.tick(250) }
+                    assertEquals(
+                        if (type == 3) TrapPhase.REVEAL else TrapPhase.ACTIVE,
+                        it.game.engine.state.trap!!.phase,
+                    )
                     assertEquals(0, it.game.engine.state.trap!!.progress)
+                    it.game.refresh()
                 }
             }
         }
@@ -372,16 +372,163 @@ class LaunchTest {
                 scenario.onActivity {
                     val s = it.game.engine.state
                     s.trap = Traps.create(s, 4)
-                    s.mode = Mode.TRAP_GUIDE
+                    s.mode = Mode.TRAP
                     it.game.refresh()
                 }
-                bounds("함정 발견 · 누르고 떼기")
-                bounds("B 함정 시작")
-                capture("compact-guide")
+                bounds("신호에 놓아라")
+                capture("compact-cue")
             }
         } finally {
             val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
             ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
+        }
+    }
+
+    private fun encounterEngine(event: Event): GameEngine {
+        val e = GameEngine()
+        val d = Dungeon(7, 7, MutableList(49) { Cell() }, x = 3, y = 3, direction = 0)
+        d.here().wall = false
+        d.cell(3, 2).wall = false
+        d.cell(3, 2).event = event
+        e.state.dungeon = d
+        e.state.floor = 1
+        e.state.mode = Mode.EXPLORE
+        return e
+    }
+
+    private fun awaitGame(scenario: ActivityScenario<MainActivity>, condition: (State) -> Boolean) {
+        val deadline = SystemClock.uptimeMillis() + 10000
+        while (SystemClock.uptimeMillis() < deadline) {
+            var matched = false
+            scenario.onActivity { matched = condition(it.game.engine.state) }
+            if (matched) return
+            SystemClock.sleep(40)
+        }
+        fail("Timed out waiting for the automatic game transition")
+    }
+
+    @Test
+    fun encounterChoicesAndMerchantSaleRefreshOnScreen() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                it.game.active = false
+                it.game.engine = encounterEngine(Event.NPC)
+                it.game.refresh()
+            }
+            tap("A ↑ 앞으로 이동")
+            bounds("여행자의 의뢰")
+            bounds("A 수락")
+            bounds("B 거절")
+            capture("npc-encounter")
+            tap("B 거절")
+            scenario.onActivity { assertNull(it.game.engine.state.quest) }
+            // Reset only transient controls; the persisted NPC offer remains the same.
+            scenario.onActivity {
+                it.game.engine.controls.reset()
+                it.game.refresh()
+            }
+            tap("A NPC 만나기")
+            tap("A 수락")
+            scenario.onActivity {
+                assertNotNull(it.game.engine.state.quest)
+                assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
+                it.game.engine = encounterEngine(Event.CHEST)
+                it.game.refresh()
+            }
+            tap("A ↑ 앞으로 이동")
+            bounds("상자 발견")
+            bounds("A 열기")
+            bounds("B 지나가기")
+            capture("chest-encounter")
+            scenario.onActivity { it.game.engine.state.rng = 0L }
+            tap("A 열기")
+            bounds("3인칭 전투")
+            scenario.onActivity { assertTrue(it.game.engine.state.enemy!!.name.startsWith("상자 속")) }
+            capture("chest-ambush")
+            scenario.onActivity {
+                val e = encounterEngine(Event.MERCHANT)
+                val sword = e.state.inventory.first { gear -> gear.weapon }
+                e.state.inventory.add(sword.copy(id = e.state.nextId++))
+                it.game.engine = e
+                it.game.refresh()
+            }
+            tap("A ↑ 앞으로 이동")
+            bounds("떠돌이 상인")
+            capture("merchant-encounter")
+            tap("A 거래하기")
+            tap("아이템 판매", allowScroll = true)
+            var wornLabel = ""
+            var duplicateLabel = ""
+            var wornId = 0L
+            var gold = 0
+            var price = 0
+            scenario.onActivity {
+                val e = it.game.engine
+                wornId = e.state.equipment[Slot.RIGHT]!!
+                wornLabel =
+                    e.choices().first { c -> c.action == "sell" && c.argument == wornId }.label
+                val twin = e.state.inventory.last { gear -> gear.weapon }
+                duplicateLabel =
+                    e.choices().first { c -> c.action == "sell" && c.argument == twin.id }.label
+                gold = e.state.gold
+                price = Equipment.sellPrice(e.state.inventory.first { gear -> gear.id == wornId })
+                assertTrue(wornLabel.contains("장착 중"))
+                assertFalse(duplicateLabel.contains("장착 중"))
+            }
+            bounds(wornLabel, allowScroll = true)
+            capture("sell-equipped")
+            tap(wornLabel, allowScroll = true)
+            bounds(duplicateLabel, allowScroll = true)
+            scenario.onActivity {
+                val e = it.game.engine
+                assertEquals(gold + price, e.state.gold)
+                assertFalse(e.state.inventory.any { gear -> gear.id == wornId })
+                assertFalse(wornId in e.state.equipment.values)
+                assertFalse(e.choices().any { c -> c.action == "sell" && c.argument == wornId })
+                it.game.pause()
+                val cold = GameModel(it.application)
+                assertFalse(cold.engine.state.inventory.any { gear -> gear.id == wornId })
+            }
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, wornLabel))
+            capture("sell-removed")
+            scenario.onActivity {
+                it.game.back()
+                it.game.back()
+            }
+            bounds("떠돌이 상인")
+            tap("B 지나가기")
+            scenario.onActivity { assertEquals(Mode.EXPLORE, it.game.engine.state.mode) }
+        }
+    }
+
+    @Test
+    fun trapsUseLiveTimersAndReturnWithoutConfirmation() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for (type in 0..1) {
+                var pattern = emptyList<Int>()
+                scenario.onActivity {
+                    val e = encounterEngine(Event.TRAP)
+                    e.press(0)
+                    e.state.trap = Traps.create(e.state, type)
+                    pattern = e.state.trap!!.pattern
+                    it.game.engine = e
+                    it.game.active = true
+                    it.game.refresh()
+                }
+                awaitGame(scenario) { it.trap?.phase == TrapPhase.ACTIVE }
+                if (type == 0) {
+                    for (b in pattern) tap(if (b == 0) "A A 입력" else "B B 입력")
+                }
+                awaitGame(scenario) { it.trap?.phase == TrapPhase.RESULT }
+                scenario.onActivity { assertEquals(type == 0, it.game.engine.state.trap!!.success) }
+                capture(if (type == 0) "trap-auto-success" else "trap-auto-failure")
+                awaitGame(scenario) { it.mode == Mode.EXPLORE }
+                scenario.onActivity {
+                    assertNull(it.game.engine.state.trap)
+                    assertTrue(it.game.engine.state.dungeon!!.here().resolved)
+                    it.game.active = false
+                }
+            }
         }
     }
 }

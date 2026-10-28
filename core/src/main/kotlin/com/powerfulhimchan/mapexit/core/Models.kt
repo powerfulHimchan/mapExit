@@ -13,6 +13,7 @@ enum class Mode {
     COMBAT_ATTACK,
     COMBAT_DEFEND,
     VICTORY,
+    ENCOUNTER,
     TRAP_GUIDE,
     TRAP,
     FLOOR_CLEAR,
@@ -175,6 +176,8 @@ data class Cell(
     var seen: Boolean = false,
     var resolved: Boolean = false,
     var trapType: Int = 0,
+    var questOffer: Quest? = null,
+    var offerChecked: Boolean = false,
 )
 
 @Serializable
@@ -297,6 +300,7 @@ data class State(
     var impactSequence: Long = 0L,
     var lastImpact: BattleImpact? = null,
     var trap: TrapState? = null,
+    var encounter: Event? = null,
     var quest: Quest? = null,
     var menu: Menu? = null,
     var menuStack: MutableList<Menu> = mutableListOf(),

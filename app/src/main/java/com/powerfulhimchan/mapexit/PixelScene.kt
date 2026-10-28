@@ -34,6 +34,10 @@ internal fun DrawScope.drawScene(
     effectAt: Long = 0L,
 ) {
     drawRect(ink)
+    if (s.mode == Mode.ENCOUNTER) {
+        drawEncounter(s, clock)
+        return
+    }
     if (s.mode == Mode.TRAP || s.mode == Mode.TRAP_GUIDE) {
         drawTrap(s.trap ?: return)
         return

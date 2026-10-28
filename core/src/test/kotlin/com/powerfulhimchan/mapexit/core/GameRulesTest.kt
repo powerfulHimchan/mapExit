@@ -353,19 +353,19 @@ class GameRulesTest {
     fun quickPatternCorrectWrongAndDeadline() {
         val s = state()
         val t = Traps.create(s, 0)
-        tick(t, 1200)
+        tick(t, Traps.PREPARE_MS)
         for (b in t.pattern) {
             Traps.down(t, b)
             Traps.up(t, b)
         }
         assertTrue(t.success)
         val wrong = Traps.create(s, 0)
-        tick(wrong, 1200)
+        tick(wrong, Traps.PREPARE_MS)
         Traps.down(wrong, 1 - wrong.pattern[0])
         assertEquals(TrapPhase.RESULT, wrong.phase)
         assertFalse(wrong.success)
         val late = Traps.create(s, 0)
-        tick(late, 1200 + late.limitMs + 1)
+        tick(late, Traps.PREPARE_MS + late.limitMs + 1)
         assertEquals(TrapPhase.RESULT, late.phase)
         assertFalse(late.success)
     }
@@ -374,12 +374,12 @@ class GameRulesTest {
     fun timingBarUsesPositionNotFrameRate() {
         val s = state()
         val t = Traps.create(s, 1)
-        tick(t, 1200)
+        tick(t, Traps.PREPARE_MS)
         tick(t, (t.target * 1000).toLong())
         Traps.down(t, t.pattern[0])
         assertTrue(t.success)
         val wrong = Traps.create(s, 1)
-        tick(wrong, 1200)
+        tick(wrong, Traps.PREPARE_MS)
         Traps.down(wrong, wrong.pattern[0])
         assertFalse(wrong.success)
     }
@@ -387,7 +387,7 @@ class GameRulesTest {
     @Test
     fun mashRequiresReleaseAndIgnoresAutorepeat() {
         val t = Traps.create(state(), 2)
-        tick(t, 1200)
+        tick(t, Traps.PREPARE_MS)
         repeat(50) { Traps.down(t, t.pattern[0]) }
         assertEquals(0, t.progress)
         Traps.up(t, t.pattern[0])
@@ -402,7 +402,7 @@ class GameRulesTest {
     @Test
     fun memoryDoesNotAcceptInputWhileRevealed() {
         val t = Traps.create(state(), 3)
-        tick(t, 1200)
+        tick(t, Traps.PREPARE_MS)
         assertEquals(TrapPhase.REVEAL, t.phase)
         Traps.down(t, t.pattern[0])
         assertEquals(0, t.progress)
@@ -418,7 +418,7 @@ class GameRulesTest {
     fun holdReleaseSupportsEarlyCorrectLateAndPause() {
         fun start(): TrapState =
             Traps.create(state(), 4).also {
-                tick(it, 1200)
+                tick(it, Traps.PREPARE_MS)
                 Traps.down(it, it.pattern[0])
             }
         val early = start()
@@ -501,6 +501,8 @@ class GameRulesTest {
         assertEquals(TrapPhase.RESULT, s.trap!!.phase)
         e.rawDown(1)
         e.rawUp(1)
+        assertEquals(Mode.TRAP, s.mode)
+        repeat(4) { e.tick(250) }
         assertEquals(Mode.SURFACE, s.mode)
     }
 
@@ -557,8 +559,9 @@ class GameRulesTest {
                 Mode.COMBAT_ATTACK -> e.attack(false)
                 Mode.COMBAT_DEFEND -> e.defend(false)
                 Mode.VICTORY -> choose(e, "battleContinue")
-                Mode.TRAP_GUIDE -> choose(e, "trapStart")
-                Mode.TRAP -> if (s.trap!!.phase == TrapPhase.RESULT) e.press(1) else e.tick(250)
+                Mode.ENCOUNTER -> choose(e, "encounterLeave")
+                Mode.TRAP_GUIDE,
+                Mode.TRAP -> e.tick(250)
                 Mode.FLOOR_CLEAR ->
                     if (s.floor == 50) choose(e, "ending")
                     else choose(e, "enter", (s.floor + 1).toLong())

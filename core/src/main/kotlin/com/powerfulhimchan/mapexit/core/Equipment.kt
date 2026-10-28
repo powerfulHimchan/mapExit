@@ -89,6 +89,11 @@ object Equipment {
         max(1, (item.price * (if (charm(state) == Charm.MERCHANT) .8 else 1.0)).toInt())
 
     fun sellPrice(item: Gear): Int = max(1, item.price / 3)
+
+    fun equippedLabel(state: State, id: Long): String {
+        val slots = Slot.entries.filter { state.equipment[it] == id }
+        return if (slots.isEmpty()) "" else " [장착 중: ${slots.joinToString("·") { it.label }}]"
+    }
 }
 
 object ItemFactory {

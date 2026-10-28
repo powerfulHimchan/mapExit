@@ -90,43 +90,32 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 }
             }
         }
-        if (s.mode == Mode.TRAP_GUIDE) {
+        if (s.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE)) {
             s.trap?.let { trap ->
-                Column(
-                    Modifier.align(Alignment.Center)
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                        .heightIn(max = maxHeight - 20.dp)
-                        .background(panel.copy(alpha = .98f), RoundedCornerShape(8.dp))
-                        .border(1.dp, amber, RoundedCornerShape(8.dp))
-                        .verticalScroll(rememberScrollState())
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                val caption =
+                    when (trap.phase) {
+                        TrapPhase.PREPARE -> trap.cue()
+                        TrapPhase.REVEAL ->
+                            "기억해라  ${trap.pattern.joinToString(" · ") { TrapState.button(it) }}"
+                        TrapPhase.RESULT -> if (trap.success) "회피 성공" else "회피 실패"
+                        else -> null
+                    }
+                if (caption != null)
                     Text(
-                        "함정 발견 · ${trap.title}",
-                        color = amber,
-                        fontSize = 18.sp,
-                        lineHeight = 23.sp,
-                        fontWeight = FontWeight.Bold,
+                        caption,
+                        color = if (trap.phase == TrapPhase.RESULT && !trap.success) red else amber,
+                        fontSize = 24.sp,
+                        lineHeight = 32.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier =
+                            Modifier.align(Alignment.Center)
+                                .padding(12.dp)
+                                .background(ink.copy(alpha = .94f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
                     )
-                    Text(trap.guide(), color = pale, fontSize = 13.sp, lineHeight = 20.sp)
-                    Text(
-                        "제한 시간 ${(trap.limitMs/1000.0)}초 · 설명 중에는 시간이 흐르지 않습니다.",
-                        color = muted,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
-                    )
-                    Text(
-                        "준비되면 B ‘함정 시작’",
-                        color = mint,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
             }
         }
+        if (s.mode == Mode.ENCOUNTER) EncounterCaption(vm, Modifier.align(Alignment.TopCenter))
         if (s.mode == Mode.VICTORY) {
             s.battleResult?.let { result ->
                 val victoryHeight = maxHeight - 48.dp
@@ -208,12 +197,13 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     modifier =
                         (if (s.mode == Mode.VICTORY)
                                 Modifier.align(Alignment.BottomEnd).padding(8.dp)
-                            else Modifier.offset(
-                                x = maxWidth * (if (enemyHit) .55f else .12f),
-                                y =
-                                    maxHeight *
-                                        (if (enemyHit) .32f else .62f) - 24.dp * rise.value,
-                            ))
+                            else
+                                Modifier.offset(
+                                    x = maxWidth * (if (enemyHit) .55f else .12f),
+                                    y =
+                                        maxHeight * (if (enemyHit) .32f else .62f) -
+                                            24.dp * rise.value,
+                                ))
                             .background(ink.copy(alpha = .9f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                             .semantics {
