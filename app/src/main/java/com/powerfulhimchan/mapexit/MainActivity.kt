@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -21,7 +22,15 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     private val writer = Executors.newSingleThreadExecutor()
     private var saveClock = 0L
     private val downInTrap = BooleanArray(2)
+    private val downContext = arrayOf("", "")
+    private var lastActionAt = 0L
     var revision by mutableIntStateOf(0)
+        private set
+
+    var visualEffect by mutableStateOf("")
+        private set
+
+    var visualEffectAt by mutableLongStateOf(0L)
         private set
 
     var active = false
@@ -48,12 +57,13 @@ class GameModel(app: Application) : AndroidViewModel(app) {
 
     fun down(button: Int) {
         if (loadError != null) return
+        downContext[button] = engine.controls.inputToken()
         downInTrap[button] = engine.state.mode == Mode.TRAP
         if (downInTrap[button]) engine.rawDown(button)
         revision++
     }
 
-    fun up(button: Int, released: Boolean = true) {
+    fun up(button: Int, released: Boolean = true, held: Boolean = false) {
         if (loadError != null) {
             if (button == 1) {
                 val f = saveFile.baseFile
@@ -75,8 +85,43 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (downInTrap[button]) engine.rawUp(button)
-        else if (engine.state.mode != Mode.TRAP) engine.press(button)
+        else if (
+            engine.state.mode != Mode.TRAP && downContext[button] == engine.controls.inputToken()
+        ) {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - lastActionAt >= 180) {
+                val action =
+                    engine.controls
+                        .buttons()
+                        .getOrNull(button)
+                        ?.let { if (held) it.holdChoice else it.choice }
+                        ?.action
+                if (held) engine.hold(button) else engine.press(button)
+                if (action in listOf("attack", "strong", "guard", "dodge")) {
+                    visualEffect = action!!
+                    visualEffectAt = now
+                }
+                lastActionAt = now
+            }
+        }
         if (engine.state.mode != Mode.TRAP) save()
+        revision++
+    }
+
+    fun choose(choice: Choice) {
+        if (loadError != null) return
+        engine.choose(choice)
+        save()
+        revision++
+    }
+
+    fun back() {
+        engine.navigateBack()
+        save()
+        revision++
+    }
+
+    fun refresh() {
         revision++
     }
 
