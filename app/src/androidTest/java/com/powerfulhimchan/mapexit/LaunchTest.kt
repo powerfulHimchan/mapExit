@@ -534,6 +534,7 @@ class LaunchTest {
     }
 
     @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
     fun fineArtCoversAllWeaponsEnemiesAndFacilities() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             for (kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)) {
@@ -639,27 +640,35 @@ class LaunchTest {
                 paint,
             )
         }
-        val file = File(instrumentation.targetContext.getExternalFilesDir(null), "fine-atlas.png")
-        file.outputStream().use {
-            atlas.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-        val copy =
-            instrumentation.uiAutomation.executeShellCommand(
-                "cp /sdcard/Android/data/com.powerfulhimchan.mapexit/files/fine-atlas.png /sdcard/Download/mapexit-fine-atlas.png"
-            )
-        ParcelFileDescriptor.AutoCloseInputStream(copy).use { it.readBytes() }
-        val verify =
-            instrumentation.uiAutomation.executeShellCommand(
-                "stat -c %s /sdcard/Download/mapexit-fine-atlas.png"
-            )
-        val bytes =
-            ParcelFileDescriptor.AutoCloseInputStream(verify).use {
-                it.readBytes().toString(Charsets.UTF_8).trim().toLongOrNull()
+        val resolver = instrumentation.targetContext.contentResolver
+        val values =
+            android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "mapexit-fine-atlas.png")
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                put(
+                    android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS,
+                )
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
             }
-        assertTrue(
-            "The complete sprite atlas must survive test app cleanup",
-            bytes != null && bytes > 0,
+        val uri =
+            requireNotNull(
+                resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            )
+        requireNotNull(resolver.openOutputStream(uri)).use {
+            assertTrue(atlas.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+        }
+        resolver.update(
+            uri,
+            android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+            },
+            null,
+            null,
         )
+        val png = requireNotNull(resolver.openInputStream(uri)).use { it.readBytes() }
+        assertTrue("The complete sprite atlas must be exported as a readable PNG", png.size > 8)
+        assertArrayEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10), png.copyOfRange(0, 8))
         atlas.recycle()
     }
 }
