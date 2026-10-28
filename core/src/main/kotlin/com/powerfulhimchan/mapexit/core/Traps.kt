@@ -44,7 +44,7 @@ data class TrapState(
     fun prompt(): String =
         when {
             phase == TrapPhase.RESULT -> result
-            phase == TrapPhase.PREPARE -> "잠시 후 시작!  ${instruction()}"
+            phase == TrapPhase.PREPARE -> cue()
             rehold -> "${button(pattern[0])}를 다시 누르면 이어집니다"
             phase == TrapPhase.REVEAL -> "기억하세요  ${pattern.joinToString(" "){button(it)}}"
             type == 0 -> "${pattern.joinToString(" → "){button(it)}}  ($progress/${pattern.size})"
@@ -56,17 +56,13 @@ data class TrapState(
             else -> "계속 누르고 있으세요…"
         }
 
-    fun guide(): String =
+    fun cue(): String =
         when (type) {
-            0 ->
-                "화면에 나오는 ${pattern.joinToString(" → ") { button(it) }} 순서대로 버튼을 한 번씩 누르세요. 제한 시간 안에 순서를 완성하면 성공합니다."
-            1 ->
-                "움직이는 막대가 초록색 목표 구간 안에 들어오면 ${button(pattern[0])}를 한 번 누르세요. 다른 버튼이나 구간 밖 입력은 실패합니다."
-            2 -> "${button(pattern[0])}를 눌렀다 떼는 동작을 ${required}회 반복하세요. 누르고만 있으면 횟수가 늘지 않습니다."
-            3 ->
-                "시작 후 잠시 나타나는 A/B 순서를 기억하세요. 순서가 사라지면 기억한 순서대로 입력하세요. 설명 화면의 시작 버튼은 정답 입력에 포함되지 않습니다."
-            else ->
-                "${button(pattern[0])}를 누른 채 유지하세요. 초록색 신호와 ‘지금 놓으세요’ 안내가 나오면 손을 떼세요. 너무 일찍 떼거나 신호를 놓치면 실패합니다."
+            0 -> "순서대로 눌러라"
+            1 -> "초록에 맞춰라"
+            2 -> "빠르게 눌러라"
+            3 -> "기억해라"
+            else -> "신호에 놓아라"
         }
 
     fun instruction(): String =
@@ -84,35 +80,29 @@ data class TrapState(
 }
 
 object Traps {
+    const val PREPARE_MS = 1000L
+    const val RESULT_MS = 900L
+
     fun create(s: State, type: Int): TrapState {
         require(type in 0..4)
         val charm = if (Equipment.charm(s) == Charm.TRAP) 1.25 else 1.0
-        val difficulty = (1 - s.floor * .004).coerceAtLeast(.65)
         val first = s.nextInt(2)
         val pattern =
             when (type) {
                 0 -> listOf(first, 1 - first)
-                3 -> List((3 + s.floor / 15).coerceAtMost(6)) { s.nextInt(2) }
+                3 -> List((3 + s.floor / 25).coerceAtMost(5)) { s.nextInt(2) }
                 else -> listOf(first)
-            }
-        val time =
-            when (type) {
-                0 -> 1800
-                1 -> 5000
-                2 -> 3500
-                3 -> 6000
-                else -> 6000
             }
         return TrapState(
             type,
             pattern,
-            (time * charm * difficulty).toLong(),
-            (2400 * charm).toLong(),
+            (2000 * charm).toLong(),
+            1000L,
             .25 + s.random() * .5,
             .20 * charm,
-            8 + s.floor / 10,
-            1400 + s.nextInt(1200).toLong(),
-            (650 * charm * difficulty).toLong(),
+            4 + s.floor / 20,
+            450 + s.nextInt(300).toLong(),
+            (400 * charm).toLong(),
         )
     }
 
@@ -125,11 +115,11 @@ object Traps {
     }
 
     fun tick(t: TrapState, delta: Long) {
-        if (t.phase == TrapPhase.RESULT || t.rehold) return
+        if (t.rehold) return
         t.elapsedMs += delta.coerceAtLeast(0)
         when (t.phase) {
             TrapPhase.PREPARE ->
-                if (t.elapsedMs >= 1200) {
+                if (t.elapsedMs >= PREPARE_MS) {
                     t.elapsedMs = 0
                     t.phase = if (t.type == 3) TrapPhase.REVEAL else TrapPhase.ACTIVE
                     t.held = -1
@@ -147,7 +137,7 @@ object Traps {
                         t.elapsedMs - t.holdStarted > t.signalMs + t.releaseWindowMs
                 )
                     finish(t, false, "놓기 신호를 놓쳤습니다")
-                else if (t.elapsedMs > t.limitMs) finish(t, false, "시간 초과")
+                else if (t.elapsedMs >= t.limitMs) finish(t, false, "시간 초과")
             }
             else -> Unit
         }

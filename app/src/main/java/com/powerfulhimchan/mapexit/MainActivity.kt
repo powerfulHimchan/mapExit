@@ -142,7 +142,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         if (!active || loadError != null) return
         val animate =
             engine.state.mode == Mode.MOVING ||
-                (engine.state.mode == Mode.TRAP && engine.state.trap?.phase != TrapPhase.RESULT)
+                engine.state.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE)
         engine.tick(delta)
         saveClock += delta
         if (saveClock >= 1500) {

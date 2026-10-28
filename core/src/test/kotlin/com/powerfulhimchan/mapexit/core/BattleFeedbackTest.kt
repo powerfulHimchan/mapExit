@@ -158,47 +158,40 @@ class BattleFeedbackTest {
     }
 
     @Test
-    fun allFiveTrapBriefingsAreUntimedSavedAndRequireASeparateStartPress() {
+    fun allFiveTrapCuesStartAutomaticallyAfterOneSecondAndSurviveSave() {
         for (type in 0..4) {
             val e = GameEngine(debugTools = true)
             choose(e, "debug")
             e.choose(e.choices().first { it.action == "testTrap" && it.argument == type.toLong() })
-            assertEquals(Mode.TRAP_GUIDE, e.state.mode)
-            val trap = e.state.trap!!
-            val hp = e.state.hp
-            assertTrue(trap.guide().length > 30)
-            repeat(100) {
+            assertEquals(Mode.TRAP, e.state.mode)
+            assertTrue(e.state.trap!!.cue().length <= 10)
+            repeat(3) {
                 e.tick(250)
                 e.press(0)
-                e.rawDown(1)
-                e.rawUp(1)
+                e.press(1)
             }
-            assertEquals(0L, trap.elapsedMs)
-            assertEquals(hp, e.state.hp, .001)
-            assertEquals(0, trap.progress)
+            assertEquals(TrapPhase.PREPARE, e.state.trap!!.phase)
+            assertEquals(0, e.state.trap!!.progress)
             val restored = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
-            assertEquals(Mode.TRAP_GUIDE, restored.state.mode)
-            restored.press(1)
-            assertEquals(Mode.TRAP, restored.state.mode)
-            assertEquals(0L, restored.state.trap!!.elapsedMs)
-            assertEquals(0, restored.state.trap!!.progress)
-            repeat(5) { restored.tick(250) }
+            restored.tick(250)
             assertEquals(
                 if (type == 3) TrapPhase.REVEAL else TrapPhase.ACTIVE,
                 restored.state.trap!!.phase,
             )
+            assertEquals(0L, restored.state.trap!!.elapsedMs)
+            assertTrue(restored.choices().isEmpty())
         }
     }
 
     @Test
-    fun realDungeonTrapEncounterUsesTheGuideBeforeTiming() {
+    fun realDungeonTrapEncounterStartsWithAnAutomaticCue() {
         val d = Dungeon(7, 7, MutableList(49) { Cell() }, x = 3, y = 3, direction = 0)
         d.here().wall = false
         d.cell(3, 2).wall = false
         d.cell(3, 2).event = Event.TRAP
         val e = GameEngine(State(bootstrapped = true, floor = 1, dungeon = d, mode = Mode.EXPLORE))
         e.press(0)
-        assertEquals(Mode.TRAP_GUIDE, e.state.mode)
+        assertEquals(Mode.TRAP, e.state.mode)
         assertEquals(3, d.x)
         assertEquals(2, d.y)
         assertFalse(d.here().resolved)

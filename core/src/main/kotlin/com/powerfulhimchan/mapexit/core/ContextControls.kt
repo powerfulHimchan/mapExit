@@ -25,6 +25,12 @@ class ContextControls(private val engine: GameEngine) {
         else token() + ":$routes:$eventSkipped"
     }
 
+    fun skipCurrentEvent() {
+        context = token()
+        routes = null
+        eventSkipped = true
+    }
+
     fun reset() {
         routes = null
         eventSkipped = false
@@ -55,14 +61,20 @@ class ContextControls(private val engine: GameEngine) {
                 )
             Mode.VICTORY ->
                 listOf(ContextButton("전투 승리", enabled = false), b("결과 확인 · 계속", "battleContinue"))
-            Mode.TRAP_GUIDE ->
-                listOf(ContextButton("설명 확인", enabled = false), b("함정 시작", "trapStart"))
+            Mode.ENCOUNTER ->
+                engine
+                    .choices()
+                    .map { ContextButton(it.label, it) }
+                    .let {
+                        if (it.size == 1) listOf(ContextButton("대화 중", enabled = false), it[0])
+                        else it
+                    }
+            Mode.TRAP_GUIDE -> List(2) { ContextButton("곧 시작", enabled = false) }
             Mode.COMBAT_DEFEND -> listOf(b("방어", "guard"), b("회피", "dodge"))
             Mode.MOVING -> listOf(ContextButton("이동 중", enabled = false), b("멈추기", "stop"))
             Mode.EXPLORE -> {
                 val all = engine.choices()
-                val event =
-                    all.firstOrNull { it.action in setOf("chest", "heal", "shop", "npc", "exit") }
+                val event = all.firstOrNull { it.action in setOf("encounter", "heal", "exit") }
                 if (event != null && !eventSkipped)
                     listOf(ContextButton(event.label, event), b("지나가기", "_skip"))
                 else {
@@ -113,7 +125,7 @@ class ContextControls(private val engine: GameEngine) {
                 if (t?.phase == TrapPhase.RESULT)
                     listOf(
                         ContextButton(if (t.success) "해제 성공" else "함정 결과", enabled = false),
-                        b("계속", "trapDone"),
+                        ContextButton("자동 복귀", enabled = false),
                     )
                 else
                     (0..1).map { i ->
@@ -128,7 +140,7 @@ class ContextControls(private val engine: GameEngine) {
                                 t.signal() -> "지금 놓기"
                                 else -> "누르고 유지"
                             }
-                        ContextButton(label)
+                        ContextButton(label, enabled = t?.phase == TrapPhase.ACTIVE)
                     }
             }
             Mode.NOTICE -> listOf(ContextButton("안내", enabled = false), b("계속", "notice"))

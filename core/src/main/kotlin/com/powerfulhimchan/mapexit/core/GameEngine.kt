@@ -20,9 +20,71 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             state.shop.add(ItemFactory.create(state, Kind.POTION, 1))
             state.note("출정 준비: 장비와 소모품을 확인한 뒤 던전에 진입하세요")
         }
+        if (state.mode == Mode.TRAP_GUIDE) state.mode = Mode.TRAP
+        if (state.mode == Mode.MENU && state.menu?.type == "npc") {
+            state.menu = null
+            state.menuStack.clear()
+            beginEncounter(Event.NPC)
+        }
     }
 
     fun stats() = Equipment.stats(state)
+
+    private fun beginEncounter(event: Event) {
+        val s = state
+        if (event !in listOf(Event.CHEST, Event.NPC, Event.MERCHANT)) return
+        s.encounter = event
+        s.mode = Mode.ENCOUNTER
+        s.selection = 0
+        if (event == Event.NPC) {
+            s.dungeon?.here()?.let { cell ->
+                if (!cell.offerChecked && s.quest == null) {
+                    cell.questOffer = createQuestOffer()
+                    cell.offerChecked = true
+                }
+            }
+        }
+        s.note(
+            when (event) {
+                Event.CHEST -> "상자를 열까요?"
+                Event.NPC -> "여행자를 만났습니다"
+                else -> "상인을 만났습니다"
+            }
+        )
+    }
+
+    private fun createQuestOffer(): Quest? {
+        val s = state
+        val candidates = buildList {
+            val monsters =
+                s.dungeon?.cells?.count { it.event == Event.MONSTER && !it.resolved } ?: 0
+            val chests = s.dungeon?.cells?.count { it.event == Event.CHEST && !it.resolved } ?: 0
+            val kills = if (s.floor < 50) 5 else min(5, monsters)
+            val boxes = if (s.floor < 50) 3 else min(3, chests)
+            if (kills > 0) add(Quest("몬스터 ${kills}마리 처치", "kill", kills, reward = 80 + s.floor * 8))
+            if (boxes > 0) add(Quest("상자 ${boxes}개 열기", "chest", boxes, reward = 100 + s.floor * 8))
+            if (s.floor < 50)
+                add(
+                    Quest(
+                        "지하 ${s.floor + 1}층 도달",
+                        "floor",
+                        s.floor + 1,
+                        progress = s.floor,
+                        reward = 70 + s.floor * 6,
+                    )
+                )
+        }
+        return candidates.takeIf { it.isNotEmpty() }?.let { it[s.nextInt(it.size)] }
+    }
+
+    private fun leaveEncounter(message: String? = null) {
+        val s = state
+        s.encounter = null
+        s.mode = if (s.dungeon == null) Mode.SURFACE else Mode.EXPLORE
+        s.selection = 0
+        if (message != null) s.note(message)
+        controls.skipCurrentEvent()
+    }
 
     fun choices(): List<Choice> {
         val s = state
@@ -46,10 +108,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     val cell = m.here()
                     if (!cell.resolved)
                         when (cell.event) {
-                            Event.CHEST -> add(c("상자 열기", "chest"))
+                            Event.CHEST ->
+                                add(c("상자 살펴보기", "encounter", Event.CHEST.ordinal.toLong()))
                             Event.HEAL -> add(c("회복 장소 사용", "heal"))
-                            Event.MERCHANT -> add(c("상인과 거래", "shop"))
-                            Event.NPC -> add(c("미션 NPC와 대화", "npc"))
+                            Event.MERCHANT ->
+                                add(c("상인 만나기", "encounter", Event.MERCHANT.ordinal.toLong()))
+                            Event.NPC -> add(c("NPC 만나기", "encounter", Event.NPC.ordinal.toLong()))
                             Event.EXIT -> add(c("출구로 이동", "exit"))
                             else -> Unit
                         }
@@ -74,7 +138,34 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 )
             Mode.COMBAT_DEFEND -> listOf(c("방어 · 피해 감소", "guard"), c("회피 · 성공 시 무피해", "dodge"))
             Mode.VICTORY -> listOf(c("전투 결과 확인", "battleContinue"))
-            Mode.TRAP_GUIDE -> listOf(c("함정 시작", "trapStart"))
+            Mode.ENCOUNTER ->
+                buildList {
+                    when (s.encounter) {
+                        Event.CHEST -> add(c("열기", "chest"))
+                        Event.MERCHANT -> add(c("거래하기", "shop"))
+                        Event.NPC ->
+                            when {
+                                s.quest?.complete == true -> add(c("보상 받기", "claim"))
+                                s.quest != null -> Unit
+                                s.dungeon?.here()?.questOffer != null -> add(c("수락", "questAccept"))
+                                else -> Unit
+                            }
+                        else -> Unit
+                    }
+                    add(
+                        c(
+                            if (
+                                s.encounter == Event.NPC &&
+                                    s.quest == null &&
+                                    s.dungeon?.here()?.questOffer != null
+                            )
+                                "거절"
+                            else "지나가기",
+                            "encounterLeave",
+                        )
+                    )
+                }
+            Mode.TRAP_GUIDE -> emptyList()
             Mode.FLOOR_CLEAR ->
                 if (s.floor == 50) listOf(c("50층 엔딩 · 계승 장비 선택", "ending"))
                 else
@@ -89,9 +180,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     .filter { !it.inherited && it.kind != Kind.POTION }
                     .map { c("계승 선택: ${it.name}", "inherit", it.id) }
             Mode.NOTICE -> listOf(c("계속", "notice"))
-            Mode.TRAP ->
-                if (s.trap?.phase == TrapPhase.RESULT) listOf(c("결과 확인 · 계속", "trapDone"))
-                else emptyList()
+            Mode.TRAP -> emptyList()
             Mode.MENU -> menuChoices()
         }
     }
@@ -145,36 +234,11 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                         c("아이템 판매", "sellMenu")
                 "sell" ->
                     s.inventory.map {
-                        c("${it.name} 판매 · ${Equipment.sellPrice(it)}G", "sell", it.id)
-                    }
-                "npc" ->
-                    when {
-                        s.quest == null ->
-                            buildList {
-                                if (
-                                    s.floor < 50 ||
-                                        (s.dungeon?.cells?.count {
-                                            it.event == Event.MONSTER && !it.resolved
-                                        } ?: 0) >= 5
-                                )
-                                    add(c("몬스터 5마리 처치 의뢰", "questKill"))
-                                if (
-                                    s.floor < 50 ||
-                                        (s.dungeon?.cells?.count {
-                                            it.event == Event.CHEST && !it.resolved
-                                        } ?: 0) >= 3
-                                )
-                                    add(c("상자 3개 열기 의뢰", "questChest"))
-                                if (s.floor < 50) add(c("다음 층 도달 의뢰", "questFloor"))
-                            }
-                        s.quest!!.complete -> listOf(c("미션 완료 보상 받기", "claim"))
-                        else ->
-                            listOf(
-                                c(
-                                    "${s.quest!!.title}: ${s.quest!!.progress}/${s.quest!!.target}",
-                                    "questInfo",
-                                )
-                            )
+                        c(
+                            "${it.name}${Equipment.equippedLabel(s, it.id)} 판매 · ${Equipment.sellPrice(it)}G",
+                            "sell",
+                            it.id,
+                        )
                     }
                 "quantity" -> {
                     val potion = s.shop.find { it.id == menu.argument && it.kind == Kind.POTION }
@@ -251,9 +315,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     fun rawUp(button: Int) {
         if (state.mode == Mode.TRAP) {
             val t = state.trap ?: return
-            if (t.phase == TrapPhase.RESULT) {
-                if (t.held == button) t.held = -1 else if (button == 1) finishTrap()
-            } else {
+            if (t.phase != TrapPhase.RESULT) {
                 Traps.up(t, button)
                 applyTrapResult()
             }
@@ -275,9 +337,16 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 moveOne()
             }
         }
-        if (s.mode == Mode.TRAP) {
+        if (s.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE)) {
+            s.mode = Mode.TRAP
             s.trap?.let { Traps.tick(it, delta) }
             applyTrapResult()
+            if (
+                s.mode == Mode.TRAP &&
+                    s.trap?.phase == TrapPhase.RESULT &&
+                    s.trap!!.elapsedMs >= Traps.RESULT_MS
+            )
+                finishTrap()
         }
     }
 
@@ -318,10 +387,13 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 s.selection = 0
                 s.note(if (s.mode == Mode.FLOOR_CLEAR) "보스 격파 · 층 클리어" else "전투 종료 · 탐험을 계속하세요")
             }
-            "trapStart" -> {
-                if (s.trap == null) return
-                s.mode = Mode.TRAP
-                s.note("함정 시작 · ${s.trap!!.instruction()}")
+            "encounter" -> beginEncounter(Event.entries[c.argument.toInt()])
+            "encounterLeave" -> leaveEncounter("탐험을 계속합니다")
+            "questAccept" -> {
+                if (s.quest != null) return
+                val offer = s.dungeon?.here()?.questOffer ?: return
+                s.quest = offer.copy()
+                leaveEncounter("미션 수락 · ${offer.title}")
             }
             "enter" -> enterFloor(c.argument.toInt())
             "return" -> surface(false)
@@ -425,30 +497,6 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     s.note("회복 장소: HP 45% 회복")
                 }
             }
-            "npc" -> open("npc")
-            "questKill" -> {
-                s.quest = Quest("몬스터 5마리 처치", "kill", 5, reward = 80 + s.floor * 8)
-                s.note("처치 미션 수락")
-                closeMenu()
-            }
-            "questChest" -> {
-                s.quest = Quest("상자 3개 열기", "chest", 3, reward = 100 + s.floor * 8)
-                s.note("상자 미션 수락")
-                closeMenu()
-            }
-            "questFloor" -> {
-                if (s.floor >= 50) return
-                s.quest =
-                    Quest(
-                        "지하 ${min(50,s.floor+1)}층 도달",
-                        "floor",
-                        min(50, s.floor + 1),
-                        progress = s.floor,
-                        reward = 70 + s.floor * 6,
-                    )
-                s.note("탐험 미션 수락")
-                closeMenu()
-            }
             "claim" -> {
                 val q = s.quest
                 if (q?.complete == true) {
@@ -457,7 +505,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     s.gold += reward
                     s.quest = null
                     s.note("미션 보상 ${reward}G 획득")
-                    closeMenu()
+                    s.dungeon?.here()?.let { if (it.event == Event.NPC) it.resolved = true }
+                    leaveEncounter()
                 }
             }
             "questInfo" ->
@@ -479,7 +528,6 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "flee" -> flee()
             "ending" -> beginInheritance()
             "inherit" -> newCycle(c.argument)
-            "trapDone" -> finishTrap()
             "back" -> back()
             "debug" -> {
                 if (!s.debug) debugBackup = SaveCodec.encode(s)
@@ -496,7 +544,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 s.menu = null
                 s.menuStack.clear()
                 s.trap = Traps.create(s, c.argument.toInt())
-                s.mode = Mode.TRAP_GUIDE
+                s.mode = Mode.TRAP
                 s.selection = 0
             }
             "testBattle" -> {
@@ -537,6 +585,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.enemy = null
         s.battleResult = null
         s.trap = null
+        s.encounter = null
         s.menu = null
         s.menuStack.clear()
         s.mode = Mode.EXPLORE
@@ -570,8 +619,11 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 Event.MONSTER -> startBattle(false)
                 Event.TRAP -> {
                     s.trap = Traps.create(s, cell.trapType)
-                    s.mode = Mode.TRAP_GUIDE
+                    s.mode = Mode.TRAP
                 }
+                Event.CHEST,
+                Event.NPC,
+                Event.MERCHANT -> beginEncounter(cell.event)
                 Event.EXIT -> exitFloor()
                 else ->
                     s.note(
@@ -612,13 +664,21 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val cell = s.dungeon?.here() ?: return
         if (cell.resolved) return
         cell.resolved = true
+        s.quest?.takeIf { it.kind == "chest" }?.let { it.progress++ }
+        s.encounter = null
+        s.mode = Mode.EXPLORE
+        if (s.random() < .20) {
+            startBattle(false)
+            s.enemy = s.enemy!!.copy(name = "상자 속 ${s.enemy!!.name}")
+            s.note("상자에서 몬스터가 튀어나왔습니다!")
+            return
+        }
         val extra = Equipment.charm(s) == Charm.CHEST && s.random() < .25
         val gear = ItemFactory.create(s)
         s.inventory.add(gear)
         if (extra) s.inventory.add(ItemFactory.create(s))
         val gold = 15 + s.floor * 3 + s.nextInt(15)
         s.gold += gold
-        s.quest?.takeIf { it.kind == "chest" }?.let { it.progress++ }
         s.note("${gear.name} · ${gold}G${if(extra)" · 추가 아이템!" else ""}")
     }
 
@@ -636,6 +696,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 10.0 + floor * .3,
                 boss,
             )
+        s.encounter = null
         s.battleId++
         s.battleResult = null
         s.lastImpact = null
@@ -878,6 +939,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.enemy = null
         s.battleResult = null
         s.trap = null
+        s.encounter = null
         s.mode = Mode.SURFACE
         s.menu = null
         s.menuStack.clear()
@@ -919,6 +981,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.dungeon = null
         s.enemy = null
         s.trap = null
+        s.encounter = null
         s.quest = null
         s.menu = null
         s.menuStack.clear()

@@ -83,14 +83,16 @@ class ContextControlsTest {
         val e = corridor()
         val d = e.state.dungeon!!
         d.here().event = Event.CHEST
-        assertEquals("상자 열기", e.controls.buttons()[0].label)
+        assertEquals("상자 살펴보기", e.controls.buttons()[0].label)
         e.press(1)
         assertFalse(d.here().resolved)
         assertTrue(e.controls.buttons()[0].label.contains("앞으로"))
         e.press(0)
         e.press(0) // at the dead end, the sole legal direction is backward
         assertEquals(4, d.y)
-        assertEquals("상자 열기", e.controls.buttons()[0].label)
+        assertEquals(Mode.ENCOUNTER, e.state.mode)
+        assertEquals("열기", e.controls.buttons()[0].label)
+        e.state.rng = 1L
         e.press(0)
         assertTrue(d.here().resolved)
         assertTrue(e.state.inventory.isNotEmpty())
