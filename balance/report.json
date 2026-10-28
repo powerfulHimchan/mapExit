@@ -1,0 +1,64 @@
+{
+  "model_version": 1,
+  "seed": 20261028,
+  "trials_per_scenario": 1500,
+  "scenario_count": 60,
+  "duel_count": 540000,
+  "efficiency_spread": 0.09961904148883871,
+  "win_rate_spread": 0.0372555555555556,
+  "dominated_loadouts": [],
+  "checks": {
+    "mean_efficiency_spread": true,
+    "no_universal_winner": true,
+    "no_excessive_top_share": true,
+    "no_strictly_dominated_loadout": true,
+    "mean_win_rate_spread": true
+  },
+  "summary": {
+    "sword_shield": {
+      "mean_relative_efficiency": 1.0354681063475355,
+      "top_scenario_share": 0.3,
+      "win_rate": 0.8759777777777777,
+      "mean_turns": 4.995255555555556,
+      "remaining_hp_fraction": 0.45933554087793144
+    },
+    "spear": {
+      "mean_relative_efficiency": 1.005681194142144,
+      "top_scenario_share": 0.0,
+      "win_rate": 0.8447777777777777,
+      "mean_turns": 4.216311111111112,
+      "remaining_hp_fraction": 0.4424515134592563
+    },
+    "hammer": {
+      "mean_relative_efficiency": 0.9740661010379654,
+      "top_scenario_share": 0.26666666666666666,
+      "win_rate": 0.8391777777777778,
+      "mean_turns": 4.035488888888889,
+      "remaining_hp_fraction": 0.4257003157022413
+    },
+    "claw_shield": {
+      "mean_relative_efficiency": 0.941660763663709,
+      "top_scenario_share": 0.0,
+      "win_rate": 0.8387222222222221,
+      "mean_turns": 5.6204777777777775,
+      "remaining_hp_fraction": 0.40785834129278165
+    },
+    "dual_claw": {
+      "mean_relative_efficiency": 1.0263350222941534,
+      "top_scenario_share": 0.4,
+      "win_rate": 0.867111111111111,
+      "mean_turns": 5.171866666666667,
+      "remaining_hp_fraction": 0.44799553317121904
+    },
+    "whip_shield": {
+      "mean_relative_efficiency": 1.0167888125144928,
+      "top_scenario_share": 0.03333333333333333,
+      "win_rate": 0.8588333333333333,
+      "mean_turns": 5.298188888888888,
+      "remaining_hp_fraction": 0.4436378776405311
+    }
+  },
+  "config_sha256": "64a3843c15e2f6673ef96f71b5614fe84cd1a4eb32d850f290c7a4b78c928cbb",
+  "checker_sha256": "9eca668484254f4b212d43048ef67d5115a37cc6197a55fc25b570b9d59cc624",
+  "scope": "Prototype single-duel model; not a full floor-1-to-50 playtest."
+}

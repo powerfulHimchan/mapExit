@@ -1,0 +1,229 @@
+{
+  "version": 1,
+  "status": "prototype_not_final_game_rules",
+  "weapons": {
+    "sword": {
+      "label": "검",
+      "hands": 1,
+      "attack": 22,
+      "defense": 0,
+      "agility": 0,
+      "crit_chance": 0,
+      "crit_damage": 0.35
+    },
+    "spear": {
+      "label": "창",
+      "hands": 2,
+      "attack": 45,
+      "defense": -4,
+      "agility": 0,
+      "crit_chance": -0.03,
+      "crit_damage": 0.7
+    },
+    "hammer": {
+      "label": "해머",
+      "hands": 2,
+      "attack": 54,
+      "defense": -12,
+      "agility": -10,
+      "crit_chance": -0.08,
+      "crit_damage": 1.05
+    },
+    "claw": {
+      "label": "클로",
+      "hands": 1,
+      "attack": 13,
+      "defense": 0,
+      "agility": 13,
+      "crit_chance": 0,
+      "crit_damage": 0
+    },
+    "whip": {
+      "label": "채찍",
+      "hands": 1,
+      "attack": 16,
+      "defense": 0,
+      "agility": 12,
+      "crit_chance": -0.05,
+      "crit_damage": 0.5
+    }
+  },
+  "shield": {
+    "defense": 16,
+    "guard_bonus": 0.1
+  },
+  "loadouts": {
+    "sword_shield": {
+      "label": "검+방패",
+      "weapons": [
+        "sword"
+      ],
+      "shield": true
+    },
+    "spear": {
+      "label": "창",
+      "weapons": [
+        "spear"
+      ],
+      "shield": false
+    },
+    "hammer": {
+      "label": "해머",
+      "weapons": [
+        "hammer"
+      ],
+      "shield": false
+    },
+    "claw_shield": {
+      "label": "클로+방패",
+      "weapons": [
+        "claw"
+      ],
+      "shield": true
+    },
+    "dual_claw": {
+      "label": "클로+클로",
+      "weapons": [
+        "claw",
+        "claw"
+      ],
+      "shield": false
+    },
+    "whip_shield": {
+      "label": "채찍+방패",
+      "weapons": [
+        "whip"
+      ],
+      "shield": true
+    }
+  },
+  "model": {
+    "normal_hit": 0.95,
+    "strong_hit": 0.7,
+    "strong_damage": 1.4,
+    "guard_reduction": 0.2,
+    "dodge_base": 0.1,
+    "dodge_per_agility_gap": 0.009,
+    "dodge_min": 0.03,
+    "dodge_max": 0.6,
+    "crit_chance_min": 0,
+    "crit_chance_max": 0.65,
+    "crit_damage_min": 1.0,
+    "crit_damage_max": 4.0,
+    "defense_constant": 100,
+    "max_turns": 100
+  },
+  "builds": {
+    "balanced": {
+      "label": "균형 성장",
+      "hp": 360,
+      "attack": 100,
+      "defense": 35,
+      "agility": 20,
+      "crit_chance": 0.2,
+      "crit_damage": 1.5
+    },
+    "critical": {
+      "label": "치명타 성장",
+      "hp": 330,
+      "attack": 88,
+      "defense": 25,
+      "agility": 15,
+      "crit_chance": 0.45,
+      "crit_damage": 1.8
+    },
+    "agile": {
+      "label": "민첩 성장",
+      "hp": 330,
+      "attack": 95,
+      "defense": 25,
+      "agility": 40,
+      "crit_chance": 0.15,
+      "crit_damage": 1.5
+    },
+    "defensive": {
+      "label": "방어 성장",
+      "hp": 400,
+      "attack": 95,
+      "defense": 65,
+      "agility": 15,
+      "crit_chance": 0.15,
+      "crit_damage": 1.5
+    },
+    "low_critical": {
+      "label": "낮은 치명타 성장",
+      "hp": 360,
+      "attack": 110,
+      "defense": 35,
+      "agility": 20,
+      "crit_chance": 0.03,
+      "crit_damage": 1.5
+    },
+    "high_critical": {
+      "label": "높은 치명타 성장",
+      "hp": 330,
+      "attack": 85,
+      "defense": 25,
+      "agility": 15,
+      "crit_chance": 0.6,
+      "crit_damage": 1.8
+    }
+  },
+  "enemies": {
+    "ordinary": {
+      "label": "일반 적",
+      "hp": 360,
+      "attack": 90,
+      "defense": 25,
+      "precision": 20,
+      "crit_chance": 0.1,
+      "crit_damage": 1.5
+    },
+    "armored": {
+      "label": "고방어 적",
+      "hp": 420,
+      "attack": 80,
+      "defense": 80,
+      "precision": 15,
+      "crit_chance": 0.1,
+      "crit_damage": 1.5
+    },
+    "brute": {
+      "label": "강한 일격",
+      "hp": 350,
+      "attack": 145,
+      "defense": 20,
+      "precision": -5,
+      "crit_chance": 0.05,
+      "crit_damage": 1.5
+    },
+    "accurate": {
+      "label": "정확한 공격",
+      "hp": 360,
+      "attack": 110,
+      "defense": 30,
+      "precision": 45,
+      "crit_chance": 0.15,
+      "crit_damage": 1.5
+    },
+    "boss": {
+      "label": "장기 보스전",
+      "hp": 850,
+      "attack": 90,
+      "defense": 45,
+      "precision": 10,
+      "crit_chance": 0.1,
+      "crit_damage": 1.7
+    }
+  },
+  "stage_scales": [
+    1
+  ],
+  "analysis": {
+    "seed": 20261028,
+    "trials": 1500,
+    "mean_efficiency_spread_limit": 0.1,
+    "dominant_top_share_limit": 0.6,
+    "mean_win_rate_spread_limit": 0.05
+  }
+}
