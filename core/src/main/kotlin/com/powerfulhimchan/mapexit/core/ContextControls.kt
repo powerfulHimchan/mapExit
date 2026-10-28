@@ -21,7 +21,8 @@ class ContextControls(private val engine: GameEngine) {
 
     fun inputToken(): String {
         buttons()
-        return token() + ":$routes:$eventSkipped"
+        return if (engine.state.mode == Mode.MOVING) "MOVING"
+        else token() + ":$routes:$eventSkipped"
     }
 
     fun reset() {

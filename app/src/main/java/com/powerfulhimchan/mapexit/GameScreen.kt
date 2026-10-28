@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -309,6 +310,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
     val s = e.state
     val surface = s.mode == Mode.SURFACE
     val menu = s.menu?.type
+    val listState = rememberLazyListState()
+    LaunchedEffect(s.mode, s.menu?.type, s.menu?.argument) { listState.scrollToItem(0) }
     val title =
         if (surface) "출정 준비"
         else if (s.mode == Mode.INHERIT) "다음 여정에 남길 장비"
@@ -328,6 +331,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
     Column(modifier.fillMaxWidth()) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth().semantics { contentDescription = "준비 메뉴" },
+            state = listState,
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 20.dp),
         ) {

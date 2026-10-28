@@ -109,6 +109,7 @@ class LaunchTest {
                         .label
             }
             tap(buyLabel)
+            capture("shop")
             scenario.onActivity {
                 assertEquals(
                     5,
@@ -119,7 +120,26 @@ class LaunchTest {
             }
             tap("장비")
             bounds("장비 장착")
-            scenario.onActivity { it.game.back() }
+            var slotLabel = ""
+            var swordId = 0L
+            scenario.onActivity { activity ->
+                swordId = activity.game.engine.state.equipment[Slot.RIGHT]!!
+                slotLabel =
+                    activity.game.engine
+                        .choices()
+                        .first {
+                            it.action == "slotItem" && it.argument == Slot.RIGHT.ordinal.toLong()
+                        }
+                        .label
+            }
+            tap(slotLabel, allowScroll = true)
+            capture("equipment")
+            tap("왼손에 장착", allowScroll = true)
+            scenario.onActivity {
+                assertEquals(swordId, it.game.engine.state.equipment[Slot.LEFT])
+                assertNull(it.game.engine.state.equipment[Slot.RIGHT])
+                assertEquals(Mode.SURFACE, it.game.engine.state.mode)
+            }
             tap("던전 진입")
             scenario.onActivity {
                 assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
@@ -216,6 +236,10 @@ class LaunchTest {
                 assertTrue(a.height() >= 72 && b.height() >= 72)
                 assertTrue(main.height() > 200)
                 screenshot.recycle()
+                tap("B 강공격")
+                scenario.onActivity { assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode) }
+                tap("A 방어")
+                scenario.onActivity { assertEquals(Mode.COMBAT_ATTACK, it.game.engine.state.mode) }
                 capture("compact")
             }
         } finally {

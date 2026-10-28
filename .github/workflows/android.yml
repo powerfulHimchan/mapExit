@@ -41,6 +41,10 @@ jobs:
             adb pull /sdcard/Download/mapexit-explore.png app/build/device-screenshots/explore.png
             adb pull /sdcard/Download/mapexit-battle.png app/build/device-screenshots/battle.png
             adb pull /sdcard/Download/mapexit-trap.png app/build/device-screenshots/trap.png
+            adb pull /sdcard/Download/mapexit-preparation.png app/build/device-screenshots/preparation.png
+            adb pull /sdcard/Download/mapexit-compact.png app/build/device-screenshots/compact.png
+            adb pull /sdcard/Download/mapexit-shop.png app/build/device-screenshots/shop.png
+            adb pull /sdcard/Download/mapexit-equipment.png app/build/device-screenshots/equipment.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:

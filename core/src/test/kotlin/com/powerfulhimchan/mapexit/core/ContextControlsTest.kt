@@ -200,4 +200,20 @@ class ContextControlsTest {
         Equipment.equip(preview, item.id, Slot.LEFT)
         assertEquals(before, SaveCodec.encode(s))
     }
+
+    @Test
+    fun stopGestureRemainsValidWhileAutomaticMovementAdvances() {
+        val e = corridor()
+        val d = e.state.dungeon!!
+        d.cell(4, 2).wall = false
+        d.cell(4, 1).wall = false
+        e.press(0)
+        assertEquals(Mode.MOVING, e.state.mode)
+        val token = e.controls.inputToken()
+        repeat(3) { e.tick(250) }
+        assertEquals(Mode.MOVING, e.state.mode)
+        assertEquals(token, e.controls.inputToken())
+        e.press(1)
+        assertEquals(Mode.EXPLORE, e.state.mode)
+    }
 }
