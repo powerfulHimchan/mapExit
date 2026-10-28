@@ -133,7 +133,7 @@ private fun DrawScope.drawCamp(s: State, clock: Long) {
     val heroWidth = 68f
     adventurer(s, w * .42f, h * .92f, heroWidth, false)
     sprite("chest", w * .08f, h * .78f, 68f)
-    val npcWidth = 68f
+    val npcWidth = 60f
     sprite("merchant", w * .77f, h * .88f - spriteHeight("merchant", npcWidth), npcWidth)
     if (s.mode == Mode.INHERIT) {
         val candidates = s.inventory.filter { !it.inherited && it.kind != Kind.POTION }.take(3)

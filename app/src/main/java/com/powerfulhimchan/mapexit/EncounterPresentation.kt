@@ -78,7 +78,7 @@ internal fun DrawScope.drawEncounter(s: State, clock: Long) {
         contactShadow(w * .63f, h * .80f, spriteUnit(width) * 32)
         sprite("chest", w * .63f, h * .80f - spriteHeight("chest", width), width)
     } else {
-        val width = min(w * .22f, h * .20f)
+        val width = min(w * .22f, h * .18f)
         val type = if (s.encounter == Event.MERCHANT) "merchant" else "npc"
         val x = w * .65f
         val baseline = h * .79f

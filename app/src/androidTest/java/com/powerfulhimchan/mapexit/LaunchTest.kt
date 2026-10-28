@@ -643,6 +643,23 @@ class LaunchTest {
         file.outputStream().use {
             atlas.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
+        val copy =
+            instrumentation.uiAutomation.executeShellCommand(
+                "cp /sdcard/Android/data/com.powerfulhimchan.mapexit/files/fine-atlas.png /sdcard/Download/mapexit-fine-atlas.png"
+            )
+        ParcelFileDescriptor.AutoCloseInputStream(copy).use { it.readBytes() }
+        val verify =
+            instrumentation.uiAutomation.executeShellCommand(
+                "stat -c %s /sdcard/Download/mapexit-fine-atlas.png"
+            )
+        val bytes =
+            ParcelFileDescriptor.AutoCloseInputStream(verify).use {
+                it.readBytes().toString(Charsets.UTF_8).trim().toLongOrNull()
+            }
+        assertTrue(
+            "The complete sprite atlas must survive test app cleanup",
+            bytes != null && bytes > 0,
+        )
         atlas.recycle()
     }
 }
