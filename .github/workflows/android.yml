@@ -37,7 +37,10 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
             ./gradlew :app:connectedDebugAndroidTest --no-daemon
-            adb pull /sdcard/Android/data/com.powerfulhimchan.mapexit/files app/build/device-screenshots
+            mkdir -p app/build/device-screenshots
+            adb pull /sdcard/Download/mapexit-explore.png app/build/device-screenshots/explore.png
+            adb pull /sdcard/Download/mapexit-battle.png app/build/device-screenshots/battle.png
+            adb pull /sdcard/Download/mapexit-trap.png app/build/device-screenshots/trap.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
