@@ -184,6 +184,7 @@ data class Dungeon(
     var y: Int = 1,
     var direction: Int = 1,
     var bossCleared: Boolean = false,
+    var arrivalDirection: Int = -1,
 ) {
     fun cell(x: Int, y: Int): Cell =
         if (x in 0 until width && y in 0 until height) cells[y * width + x] else Cell()

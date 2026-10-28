@@ -22,8 +22,7 @@ class GameRulesTest {
         val i =
             e.choices().indexOfFirst { it.action == action && (arg == null || it.argument == arg) }
         assertTrue("Missing action $action", i >= 0)
-        e.state.selection = i
-        e.press(1)
+        e.choose(e.choices()[i])
     }
 
     @Test
@@ -557,7 +556,7 @@ class GameRulesTest {
                 Mode.FLOOR_CLEAR ->
                     if (s.floor == 50) choose(e, "ending")
                     else choose(e, "enter", (s.floor + 1).toLong())
-                Mode.INHERIT -> e.press(1)
+                Mode.INHERIT -> e.choose(e.choices().first())
                 else -> fail("Unexpected mode ${s.mode}")
             }
         }

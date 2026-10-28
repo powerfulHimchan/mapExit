@@ -6,6 +6,7 @@ import kotlin.math.roundToInt
 
 class GameEngine(var state: State = State(), private val debugTools: Boolean = false) {
     private var debugBackup: String? = null
+    val controls = ContextControls(this)
 
     init {
         if (!state.bootstrapped) {
@@ -17,7 +18,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             Equipment.equip(state, state.inventory[1].id, Slot.LEFT)
             state.shop = MutableList(6) { ItemFactory.create(state, floor = 1) }
             state.shop.add(ItemFactory.create(state, Kind.POTION, 1))
-            state.note("지상에 도착했습니다. A 선택 · B 실행")
+            state.note("출정 준비: 장비와 소모품을 확인한 뒤 던전에 진입하세요")
         }
     }
 
@@ -32,6 +33,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     add(c("1층부터 탐험", "enter", 1))
                     s.devices.sorted().forEach { add(c("장치로 지하 ${it}층", "enter", it.toLong())) }
                     add(c("가방 / 장비", "inventory"))
+                    add(c("장착 현황", "equipment"))
                     add(c("성장 배분 (${s.points})", "growth"))
                     add(c("골드 보관소", "bank"))
                     add(c("지상 상점", "shop"))
@@ -172,12 +174,27 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                                 )
                             )
                     }
+                "quantity" -> {
+                    val potion = s.shop.find { it.id == menu.argument && it.kind == Kind.POTION }
+                    if (potion == null) emptyList()
+                    else
+                        listOf(1, 3, 5).map {
+                            c(
+                                "회복약 ${it}개 구매 · ${Equipment.buyPrice(s,potion)*it}G",
+                                "buyQuantity",
+                                it.toLong(),
+                            )
+                        }
+                }
                 "help" ->
                     listOf(
+                        c("장착 현황 / 상세 능력치", "equipment"),
+                        c("성장 배분 (${s.points}P)", "growth"),
+                        c("가방 / 장비", "inventory"),
                         c(
                             "${s.quest?.let { "미션 ${it.progress}/${it.target}: ${it.title}" } ?: "진행 중인 미션 없음"}",
                             "questInfo",
-                        )
+                        ),
                     )
                 "debug" ->
                     buildList {
@@ -204,10 +221,22 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             rawUp(button)
             return
         }
-        if (button == 0) {
-            val n = choices().size
-            if (n > 0) state.selection = (state.selection + 1) % n
-        } else choices().getOrNull(state.selection)?.let { execute(it) }
+        controls.press(button)
+    }
+
+    /** Touch menus and tests invoke current choices directly, without selection cycling. */
+    fun choose(choice: Choice) {
+        choices()
+            .firstOrNull { it.action == choice.action && it.argument == choice.argument }
+            ?.let(::execute)
+    }
+
+    fun hold(button: Int) {
+        controls.press(button, held = true)
+    }
+
+    fun navigateBack() {
+        if (state.mode == Mode.MENU) back() else controls.reset()
     }
 
     fun rawDown(button: Int) {
@@ -282,10 +311,17 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "enter" -> enterFloor(c.argument.toInt())
             "return" -> surface(false)
             "move" -> {
-                s.dungeon?.direction = c.argument.toInt()
+                val dungeon = s.dungeon ?: return
+                val facing = dungeon.direction
+                val backward = c.argument.toInt() == (facing + 2) % 4
+                dungeon.direction = c.argument.toInt()
                 s.mode = Mode.MOVING
                 s.movementMs = 0
                 moveOne()
+                if (backward && s.dungeon === dungeon) {
+                    dungeon.direction = facing
+                    if (s.mode == Mode.MOVING) s.mode = Mode.EXPLORE
+                }
             }
             "stop" -> {
                 s.mode = Mode.EXPLORE
@@ -329,6 +365,10 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "shop" -> open("shop")
             "buy" -> {
                 val item = s.shop.find { it.id == c.argument } ?: return
+                if (item.kind == Kind.POTION) {
+                    open("quantity", item.id)
+                    return
+                }
                 val price = Equipment.buyPrice(s, item)
                 if (s.gold >= price) {
                     s.gold -= price
@@ -337,6 +377,20 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     s.note("${item.name} 구매")
                     s.selection = s.selection.coerceAtMost(choices().lastIndex)
                 } else s.note("골드가 부족합니다")
+            }
+            "buyQuantity" -> {
+                val potion =
+                    s.shop.find { it.id == s.menu?.argument && it.kind == Kind.POTION } ?: return
+                val count = c.argument.toInt()
+                if (count !in listOf(1, 3, 5)) return
+                val price = Equipment.buyPrice(s, potion) * count
+                if (s.gold < price) {
+                    s.note("골드가 부족합니다")
+                    return
+                }
+                s.gold -= price
+                repeat(count) { s.inventory.add(potion.copy(id = s.nextId++)) }
+                s.note("회복약 ${count}개 구매 · ${price}G")
             }
             "sellMenu" -> open("sell")
             "sell" -> {
@@ -394,7 +448,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "questInfo" ->
                 s.note(
                     s.quest?.let { "${it.title} (${it.progress}/${it.target}) · 귀환/사망 시 종료" }
-                        ?: "A: 선택 / B: 실행 · 통로 자동 이동 · 층 출구에서 귀환"
+                        ?: "버튼 이름의 행동을 바로 실행 · 길게 누르기로 가방·회복약·도주 · 출구에서 귀환"
                 )
             "exit" -> exitFloor()
             "attack" -> attack(false)
@@ -488,6 +542,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             s.selection = 0
             return
         }
+        m.arrivalDirection = m.direction
         m.x = xx
         m.y = yy
         m.reveal()
@@ -660,7 +715,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             s.enemy = null
             s.mode = Mode.EXPLORE
             s.dungeon?.let { m ->
-                val back = (m.direction + 2) % 4
+                val back = ((m.arrivalDirection.takeIf { it in 0..3 } ?: m.direction) + 2) % 4
                 if (!m.cell(m.x + MapGenerator.dx[back], m.y + MapGenerator.dy[back]).wall) {
                     m.x += MapGenerator.dx[back]
                     m.y += MapGenerator.dy[back]
