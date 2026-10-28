@@ -73,6 +73,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     c("도주 시도", "flee"),
                 )
             Mode.COMBAT_DEFEND -> listOf(c("방어 · 피해 감소", "guard"), c("회피 · 성공 시 무피해", "dodge"))
+            Mode.VICTORY -> listOf(c("전투 결과 확인", "battleContinue"))
+            Mode.TRAP_GUIDE -> listOf(c("함정 시작", "trapStart"))
             Mode.FLOOR_CLEAR ->
                 if (s.floor == 50) listOf(c("50층 엔딩 · 계승 장비 선택", "ending"))
                 else
@@ -308,6 +310,19 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     private fun execute(c: Choice) {
         val s = state
         when (c.action) {
+            "battleContinue" -> {
+                val result = s.battleResult ?: return
+                s.battleResult = null
+                s.lastImpact = null
+                s.mode = result.returnMode
+                s.selection = 0
+                s.note(if (s.mode == Mode.FLOOR_CLEAR) "보스 격파 · 층 클리어" else "전투 종료 · 탐험을 계속하세요")
+            }
+            "trapStart" -> {
+                if (s.trap == null) return
+                s.mode = Mode.TRAP
+                s.note("함정 시작 · ${s.trap!!.instruction()}")
+            }
             "enter" -> enterFloor(c.argument.toInt())
             "return" -> surface(false)
             "move" -> {
@@ -481,7 +496,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 s.menu = null
                 s.menuStack.clear()
                 s.trap = Traps.create(s, c.argument.toInt())
-                s.mode = Mode.TRAP
+                s.mode = Mode.TRAP_GUIDE
                 s.selection = 0
             }
             "testBattle" -> {
@@ -520,6 +535,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.highest = max(s.highest, floor)
         s.dungeon = MapGenerator.generate(s, floor)
         s.enemy = null
+        s.battleResult = null
         s.trap = null
         s.menu = null
         s.menuStack.clear()
@@ -554,7 +570,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 Event.MONSTER -> startBattle(false)
                 Event.TRAP -> {
                     s.trap = Traps.create(s, cell.trapType)
-                    s.mode = Mode.TRAP
+                    s.mode = Mode.TRAP_GUIDE
                 }
                 Event.EXIT -> exitFloor()
                 else ->
@@ -620,9 +636,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 10.0 + floor * .3,
                 boss,
             )
+        s.battleId++
+        s.battleResult = null
+        s.lastImpact = null
         s.mode = Mode.COMBAT_ATTACK
         s.selection = 0
-        s.note("${s.enemy!!.name} 조우 · 공격 차례")
+        s.note("${s.enemy!!.name} 조우 · 3인칭 전투 시작")
     }
 
     fun attack(strong: Boolean) {
@@ -639,7 +658,14 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             damage =
                 p.attack * (if (strong) GameBalance.model("strong_damage") else 1.0) * 100 /
                     (100 + enemy.defense) * (if (critical) p.critDamage else 1.0)
+        val previousHp = enemy.hp
         enemy.hp = max(0.0, enemy.hp - damage)
+        impact(
+            ImpactTarget.ENEMY,
+            previousHp - enemy.hp,
+            if (damage == 0.0) ImpactOutcome.MISS else ImpactOutcome.DAMAGE,
+            critical && damage > 0,
+        )
         s.note(
             if (damage == 0.0) "공격이 빗나갔습니다"
             else "${if(critical)"치명타! " else ""}${damage.roundToInt()} 피해"
@@ -662,7 +688,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     (p.agility - e.precision) * GameBalance.model("dodge_per_agility_gap"))
                 .coerceIn(GameBalance.model("dodge_min"), GameBalance.model("dodge_max"))
         val shield = Equipment.equipped(s).any { it.kind == Kind.SHIELD }
-        var damage = e.attack * 100 / (100 + p.defense) * (if (s.random() < .10) 1.5 else 1.0)
+        val critical = s.random() < .10
+        var damage = e.attack * 100 / (100 + p.defense) * (if (critical) 1.5 else 1.0)
         if (dodge) {
             if (s.random() < chance) damage = 0.0
         } else
@@ -670,7 +697,15 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 1.0 -
                     GameBalance.model("guard_reduction") -
                     (if (shield) GameBalance.shield("guard_bonus") else 0.0)
+        val previousHp = s.hp
         s.hp = max(0.0, s.hp - damage)
+        impact(
+            ImpactTarget.PLAYER,
+            previousHp - s.hp,
+            if (damage == 0.0) ImpactOutcome.DODGE
+            else if (!dodge) ImpactOutcome.GUARD else ImpactOutcome.DAMAGE,
+            critical && damage > 0,
+        )
         s.note(
             if (damage == 0.0) "회피 성공!"
             else "${if(dodge)"회피 실패 · " else "방어 · "}${damage.roundToInt()} 피해"
@@ -683,28 +718,55 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.selection = 0
     }
 
+    private fun impact(
+        target: ImpactTarget,
+        damage: Double,
+        outcome: ImpactOutcome,
+        critical: Boolean = false,
+    ) {
+        val s = state
+        s.impactSequence++
+        s.lastImpact =
+            BattleImpact(
+                s.impactSequence,
+                target,
+                if (damage > 0) damage.roundToInt().coerceAtLeast(1) else 0,
+                outcome,
+                critical,
+            )
+    }
+
     private fun victory() {
         val s = state
-        val e = s.enemy ?: return
-        s.gold += 20 + s.floor * 4
-        gainExperience(25 + s.floor * 5)
+        val enemy = s.enemy ?: return
+        val gold = 20 + s.floor * 4
+        val experience = 25 + s.floor * 5
+        val items = mutableListOf<String>()
+        s.gold += gold
+        gainExperience(experience)
         s.quest?.takeIf { it.kind == "kill" }?.let { it.progress++ }
-        if (e.boss) {
+        if (enemy.boss) {
             s.devices.add(s.floor)
             s.dungeon?.bossCleared = true
             val reward = ItemFactory.create(s, Kind.entries[s.nextInt(Kind.entries.size - 1)])
             s.inventory.add(reward)
-            s.note("보스 격파! ${s.floor}층 장치 활성화 · ${reward.name}")
-            s.mode = Mode.FLOOR_CLEAR
+            items.add(reward.name)
         } else {
             s.dungeon?.here()?.resolved = true
-            if (s.random() < (.25 + stats().luck * .003).coerceAtMost(.65))
-                s.inventory.add(ItemFactory.create(s))
-            s.mode = if (s.dungeon == null) Mode.SURFACE else Mode.EXPLORE
-            s.note("${e.name} 격파! 경험치·골드 획득")
+            if (s.random() < (.25 + stats().luck * .003).coerceAtMost(.65)) {
+                val reward = ItemFactory.create(s)
+                s.inventory.add(reward)
+                items.add(reward.name)
+            }
         }
+        val returnMode =
+            if (enemy.boss) Mode.FLOOR_CLEAR
+            else if (s.dungeon == null) Mode.SURFACE else Mode.EXPLORE
+        s.battleResult = BattleResult(enemy.copy(hp = 0.0), gold, experience, items, returnMode)
         s.enemy = null
+        s.mode = Mode.VICTORY
         s.selection = 0
+        s.note("전투 승리 · ${enemy.name} 격파 · ${gold}G / 경험치 ${experience}")
     }
 
     private fun flee() {
@@ -713,6 +775,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val chance = (.35 + (stats().agility - e.precision) * .006).coerceIn(.15, .85)
         if (s.random() < chance) {
             s.enemy = null
+            s.lastImpact = null
             s.mode = Mode.EXPLORE
             s.dungeon?.let { m ->
                 val back = ((m.arrivalDirection.takeIf { it in 0..3 } ?: m.direction) + 2) % 4
@@ -783,7 +846,9 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.dungeon?.here()?.let { if (it.event == Event.TRAP) it.resolved = true }
         if (!t.success) {
             val damage = stats().hp * .15 + s.floor * 2
+            val previousHp = s.hp
             s.hp = max(0.0, s.hp - damage)
+            impact(ImpactTarget.PLAYER, previousHp - s.hp, ImpactOutcome.DAMAGE)
             s.note("함정 회피 실패 · ${damage.roundToInt()} 피해")
             if (s.hp <= 0) die()
         } else s.note("함정 회피 성공!")
@@ -811,6 +876,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.floor = 0
         s.dungeon = null
         s.enemy = null
+        s.battleResult = null
         s.trap = null
         s.mode = Mode.SURFACE
         s.menu = null

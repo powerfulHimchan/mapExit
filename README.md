@@ -1,4 +1,4 @@
-# MapExit 0.2.0
+# MapExit 0.3.0
 
 버튼 두 개로 탐험하는 오프라인 안드로이드 도트 던전 게임. Kotlin 게임 로직과 Compose/Canvas 화면을 분리했습니다.
 
@@ -47,6 +47,6 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`
 python3 tools/check_weapon_balance.py --check
 ```
 
-[게임 설계](docs/game-design.md), [무기 밸런스 초안](docs/weapon-balance.md), [수정·플레이 가이드](docs/PLAYTEST.md), [검증 결과](docs/VERIFICATION-0.2.md)를 함께 관리합니다. GitHub Actions에서도 core 테스트·Android lint·APK 빌드를 실행하고 APK를 아티팩트로 보관합니다.
+[게임 설계](docs/game-design.md), [무기 밸런스 초안](docs/weapon-balance.md), [수정·플레이 가이드](docs/PLAYTEST.md), [검증 결과](docs/VERIFICATION-0.3.md)를 함께 관리합니다. GitHub Actions에서도 core 테스트·Android lint·APK 빌드를 실행하고 APK를 아티팩트로 보관합니다.
 
 층당 약 5분과 후반부 난이도는 실제 플레이로 조정할 목표입니다. 현재 무기 검증 모델은 반지·목걸이, 연속 탐험과 전체 층 성장 곡선을 포함하지 않습니다.

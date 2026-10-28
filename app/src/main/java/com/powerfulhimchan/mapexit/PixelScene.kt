@@ -12,7 +12,7 @@ import com.powerfulhimchan.mapexit.core.State
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private fun DrawScope.pixelRect(color: Color, x: Float, y: Float, w: Float, h: Float) {
+internal fun DrawScope.pixelRect(color: Color, x: Float, y: Float, w: Float, h: Float) {
     drawRect(color, Offset(x, y), Size(w, h))
 }
 
@@ -34,11 +34,11 @@ internal fun DrawScope.drawScene(
     effectAt: Long = 0L,
 ) {
     drawRect(ink)
-    if (s.mode == Mode.TRAP) {
+    if (s.mode == Mode.TRAP || s.mode == Mode.TRAP_GUIDE) {
         drawTrap(s.trap ?: return)
         return
     }
-    if (s.enemy != null) {
+    if (s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null)) {
         drawBattle(s, clock, effect, effectAt)
         return
     }
@@ -76,100 +76,11 @@ internal fun DrawScope.drawScene(
         }
         return
     }
-    val m = s.dungeon ?: return
-    val w = size.width
-    val h = size.height
-    pixelRect(Color(0xFF192530), 0f, h * .5f, w, h * .5f)
-    for (i in 0..9) {
-        val y = h * .52f + h * .48f * (i * i / 81f)
-        drawLine(Color(0xFF34414A), Offset(0f, y), Offset(w, y), 1f)
-        for (k in -4..4) drawLine(
-            Color(0xFF293942),
-            Offset(w * .5f + k * (y - h * .48f) * .7f, y),
-            Offset(w * .5f + k * (y - h * .48f) * .85f, (y + 12).coerceAtMost(h)),
-            1f,
-        )
-    }
-    for (i in 0..40) {
-        val x = ((i * 73 + m.x * 13) % 239).toFloat()
-        val y = h * .57f + ((i * 19 + m.y * 7) % 100) / 100f * h * .42f
-        pixelRect(if (i % 4 == 0) Color(0xFF58614D) else Color(0xFF24333C), x, y, 2f + (i % 3), 1f)
-    }
-    for (depth in 4 downTo 0) {
-        val near = (.5f - (.48f / (depth + 1)))
-        val far = (.5f - (.48f / (depth + 2)))
-        val nx = w * near
-        val ny = h * near
-        val fx = w * far
-        val fy = h * far
-        val xx = m.x + MapGenerator.dx[m.direction] * depth
-        val yy = m.y + MapGenerator.dy[m.direction] * depth
-        val left = (m.direction + 3) % 4
-        val right = (m.direction + 1) % 4
-        if (m.cell(xx + MapGenerator.dx[left], yy + MapGenerator.dy[left]).wall)
-            poly(
-                Color(0xFF29404F),
-                Offset(nx, ny),
-                Offset(fx, fy),
-                Offset(fx, h - fy),
-                Offset(nx, h - ny),
-            )
-        if (m.cell(xx + MapGenerator.dx[right], yy + MapGenerator.dy[right]).wall)
-            poly(
-                Color(0xFF223642),
-                Offset(w - nx, ny),
-                Offset(w - fx, fy),
-                Offset(w - fx, h - fy),
-                Offset(w - nx, h - ny),
-            )
-        drawLine(line, Offset(fx, h - fy), Offset(w - fx, h - fy), 1f)
-        val front = m.cell(xx + MapGenerator.dx[m.direction], yy + MapGenerator.dy[m.direction])
-        if (front.wall) {
-            pixelRect(Color(0xFF344D5C), fx, fy, w - 2 * fx, h - 2 * fy)
-            masonry(fx, fy, w - 2 * fx, h - 2 * fy, Color(0xFF344D5C))
-            drawRect(line, Offset(fx, fy), Size(w - 2 * fx, h - 2 * fy), style = Stroke(2f))
-            for (k in 1..3) drawLine(
-                line,
-                Offset(fx, fy + (h - 2 * fy) * k / 4),
-                Offset(w - fx, fy + (h - 2 * fy) * k / 4),
-                1f,
-            )
-        }
-    }
-    val cell = m.here()
-    if (!cell.resolved) {
-        val type =
-            when (cell.event) {
-                Event.CHEST -> "chest"
-                Event.MERCHANT,
-                Event.NPC -> "npc"
-                Event.HEAL -> "heal"
-                Event.EXIT -> "door"
-                else -> null
-            }
-        if (type != null)
-            sprite(
-                type,
-                w * .31f,
-                h * .47f,
-                w * .38f,
-                if (cell.event == Event.HEAL) mint else amber,
-            )
-    }
-    val leftWall = (m.direction + 3) % 4
-    val rightWall = (m.direction + 1) % 4
-    if (m.cell(m.x + MapGenerator.dx[leftWall], m.y + MapGenerator.dy[leftWall]).wall)
-        torch(w * .105f, h * .33f, clock)
-    if (m.cell(m.x + MapGenerator.dx[rightWall], m.y + MapGenerator.dy[rightWall]).wall)
-        torch(w * .86f, h * .33f, clock + 240)
-    pixelRect(Color.Black.copy(alpha = .22f), 0f, 0f, w, 5f)
-    pixelRect(Color.Black.copy(alpha = .18f), 0f, 0f, 4f, h)
-    pixelRect(Color.Black.copy(alpha = .18f), w - 4f, 0f, 4f, h)
-    pixelRect(amber, w * .48f, h * .94f, w * .04f, 2f)
+    drawDungeonPerspective(s, clock)
 }
 
 private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt: Long) {
-    val e = s.enemy ?: return
+    val e = s.enemy ?: s.battleResult?.enemy ?: return
     val w = size.width
     val h = size.height
     masonry(0f, 0f, w, h * .64f, Color(0xFF23313C))
@@ -177,42 +88,48 @@ private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt
         pixelRect(Color(0xFF3A4850), w * column, h * .14f, w * .06f, h * .49f)
         for (r in 0..7) pixelRect(line, w * column, h * (.15f + r * .06f), w * .06f, 1f)
     }
-    pixelRect(Color(0xFF1B2935), 0f, h * .65f, w, h * .35f)
-    for (row in 0..7) for (col in 0..11) {
-        val x = col * 23f + (row % 2) * 11f
-        val y = h * .65f + row * 14f
-        pixelRect(Color(0xFF3C4850), x, y, 21f, 1f)
-        pixelRect(Color(0xFF111E28), x, y, 1f, 13f)
+    // A raised arena seen over the player's shoulder: converging floor edges and nearer back
+    // sprite.
+    pixelRect(Color(0xFF1B2935), 0f, h * .43f, w, h * .57f)
+    for (row in 0..9) {
+        val t = row / 9f
+        val y = h * .44f + h * .56f * t * t
+        drawLine(Color(0xFF3C4850), Offset(0f, y), Offset(w, y), 1f)
     }
+    for (col in -3..7) drawLine(
+        Color(0xFF34444E),
+        Offset(w * .55f, h * .43f),
+        Offset(col * w / 4f, h),
+        1f,
+    )
+    pixelRect(Color(0xFF657079), 0f, h * .43f, w, 2f)
     torch(w * .16f, h * .25f, clock)
     torch(w * .78f, h * .25f, clock + 160)
-    pixelRect(line, w * .1f, h * .08f, w * .8f, h * .045f)
-    pixelRect(
-        if (e.boss) amber else red,
-        w * .1f,
-        h * .08f,
-        w * .8f * (e.hp / e.maxHp).toFloat().coerceIn(0f, 1f),
-        h * .045f,
-    )
     val bob = if ((clock / 320) % 2 == 0L) 0f else 1f
     val actionVisible = effectAt > 0 && clock - effectAt in 0..160
     val shift =
         if (actionVisible && effect in listOf("attack", "strong")) 6f
         else if (actionVisible && effect == "dodge") -7f else 0f
-    val heroWidth = min(w * .29f, h * .25f)
+    val heroWidth = min(w * .34f, h * .32f)
     val heroUnit = (heroWidth / 16).toInt().coerceAtLeast(1).toFloat()
-    val heroX = w * .13f + shift
-    val heroY = h * .82f - heroUnit * 24 + bob
+    val heroX = w * .18f + shift
+    val heroY = h * .90f - heroUnit * 24 + bob
     drawOval(
         Color.Black.copy(alpha = .4f),
-        Offset(heroX - 3, h * .83f),
+        Offset(heroX - 3, h * .91f),
         Size(heroUnit * 16 + 6, 6f),
     )
-    sprite("hero", heroX, heroY, heroWidth, mint)
+    sprite("heroBack", heroX, heroY, heroWidth, mint)
     // Draw the equipped hand item rather than a generic attack marker.
     val weapon = Equipment.equipped(s).firstOrNull { it.weapon }
     val wx = heroX + heroUnit * 14
-    val wy = heroY + heroUnit * 14 - 20f
+    val wy =
+        heroY + heroUnit * 14 -
+            when (weapon?.kind) {
+                Kind.CLAW -> 12f
+                Kind.WHIP -> 0f
+                else -> 20f
+            }
     val metal = Color(0xFFCDD9D5)
     when (weapon?.kind) {
         null -> Unit
@@ -238,7 +155,7 @@ private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt
     val enemyType =
         if (e.boss) "boss"
         else if (e.name.contains("기사")) "knight" else if (e.name.contains("박쥐")) "bat" else "slime"
-    val enemyWidth = min(w * .34f, h * .23f)
+    val enemyWidth = min(w * .28f, h * .20f)
     val enemyUnit = (enemyWidth / 16).toInt().coerceAtLeast(1).toFloat()
     val enemyRows =
         when (enemyType) {
@@ -246,14 +163,19 @@ private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt
             "bat" -> 10
             else -> 24
         }
-    val enemyX = w * .56f
-    val enemyY = h * (if (enemyType == "bat") .64f else .81f) - enemyRows * enemyUnit + bob
+    val enemyX = w * .62f
+    val enemyY = h * (if (enemyType == "bat") .48f else .70f) - enemyRows * enemyUnit + bob
     drawOval(
         Color.Black.copy(alpha = .4f),
-        Offset(enemyX - 3, h * .83f),
+        Offset(enemyX - 3, h * .71f),
         Size(enemyUnit * 16 + 6, 6f),
     )
-    sprite(enemyType, enemyX, enemyY, enemyWidth, if (e.boss) red else Color(0xFF9ACB94))
+    if (s.mode != Mode.VICTORY)
+        sprite(enemyType, enemyX, enemyY, enemyWidth, if (e.boss) red else Color(0xFF9ACB94))
+    else {
+        pixelRect(Color(0xFF45504B), enemyX, h * .66f, enemyUnit * 16, 3f)
+        repeat(5) { pixelRect(amber, enemyX + it * 6, h * .64f - (it % 2) * 3, 2f, 2f) }
+    }
     if (actionVisible && effect in listOf("attack", "strong")) {
         repeat(if (effect == "strong") 9 else 6) { n ->
             pixelRect(
@@ -411,9 +333,36 @@ private fun DrawScope.drawTrap(t: TrapState) {
     }
 }
 
-private fun DrawScope.sprite(type: String, x: Float, y: Float, width: Float, color: Color) {
+internal fun DrawScope.sprite(type: String, x: Float, y: Float, width: Float, color: Color) {
     val pattern =
         when (type) {
+            "heroBack" ->
+                listOf(
+                    "0000003333000000",
+                    "0000333333330000",
+                    "0003333333333000",
+                    "0003355555533000",
+                    "0003555555553000",
+                    "0003555555553000",
+                    "0000355555530000",
+                    "0000035555300000",
+                    "0000222222220000",
+                    "0002222662222000",
+                    "0022222662222200",
+                    "0026222662226200",
+                    "0026222662226200",
+                    "0044222662224400",
+                    "0044222662224400",
+                    "0000222662220000",
+                    "0000222662220000",
+                    "0000222222220000",
+                    "0000222002220000",
+                    "0000555005550000",
+                    "0000555005550000",
+                    "0000111001110000",
+                    "0001111001111000",
+                    "0001111001111000",
+                )
             "hero",
             "knight",
             "boss" ->
@@ -572,7 +521,7 @@ private fun DrawScope.sprite(type: String, x: Float, y: Float, width: Float, col
     }
 }
 
-private fun DrawScope.masonry(x: Float, y: Float, w: Float, h: Float, base: Color) {
+internal fun DrawScope.masonry(x: Float, y: Float, w: Float, h: Float, base: Color) {
     pixelRect(base, x, y, w, h)
     val brickH = 11f
     val brickW = 25f
@@ -601,7 +550,7 @@ private fun DrawScope.masonry(x: Float, y: Float, w: Float, h: Float, base: Colo
     }
 }
 
-private fun DrawScope.torch(x: Float, y: Float, clock: Long) {
+internal fun DrawScope.torch(x: Float, y: Float, clock: Long) {
     val flicker = ((clock / 170) % 3).toInt()
     pixelRect(Color(0xFFD99749).copy(alpha = .05f), x - 13, y - 14, 34f, 42f)
     pixelRect(Color(0xFFECAD5D).copy(alpha = .08f), x - 5, y - 8, 18f, 25f)

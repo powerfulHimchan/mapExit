@@ -35,16 +35,7 @@ jobs:
           ram-size: 2048M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: |
-            ./gradlew :app:connectedDebugAndroidTest --no-daemon
-            mkdir -p app/build/device-screenshots
-            adb pull /sdcard/Download/mapexit-explore.png app/build/device-screenshots/explore.png
-            adb pull /sdcard/Download/mapexit-battle.png app/build/device-screenshots/battle.png
-            adb pull /sdcard/Download/mapexit-trap.png app/build/device-screenshots/trap.png
-            adb pull /sdcard/Download/mapexit-preparation.png app/build/device-screenshots/preparation.png
-            adb pull /sdcard/Download/mapexit-compact.png app/build/device-screenshots/compact.png
-            adb pull /sdcard/Download/mapexit-shop.png app/build/device-screenshots/shop.png
-            adb pull /sdcard/Download/mapexit-equipment.png app/build/device-screenshots/equipment.png
+          script: bash scripts/verify-android.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

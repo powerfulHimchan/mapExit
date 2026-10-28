@@ -77,6 +77,20 @@ class LaunchTest {
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
     }
 
+    private fun assertVictoryFeedbackLayout(scenario: ActivityScenario<MainActivity>) {
+        var popupLabel = ""
+        scenario.onActivity {
+            popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}"
+        }
+        val footer = bounds("B로 결과 확인 후 계속")
+        val popup = bounds(popupLabel)
+        assertTrue("Final damage must sit below the victory card", popup.top >= footer.bottom)
+        assertNull(
+            "Victory replaces the combat header",
+            find(instrumentation.uiAutomation.rootInActiveWindow, "3인칭 전투"),
+        )
+    }
+
     @Test
     fun preparationDirectActionsSaveAndSceneLayout() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -223,6 +237,97 @@ class LaunchTest {
     }
 
     @Test
+    fun combatFeedbackVictoryAndAllTrapBriefings() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                it.game.active = false
+                val e = GameEngine()
+                e.enterFloor(1)
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("메인 장면")
+            capture("wall-depth")
+            scenario.onActivity {
+                it.game.engine.startBattle(false)
+                it.game.engine.state.enemy =
+                    it.game.engine.state.enemy!!.copy(maxHp = 2000.0, hp = 2000.0)
+                it.game.engine.state.rng = 0L
+                it.game.refresh()
+            }
+            bounds("3인칭 전투")
+            bounds("적 HP 2000 / 2000")
+            SystemClock.sleep(500)
+            capture("third-person")
+            tap("A 일반 공격")
+            var popup = ""
+            scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+            bounds(popup)
+            capture("enemy-damage")
+            tap("A 방어")
+            scenario.onActivity {
+                assertEquals(ImpactTarget.PLAYER, it.game.engine.state.lastImpact!!.target)
+                popup = "플레이어 피해 ${it.game.engine.state.lastImpact!!.label()}"
+            }
+            bounds(popup)
+            capture("player-damage")
+            scenario.onActivity {
+                it.game.engine.state.enemy!!.hp = 1.0
+                it.game.engine.state.rng = 0L
+                it.game.refresh()
+            }
+            tap("B 강공격")
+            bounds("전투 승리")
+            assertVictoryFeedbackLayout(scenario)
+            capture("victory")
+            var gold = 0
+            scenario.onActivity {
+                val e = it.game.engine
+                assertEquals(Mode.VICTORY, e.state.mode)
+                gold = e.state.gold
+                it.game.pause()
+                val cold = GameModel(it.application)
+                assertEquals(Mode.VICTORY, cold.engine.state.mode)
+                assertEquals(gold, cold.engine.state.gold)
+                assertNotNull(cold.engine.state.battleResult)
+                assertNull(cold.currentImpact)
+            }
+            tap("B 결과 확인 · 계속")
+            scenario.onActivity {
+                assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
+                assertEquals(gold, it.game.engine.state.gold)
+            }
+            for (type in 0..4) {
+                var title = ""
+                scenario.onActivity {
+                    val e = GameEngine(debugTools = true)
+                    e.choose(e.choices().first { c -> c.action == "debug" })
+                    e.choose(
+                        e.choices().first { c ->
+                            c.action == "testTrap" && c.argument == type.toLong()
+                        }
+                    )
+                    repeat(24) { e.tick(250) }
+                    assertEquals(Mode.TRAP_GUIDE, e.state.mode)
+                    assertEquals(0L, e.state.trap!!.elapsedMs)
+                    title = "함정 발견 · ${e.state.trap!!.title}"
+                    it.game.engine = e
+                    it.game.active = false
+                    it.game.refresh()
+                }
+                bounds(title)
+                capture("trap-guide-$type")
+                tap("B 함정 시작")
+                scenario.onActivity {
+                    assertEquals(Mode.TRAP, it.game.engine.state.mode)
+                    assertEquals(0L, it.game.engine.state.trap!!.elapsedMs)
+                    assertEquals(0, it.game.engine.state.trap!!.progress)
+                }
+            }
+        }
+    }
+
+    @Test
     fun compactScreenKeepsBothActionsAndMainSceneVisible() {
         val descriptor = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
@@ -254,6 +359,25 @@ class LaunchTest {
                 tap("A 방어")
                 scenario.onActivity { assertEquals(Mode.COMBAT_ATTACK, it.game.engine.state.mode) }
                 capture("compact")
+                scenario.onActivity {
+                    it.game.engine.state.enemy!!.hp = 1.0
+                    it.game.engine.state.rng = 0L
+                    it.game.refresh()
+                }
+                tap("A 일반 공격")
+                bounds("전투 승리")
+                assertVictoryFeedbackLayout(scenario)
+                capture("compact-victory")
+                tap("B 결과 확인 · 계속")
+                scenario.onActivity {
+                    val s = it.game.engine.state
+                    s.trap = Traps.create(s, 4)
+                    s.mode = Mode.TRAP_GUIDE
+                    it.game.refresh()
+                }
+                bounds("함정 발견 · 누르고 떼기")
+                bounds("B 함정 시작")
+                capture("compact-guide")
             }
         } finally {
             val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")

@@ -12,6 +12,8 @@ enum class Mode {
     MOVING,
     COMBAT_ATTACK,
     COMBAT_DEFEND,
+    VICTORY,
+    TRAP_GUIDE,
     TRAP,
     FLOOR_CLEAR,
     INHERIT,
@@ -211,6 +213,46 @@ data class Enemy(
 )
 
 @Serializable
+enum class ImpactTarget {
+    PLAYER,
+    ENEMY,
+}
+
+@Serializable
+enum class ImpactOutcome {
+    DAMAGE,
+    GUARD,
+    DODGE,
+    MISS,
+}
+
+@Serializable
+data class BattleImpact(
+    val serial: Long,
+    val target: ImpactTarget,
+    val amount: Int,
+    val outcome: ImpactOutcome,
+    val critical: Boolean = false,
+) {
+    fun label(): String =
+        when (outcome) {
+            ImpactOutcome.MISS -> "빗나감"
+            ImpactOutcome.DODGE -> "회피"
+            ImpactOutcome.GUARD -> "${if(critical) "치명타 · " else ""}방어 -$amount"
+            else -> "${if(critical) "치명타 " else ""}-$amount"
+        }
+}
+
+@Serializable
+data class BattleResult(
+    val enemy: Enemy,
+    val gold: Int,
+    val experience: Int,
+    val items: List<String>,
+    val returnMode: Mode,
+)
+
+@Serializable
 data class Quest(
     val title: String,
     val kind: String,
@@ -250,6 +292,10 @@ data class State(
     var mode: Mode = Mode.SURFACE,
     var selection: Int = 0,
     var enemy: Enemy? = null,
+    var battleId: Long = 0L,
+    var battleResult: BattleResult? = null,
+    var impactSequence: Long = 0L,
+    var lastImpact: BattleImpact? = null,
     var trap: TrapState? = null,
     var quest: Quest? = null,
     var menu: Menu? = null,
