@@ -156,8 +156,12 @@ internal fun DrawScope.drawScene(
                 if (cell.event == Event.HEAL) mint else amber,
             )
     }
-    torch(w * .105f, h * .33f, clock)
-    torch(w * .86f, h * .33f, clock + 240)
+    val leftWall = (m.direction + 3) % 4
+    val rightWall = (m.direction + 1) % 4
+    if (m.cell(m.x + MapGenerator.dx[leftWall], m.y + MapGenerator.dy[leftWall]).wall)
+        torch(w * .105f, h * .33f, clock)
+    if (m.cell(m.x + MapGenerator.dx[rightWall], m.y + MapGenerator.dy[rightWall]).wall)
+        torch(w * .86f, h * .33f, clock + 240)
     pixelRect(Color.Black.copy(alpha = .22f), 0f, 0f, w, 5f)
     pixelRect(Color.Black.copy(alpha = .18f), 0f, 0f, 4f, h)
     pixelRect(Color.Black.copy(alpha = .18f), w - 4f, 0f, 4f, h)
@@ -189,7 +193,7 @@ private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt
         if (e.boss) amber else red,
         w * .1f,
         h * .08f,
-        w * .8f * (e.hp / e.maxHp).toFloat(),
+        w * .8f * (e.hp / e.maxHp).toFloat().coerceIn(0f, 1f),
         h * .045f,
     )
     val bob = if ((clock / 320) % 2 == 0L) 0f else 1f
@@ -523,7 +527,7 @@ private fun DrawScope.sprite(type: String, x: Float, y: Float, width: Float, col
                     "0000111001110000",
                 )
         }
-    val u = (width / 16).coerceAtLeast(1f)
+    val u = (width / 16).toInt().coerceAtLeast(1).toFloat()
     val base = if (type == "knight") Color(0xFF8B929E) else if (type == "boss") red else color
     pattern.forEachIndexed { row, data ->
         data.forEachIndexed { col, c ->

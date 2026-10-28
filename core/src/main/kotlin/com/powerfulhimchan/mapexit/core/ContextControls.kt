@@ -83,6 +83,8 @@ class ContextControls(private val engine: GameEngine) {
                                     ContextButton("다른 길 없음", enabled = false),
                                 )
                             moves.size == 2 -> moves.map(::moveButton)
+                            moves.size == 4 ->
+                                listOf(b("앞 / 뒤 방향", "_pair", 0), b("좌 / 우 방향", "_pair", 1))
                             else -> listOf(moveButton(moves.first()), b("다른 방향 ›", "_routes"))
                         }
                     result.mapIndexed { i, button ->
@@ -149,6 +151,20 @@ class ContextControls(private val engine: GameEngine) {
         val c = (if (held) b.holdChoice else b.choice) ?: return
         when (c.action) {
             "_skip" -> eventSkipped = true
+            "_pair" -> {
+                val all =
+                    engine
+                        .choices()
+                        .filter { it.action == "move" }
+                        .sortedBy {
+                            listOf(0, 2, 3, 1)
+                                .indexOf(
+                                    (it.argument.toInt() - (engine.state.dungeon?.direction ?: 0) +
+                                        4) % 4
+                                )
+                        }
+                routes = all.chunked(2).getOrNull(c.argument.toInt())
+            }
             "_routes" -> {
                 val all =
                     routes

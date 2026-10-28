@@ -57,9 +57,11 @@ class ContextControlsTest {
                     e.press(index)
                     break
                 }
-                e.press(1)
+                if (b.first().choice?.action == "_pair")
+                    e.press(if (target in listOf(0, 2)) 0 else 1)
+                else e.press(1)
             }
-            assertTrue(presses <= 3)
+            assertTrue(presses <= 2)
             assertEquals(4 + MapGenerator.dx[target], e.state.dungeon!!.x)
             assertEquals(4 + MapGenerator.dy[target], e.state.dungeon!!.y)
         }
@@ -71,7 +73,7 @@ class ContextControlsTest {
         val rng = e.state.rng
         e.press(1)
         e.hold(1)
-        assertEquals("↑ 앞으로 이동", e.controls.buttons()[0].label)
+        assertEquals("앞 / 뒤 방향", e.controls.buttons()[0].label)
         assertEquals(4, e.state.dungeon!!.y)
         assertEquals(rng, e.state.rng)
     }
@@ -215,5 +217,23 @@ class ContextControlsTest {
         assertEquals(token, e.controls.inputToken())
         e.press(1)
         assertEquals(Mode.EXPLORE, e.state.mode)
+    }
+
+    @Test
+    fun retreatAfterBackwardEncounterUsesThePreviousCellEvenAfterReload() {
+        val e = corridor()
+        val d = e.state.dungeon!!
+        d.cell(4, 5).event = Event.MONSTER
+        e.press(1)
+        assertEquals(Mode.COMBAT_ATTACK, e.state.mode)
+        assertEquals(0, d.direction)
+        val restored = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
+        restored.state.rng = 1L
+        restored.state.base = restored.state.base.copy(agility = 200.0)
+        restored.hold(1)
+        assertEquals(Mode.EXPLORE, restored.state.mode)
+        assertEquals(4, restored.state.dungeon!!.x)
+        assertEquals(4, restored.state.dungeon!!.y)
+        assertEquals(0, restored.state.dungeon!!.direction)
     }
 }

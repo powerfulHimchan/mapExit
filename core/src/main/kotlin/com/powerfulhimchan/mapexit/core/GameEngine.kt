@@ -542,6 +542,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             s.selection = 0
             return
         }
+        m.arrivalDirection = m.direction
         m.x = xx
         m.y = yy
         m.reveal()
@@ -714,7 +715,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             s.enemy = null
             s.mode = Mode.EXPLORE
             s.dungeon?.let { m ->
-                val back = (m.direction + 2) % 4
+                val back = ((m.arrivalDirection.takeIf { it in 0..3 } ?: m.direction) + 2) % 4
                 if (!m.cell(m.x + MapGenerator.dx[back], m.y + MapGenerator.dy[back]).wall) {
                     m.x += MapGenerator.dx[back]
                     m.y += MapGenerator.dy[back]

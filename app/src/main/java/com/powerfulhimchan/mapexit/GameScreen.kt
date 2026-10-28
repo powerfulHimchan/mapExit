@@ -148,76 +148,86 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
     val s = vm.engine.state
     val p = vm.engine.stats()
     val buttons = vm.engine.controls.buttons()
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        PixelCanvas(
-            s,
-            clock,
-            Modifier.fillMaxWidth().weight(1f),
-            vm.visualEffect,
-            vm.visualEffectAt,
-        )
-        Text(
-            sceneMessage(s),
-            color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp),
-        )
-        Row(
-            Modifier.fillMaxWidth().height(76.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+    BoxWithConstraints(modifier) {
+        val compact = maxHeight < 560.dp
+        Column(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
         ) {
-            Canvas(
-                Modifier.width(88.dp)
-                    .fillMaxHeight()
-                    .background(panel)
-                    .border(1.dp, line)
-                    .semantics { contentDescription = "주변 미니맵" }
+            PixelCanvas(
+                s,
+                clock,
+                Modifier.fillMaxWidth().weight(1f),
+                vm.visualEffect,
+                vm.visualEffectAt,
+            )
+            Text(
+                sceneMessage(s),
+                color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                maxLines = if (compact) 1 else 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().heightIn(min = if (compact) 20.dp else 36.dp),
+            )
+            Row(
+                Modifier.fillMaxWidth().height(if (compact) 54.dp else 68.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                drawMap(s)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.fillMaxWidth()) {
+                Canvas(
+                    Modifier.width(if (compact) 64.dp else 80.dp)
+                        .fillMaxHeight()
+                        .background(panel)
+                        .border(1.dp, line)
+                        .semantics { contentDescription = "주변 미니맵" }
+                ) {
+                    drawMap(s)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(
+                            "LV.${s.level}   HP ${s.hp.toInt()} / ${p.hp.toInt()}",
+                            color = mint,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text("${s.gold} G", color = amber, fontSize = 12.sp, lineHeight = 16.sp)
+                    }
+                    Box(Modifier.fillMaxWidth().height(5.dp).background(line)) {
+                        Box(
+                            Modifier.fillMaxWidth((s.hp / p.hp).toFloat().coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .background(if (s.hp < p.hp * .3) red else mint)
+                        )
+                    }
                     Text(
-                        "LV.${s.level}   HP ${s.hp.toInt()} / ${p.hp.toInt()}",
-                        color = mint,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
+                        "공격 ${p.attack.toInt()} · 방어 ${p.defense.toInt()} · 회복약 ${s.inventory.count { it.kind == Kind.POTION }}",
+                        color = muted,
+                        fontSize = 10.sp,
+                        lineHeight = 14.sp,
                     )
-                    Text("${s.gold} G", color = amber, fontSize = 12.sp)
+                    if (!compact)
+                        Text(
+                            s.quest?.let { "의뢰 ${it.progress}/${it.target} · ${it.title}" }
+                                ?: "${directionHint(s)} · 길게 누르기 기능은 버튼 아래 표시",
+                            color = muted,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                 }
-                Box(Modifier.fillMaxWidth().height(5.dp).background(line)) {
-                    Box(
-                        Modifier.fillMaxWidth((s.hp / p.hp).toFloat().coerceIn(0f, 1f))
-                            .fillMaxHeight()
-                            .background(if (s.hp < p.hp * .3) red else mint)
-                    )
-                }
-                Text(
-                    "공격 ${p.attack.toInt()} · 방어 ${p.defense.toInt()} · 회복약 ${s.inventory.count { it.kind == Kind.POTION }}",
-                    color = muted,
-                    fontSize = 10.sp,
-                )
-                Text(
-                    s.quest?.let { "의뢰 ${it.progress}/${it.target} · ${it.title}" }
-                        ?: "${directionHint(s)} · 길게 누르기 기능은 버튼 아래 표시",
-                    color = muted,
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
             }
+            Row(
+                Modifier.fillMaxWidth().height(if (compact) 62.dp else 76.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                buttons.forEachIndexed { i, b -> ActionButton(vm, i, b, Modifier.weight(1f)) }
+            }
+            Spacer(Modifier.height(2.dp))
         }
-        Row(
-            Modifier.fillMaxWidth().height(84.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            buttons.forEachIndexed { i, b -> ActionButton(vm, i, b, Modifier.weight(1f)) }
-        }
-        Spacer(Modifier.height(2.dp))
     }
 }
 
@@ -292,13 +302,15 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
         Text(
             if (longReady) b.holdLabel ?: b.label else b.label,
             fontSize = 16.sp,
+            lineHeight = 21.sp,
             color = if (b.enabled) pale else muted,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
         Text(
-            "${if (index == 0) "A" else "B"}${b.holdLabel?.let { "  ·  길게: $it" } ?: "  ·  바로 실행"}",
+            "${if (index == 0) "A" else "B"}${b.holdLabel?.let { "  ·  길게: $it" } ?: if (b.enabled) "  ·  바로 실행" else "  ·  대기"}",
             fontSize = 10.sp,
+            lineHeight = 14.sp,
             color = if (b.enabled) mint else muted,
         )
     }
@@ -544,21 +556,25 @@ private fun Summary(e: GameEngine) {
             color = mint,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
+            lineHeight = 17.sp,
         )
         Text(
             "공격 ${p.attack.toInt()}  ·  방어 ${p.defense.toInt()}  ·  민첩 ${p.agility.toInt()}",
             color = pale,
             fontSize = 12.sp,
+            lineHeight = 16.sp,
         )
         Text(
             "치명 ${(p.crit * 100).toInt()}%  ·  치명 피해 ${(p.critDamage * 100).toInt()}%  ·  행운 ${p.luck.toInt()}",
             color = muted,
             fontSize = 11.sp,
+            lineHeight = 15.sp,
         )
         Text(
             "회복약 ${s.inventory.count { it.kind == Kind.POTION }}개  ·  보관 ${s.bank}G  ·  성장 ${s.points}P",
             color = amber,
             fontSize = 11.sp,
+            lineHeight = 15.sp,
         )
     }
 }

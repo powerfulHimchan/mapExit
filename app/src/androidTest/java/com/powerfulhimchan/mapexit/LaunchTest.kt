@@ -68,6 +68,8 @@ class LaunchTest {
     }
 
     private fun capture(name: String) {
+        instrumentation.waitForIdleSync()
+        SystemClock.sleep(250)
         val descriptor =
             instrumentation.uiAutomation.executeShellCommand(
                 "screencap -p /sdcard/Download/mapexit-$name.png"
@@ -148,6 +150,13 @@ class LaunchTest {
                 val saved = SaveCodec.decode(File(it.filesDir, "mapexit-save-v1.json").readText())
                 assertEquals(1, saved.floor)
                 assertEquals(5, saved.inventory.count { gear -> gear.kind == Kind.POTION })
+                val coldModel = GameModel(it.application)
+                assertEquals(1, coldModel.engine.state.floor)
+                assertEquals(saved.equipment, coldModel.engine.state.equipment)
+                assertEquals(
+                    5,
+                    coldModel.engine.state.inventory.count { gear -> gear.kind == Kind.POTION },
+                )
             }
             val main = bounds("메인 장면")
             val map = bounds("주변 미니맵")
@@ -182,7 +191,8 @@ class LaunchTest {
             }
             scenario.onActivity {
                 it.game.engine.startBattle(false)
-                it.game.engine.state.enemy!!.hp = 100000.0
+                it.game.engine.state.enemy =
+                    it.game.engine.state.enemy!!.copy(maxHp = 2000.0, hp = 2000.0)
                 it.game.active = false
                 it.game.refresh()
             }
@@ -234,7 +244,10 @@ class LaunchTest {
                 val screenshot = instrumentation.uiAutomation.takeScreenshot()!!
                 assertTrue(a.bottom <= screenshot.height && b.bottom <= screenshot.height)
                 assertTrue(a.height() >= 72 && b.height() >= 72)
-                assertTrue(main.height() > 200)
+                assertTrue(
+                    "Main scene must keep a majority of compact play space",
+                    main.height() > (a.bottom - main.top) / 2,
+                )
                 screenshot.recycle()
                 tap("B 강공격")
                 scenario.onActivity { assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode) }
