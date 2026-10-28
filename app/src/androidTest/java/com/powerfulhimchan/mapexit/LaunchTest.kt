@@ -77,6 +77,20 @@ class LaunchTest {
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
     }
 
+    private fun assertVictoryFeedbackLayout(scenario: ActivityScenario<MainActivity>) {
+        var popupLabel = ""
+        scenario.onActivity {
+            popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}"
+        }
+        val footer = bounds("B로 결과 확인 후 계속")
+        val popup = bounds(popupLabel)
+        assertTrue("Final damage must sit below the victory card", popup.top >= footer.bottom)
+        assertNull(
+            "Victory replaces the combat header",
+            find(instrumentation.uiAutomation.rootInActiveWindow, "3인칭 전투"),
+        )
+    }
+
     @Test
     fun preparationDirectActionsSaveAndSceneLayout() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -264,6 +278,7 @@ class LaunchTest {
             }
             tap("B 강공격")
             bounds("전투 승리")
+            assertVictoryFeedbackLayout(scenario)
             capture("victory")
             var gold = 0
             scenario.onActivity {
@@ -351,6 +366,7 @@ class LaunchTest {
                 }
                 tap("A 일반 공격")
                 bounds("전투 승리")
+                assertVictoryFeedbackLayout(scenario)
                 capture("compact-victory")
                 tap("B 결과 확인 · 계속")
                 scenario.onActivity {

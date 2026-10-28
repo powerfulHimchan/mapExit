@@ -48,7 +48,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 )
             }
         } else PixelCanvas(s, clock, Modifier.fillMaxSize(), vm.visualEffect, vm.visualEffectAt)
-        if (inBattle && enemy != null) {
+        if (inBattle && enemy != null && s.mode != Mode.VICTORY) {
             Column(
                 Modifier.align(Alignment.TopCenter)
                     .fillMaxWidth()
@@ -156,6 +156,12 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                         lineHeight = 18.sp,
                     )
                     Text(
+                        "적 HP 0 / ${ceil(result.enemy.maxHp).toInt()}",
+                        color = muted,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                    )
+                    Text(
                         "+${result.gold} G  ·  경험치 +${result.experience}",
                         color = mint,
                         fontSize = 15.sp,
@@ -195,13 +201,14 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     lineHeight = 25.sp,
                     fontWeight = FontWeight.Black,
                     modifier =
-                        Modifier.offset(
+                        (if (s.mode == Mode.VICTORY)
+                                Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                            else Modifier.offset(
                                 x = maxWidth * (if (enemyHit) .55f else .12f),
                                 y =
                                     maxHeight *
-                                        (if (s.mode == Mode.VICTORY) .84f
-                                        else if (enemyHit) .32f else .62f) - 24.dp * rise.value,
-                            )
+                                        (if (enemyHit) .32f else .62f) - 24.dp * rise.value,
+                            ))
                             .background(ink.copy(alpha = .9f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                             .semantics {
