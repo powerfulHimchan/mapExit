@@ -129,6 +129,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
         }
         if (s.mode == Mode.VICTORY) {
             s.battleResult?.let { result ->
+                val victoryHeight = maxHeight - 48.dp
                 Box(
                     Modifier.fillMaxSize().padding(bottom = 48.dp),
                     contentAlignment = Alignment.Center,
@@ -136,7 +137,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     Column(
                         Modifier.fillMaxWidth()
                             .padding(horizontal = 18.dp)
-                            .heightIn(max = maxHeight - 48.dp)
+                            .heightIn(max = victoryHeight)
                             .background(ink.copy(alpha = .96f), RoundedCornerShape(10.dp))
                             .border(2.dp, amber, RoundedCornerShape(10.dp))
                             .verticalScroll(rememberScrollState())
