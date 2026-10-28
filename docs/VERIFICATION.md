@@ -13,8 +13,8 @@
 - APK 서명 검증 성공. 인터넷 권한 없음.
 
 설치 파일: MapExit-0.1.0-debug.apk  
-크기: 9,718,107 bytes  
-SHA-256: `8778aaba55762e4a415525f7cec98ba0a143624a1d25097eca0adf8b1be23848`
+크기: 9,718,147 bytes  
+SHA-256: `fbff484e0f2c5813a6731085af33226bf4822a3373b1080195418e45a3dea3b5`
 
 APK는 개발용 고정 인증서로 서명했다. Android 8.0 이상 대상이며 Play 배포용 release 빌드는 아니다.
 
