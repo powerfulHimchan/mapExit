@@ -33,7 +33,14 @@ class LaunchTest {
                 for (i in 0 until node.childCount) find(node.getChild(i), label)?.let { return it }
                 return null
             }
-            val button = requireNotNull(find(instrumentation.uiAutomation.rootInActiveWindow, "B 실행"))
+            var readyButton: Rect? = null
+            val buttonDeadline = SystemClock.uptimeMillis() + 10_000
+            while (readyButton == null && SystemClock.uptimeMillis() < buttonDeadline) {
+                instrumentation.waitForIdleSync()
+                readyButton = find(instrumentation.uiAutomation.rootInActiveWindow, "B 실행")
+                if (readyButton == null) SystemClock.sleep(50)
+            }
+            val button = requireNotNull(readyButton) { "첫 화면에 B 버튼이 표시되지 않았습니다" }
             val now = SystemClock.uptimeMillis()
             MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, button.exactCenterX(), button.exactCenterY(), 0).also {
                 instrumentation.sendPointerSync(it)
