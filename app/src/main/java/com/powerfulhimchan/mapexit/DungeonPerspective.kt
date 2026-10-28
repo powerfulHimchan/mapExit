@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipPath
 import com.powerfulhimchan.mapexit.core.*
 import com.powerfulhimchan.mapexit.core.State
 import kotlin.math.max
@@ -21,14 +20,7 @@ private fun DrawScope.quad(color: Color, a: Offset, b: Offset, c: Offset, d: Off
 }
 
 private fun DrawScope.stoneSide(color: Color, a: Offset, b: Offset, c: Offset, d: Offset) {
-    val points = listOf(a, b, c, d)
-    val path =
-        Path().apply {
-            moveTo(points[0].x, points[0].y)
-            points.drop(1).forEach { lineTo(it.x, it.y) }
-            close()
-        }
-    clipPath(path) { masonry(0f, 0f, size.width, size.height, color) }
+    stonePlane(a, b, c, d, color)
 }
 
 /** Wall slabs have lit cut faces, beveled tops and contact shadows, including passage jambs. */
@@ -36,18 +28,7 @@ internal fun DrawScope.drawDungeonPerspective(s: State, clock: Long) {
     val m = s.dungeon ?: return
     val w = size.width
     val h = size.height
-    pixelRect(Color(0xFF192731), 0f, h * .5f, w, h * .5f)
-    for (row in 0..10) {
-        val t = row / 10f
-        val y = h * .51f + h * .49f * t * t
-        drawLine(Color(0xFF364650), Offset(0f, y), Offset(w, y), 1f)
-    }
-    for (col in -3..7) drawLine(
-        Color(0xFF263842),
-        Offset(w * .5f, h * .5f),
-        Offset(col * w / 4f, h),
-        1f,
-    )
+    stoneFloor()
     val last =
         (0..4).firstOrNull { depth ->
             m.cell(
@@ -63,8 +44,16 @@ internal fun DrawScope.drawDungeonPerspective(s: State, clock: Long) {
         val ny = h * near
         val fx = w * far
         val fy = h * far
-        val t = max(2f, 9f / (depth + 1))
-        val nearT = max(3f, 12f / (depth + 1))
+        val t = max(3f, 18f / (depth + 1))
+        val nearT = max(5f, 24f / (depth + 1))
+        stonePlane(
+            Offset(nx, ny),
+            Offset(w - nx, ny),
+            Offset(w - fx, fy),
+            Offset(fx, fy),
+            Color(0xff1e2e37),
+            8,
+        )
         val xx = m.x + MapGenerator.dx[m.direction] * depth
         val yy = m.y + MapGenerator.dy[m.direction] * depth
         for (left in listOf(true, false)) {
@@ -181,7 +170,7 @@ internal fun DrawScope.drawDungeonPerspective(s: State, clock: Long) {
             when (cell.event) {
                 Event.CHEST -> "chest"
                 Event.HEAL -> "heal"
-                Event.MERCHANT,
+                Event.MERCHANT -> "merchant"
                 Event.NPC -> "npc"
                 Event.EXIT -> "door"
                 else -> null
@@ -190,8 +179,8 @@ internal fun DrawScope.drawDungeonPerspective(s: State, clock: Long) {
             sprite(
                 type,
                 w * .34f,
-                h * .56f,
-                w * .32f,
+                h * .89f - spriteHeight(type, minOf(w * .26f, h * .22f)),
+                minOf(w * .26f, h * .22f),
                 if (cell.event == Event.HEAL) mint else amber,
             )
     }

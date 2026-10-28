@@ -21,6 +21,8 @@ jobs:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
+      - name: Validate authored pixel atlas
+        run: python3 tools/build_pixel_sprites.py --check
       - name: Core tests, lint, APK
         run: ./gradlew :core:test :app:lintDebug :app:assembleDebug --no-daemon
       - name: Enable emulator acceleration

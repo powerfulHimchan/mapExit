@@ -127,17 +127,17 @@ internal fun PixelCanvas(
         modifier.background(ink).border(1.dp, line).semantics { contentDescription = "메인 장면" }
     ) {
         val logicalH =
-            (240f * maxHeight.value / maxWidth.value.coerceAtLeast(1f))
+            (480f * maxHeight.value / maxWidth.value.coerceAtLeast(1f))
                 .roundToInt()
-                .coerceIn(120, 420)
-        val bitmap = remember(logicalH) { ImageBitmap(240, logicalH) }
+                .coerceIn(160, 960)
+        val bitmap = remember(logicalH) { ImageBitmap(480, logicalH) }
         val scope = remember { CanvasDrawScope() }
         Canvas(Modifier.fillMaxSize()) {
             scope.draw(
                 Density(1f),
                 layoutDirection,
                 ImageCanvas(bitmap),
-                Size(240f, logicalH.toFloat()),
+                Size(480f, logicalH.toFloat()),
             ) {
                 drawScene(s, clock, effect, effectAt)
             }
@@ -372,7 +372,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     if (!surface) TextButton(onClick = { vm.back() }) { Text("돌아가기", color = mint) }
                 }
             }
-            if (surface) item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
+            if (surface || s.mode == Mode.INHERIT)
+                item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
             item { Summary(e) }
             item {
                 Text(
@@ -489,7 +490,14 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             "shop" -> shopItems.find { it.id == c.argument }
                             "inventory",
                             "sell" -> ownedItems.find { it.id == c.argument }
-                            else -> null
+                            "equipment" ->
+                                ownedItems.find {
+                                    it.id == wornSlots[Slot.entries[c.argument.toInt()]]
+                                }
+                            "quantity" -> shopItems.find { it.id == s.menu?.argument }
+                            else ->
+                                if (c.action == "inherit") ownedItems.find { it.id == c.argument }
+                                else null
                         }
                     val enabled =
                         when (c.action) {
@@ -504,38 +512,43 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             "slotItem" -> s.equipment[Slot.entries[c.argument.toInt()]] != null
                             else -> true
                         }
-                    Column(
+                    Row(
                         Modifier.fillMaxWidth()
                             .background(panel, RoundedCornerShape(8.dp))
                             .border(1.dp, if (enabled) line else ink, RoundedCornerShape(8.dp))
                             .clickable(enabled = enabled, role = Role.Button) { vm.choose(c) }
-                            .padding(14.dp)
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(
-                            c.label,
-                            color = if (enabled) pale else muted,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        if (menu == "sell" && gear != null && gear.id in wornSlots.values) {
+                        gear?.let { ItemArt(it.kind, Modifier.size(48.dp)) }
+                        Column(Modifier.weight(1f)) {
                             Text(
-                                "장착 중 · 판매하면 장착이 해제됩니다",
-                                color = mint,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 5.dp),
+                                c.label,
+                                color = if (enabled) pale else muted,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
                             )
+                            if (menu == "sell" && gear != null && gear.id in wornSlots.values) {
+                                Text(
+                                    "장착 중 · 판매하면 장착이 해제됩니다",
+                                    color = mint,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 5.dp),
+                                )
+                            }
+                            gear?.let {
+                                Text(
+                                    it.summary(),
+                                    color = muted,
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp,
+                                    modifier = Modifier.padding(top = 5.dp),
+                                )
+                            }
+                            if (c.action == "buy" && !enabled)
+                                Text("골드가 부족합니다", color = red, fontSize = 10.sp)
                         }
-                        gear?.let {
-                            Text(
-                                it.summary(),
-                                color = muted,
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp,
-                                modifier = Modifier.padding(top = 5.dp),
-                            )
-                        }
-                        if (c.action == "buy" && !enabled)
-                            Text("골드가 부족합니다", color = red, fontSize = 10.sp)
                     }
                 }
             }
@@ -603,7 +616,13 @@ private fun ItemComparison(e: GameEngine) {
         Modifier.fillMaxWidth().background(panel).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(gear.name, color = amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ItemArt(gear.kind, Modifier.size(60.dp))
+            Text(gear.name, color = amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
         Text(gear.summary(), color = pale, fontSize = 12.sp)
         Equipment.allowedSlots(gear).forEach { slot ->
             val preview = s.copy(equipment = s.equipment.toMutableMap())
