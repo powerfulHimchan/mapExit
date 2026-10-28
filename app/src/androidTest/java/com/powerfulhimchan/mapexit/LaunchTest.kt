@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -530,5 +531,144 @@ class LaunchTest {
                 }
             }
         }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun fineArtCoversAllWeaponsEnemiesAndFacilities() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for (kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)) {
+                scenario.onActivity {
+                    val e = GameEngine()
+                    e.enterFloor(1)
+                    e.state.equipment.clear()
+                    val weapon = ItemFactory.create(e.state, kind)
+                    e.state.inventory.add(weapon)
+                    Equipment.equip(e.state, weapon.id, Slot.RIGHT)
+                    if (!weapon.twoHanded) {
+                        val shield = e.state.inventory.first { gear -> gear.kind == Kind.SHIELD }
+                        Equipment.equip(e.state, shield.id, Slot.LEFT)
+                    }
+                    e.startBattle(false)
+                    e.state.enemy =
+                        e.state.enemy!!.copy(name = "동굴 슬라임", hp = 2000.0, maxHp = 2000.0)
+                    it.game.engine = e
+                    it.game.active = false
+                    it.game.refresh()
+                }
+                bounds("3인칭 전투")
+                SystemClock.sleep(500)
+                capture("weapon-${kind.name.lowercase()}")
+            }
+            for ((name, id) in
+                listOf("녹슨 기사" to "knight", "심연 박쥐" to "bat", "10층의 수문장" to "boss")) {
+                scenario.onActivity {
+                    val e = GameEngine()
+                    e.enterFloor(if (id == "boss") 10 else 1)
+                    e.startBattle(id == "boss")
+                    e.state.enemy = e.state.enemy!!.copy(name = name)
+                    it.game.engine = e
+                    it.game.refresh()
+                }
+                bounds("3인칭 전투")
+                capture("enemy-$id")
+            }
+            for ((event, id) in listOf(Event.HEAL to "heal", Event.EXIT to "door")) {
+                scenario.onActivity {
+                    val e = GameEngine()
+                    e.enterFloor(1)
+                    e.state.dungeon!!.here().event = event
+                    it.game.engine = e
+                    it.game.refresh()
+                }
+                bounds("메인 장면")
+                capture("fine-$id")
+            }
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(50)
+                e.beginInheritance()
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("다음 여정에 남길 장비")
+            capture("fine-inheritance")
+            scenario.onActivity {
+                val e = GameEngine()
+                Kind.entries.forEach { kind ->
+                    e.state.inventory.add(ItemFactory.create(e.state, kind))
+                }
+                e.choose(e.choices().first { c -> c.action == "inventory" })
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("가방")
+            capture("fine-inventory-top")
+            repeat(3) {
+                scroll(instrumentation.uiAutomation.rootInActiveWindow)
+                instrumentation.waitForIdleSync()
+                SystemClock.sleep(150)
+            }
+            capture("fine-inventory-bottom")
+        }
+        // Render every authored asset with Android's actual bitmap implementation.
+        val atlas =
+            android.graphics.Bitmap.createBitmap(672, 464, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(atlas)
+        canvas.drawColor(0xff101a24.toInt())
+        val paint =
+            android.graphics.Paint().apply {
+                isAntiAlias = false
+                isFilterBitmap = false
+                color = 0xffe2e9e1.toInt()
+                textSize = 11f
+            }
+        FineSprites.all.entries.forEachIndexed { index, entry ->
+            val x = (index % 7) * 96
+            val y = (index / 7) * 116
+            val art = entry.value
+            canvas.drawText(entry.key, x + 3f, y + 12f, paint)
+            canvas.drawBitmap(
+                art.bitmap.asAndroidBitmap(),
+                null,
+                android.graphics.Rect(
+                    x + 16,
+                    y + 17,
+                    x + 16 + art.width * 2,
+                    y + 17 + art.height * 2,
+                ),
+                paint,
+            )
+        }
+        val resolver = instrumentation.targetContext.contentResolver
+        val values =
+            android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "mapexit-fine-atlas.png")
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                put(
+                    android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS,
+                )
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        val uri =
+            requireNotNull(
+                resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            )
+        requireNotNull(resolver.openOutputStream(uri)).use {
+            assertTrue(atlas.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+        }
+        resolver.update(
+            uri,
+            android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+            },
+            null,
+            null,
+        )
+        val png = requireNotNull(resolver.openInputStream(uri)).use { it.readBytes() }
+        assertTrue("The complete sprite atlas must be exported as a readable PNG", png.size > 8)
+        assertArrayEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10), png.copyOfRange(0, 8))
+        atlas.recycle()
     }
 }

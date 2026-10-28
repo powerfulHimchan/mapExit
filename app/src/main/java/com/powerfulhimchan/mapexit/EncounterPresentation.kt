@@ -9,8 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -73,33 +71,27 @@ internal fun EncounterCaption(vm: GameModel, modifier: Modifier) {
 internal fun DrawScope.drawEncounter(s: State, clock: Long) {
     val w = size.width
     val h = size.height
-    masonry(0f, 0f, w, h * .55f, Color(0xFF293C45))
-    pixelRect(Color(0xFF172832), 0f, h * .55f, w, h * .45f)
-    for (i in 0..6) {
-        val t = i / 6f
-        drawLine(
-            line,
-            Offset(0f, h * (.55f + .45f * t * t)),
-            Offset(w, h * (.55f + .45f * t * t)),
-            1f,
-        )
-    }
-    for (i in -2..5) drawLine(line, Offset(w * .55f, h * .55f), Offset(i * w / 4, h), 1f)
-    torch(w * .10f, h * .40f, clock)
-    torch(w * .86f, h * .40f, clock + 160)
-    val heroWidth = min(w * .30f, h * .25f)
-    val unit = (heroWidth / 16).toInt().coerceAtLeast(1).toFloat()
-    sprite("heroBack", w * .17f, h * .94f - unit * 24, heroWidth, mint)
+    arena(clock, .52f)
+    adventurer(s, w * .17f, h * .94f, min(w * .30f, h * .25f))
     if (s.encounter == Event.CHEST) {
-        sprite("chest", w * .63f, h * .66f, w * .23f, amber)
+        val width = w * .23f
+        contactShadow(w * .63f, h * .80f, spriteUnit(width) * 32)
+        sprite("chest", w * .63f, h * .80f - spriteHeight("chest", width), width)
     } else {
         val width = min(w * .22f, h * .18f)
-        val npcUnit = (width / 16).toInt().coerceAtLeast(1).toFloat()
+        val type = if (s.encounter == Event.MERCHANT) "merchant" else "npc"
         val x = w * .65f
-        val y = h * .78f - npcUnit * 24
-        sprite("npc", x, y, width, if (s.encounter == Event.MERCHANT) amber else mint)
+        val baseline = h * .79f
+        contactShadow(x, baseline + 3, spriteUnit(width) * 32)
+        sprite(type, x, baseline - spriteHeight(type, width), width)
         if (s.encounter == Event.MERCHANT) {
-            sprite("chest", x + width * .65f, h * .76f, w * .12f, amber)
+            val chestWidth = w * .12f
+            sprite(
+                "chest",
+                x + spriteUnit(width) * 27,
+                baseline - spriteHeight("chest", chestWidth),
+                chestWidth,
+            )
         }
     }
 }
