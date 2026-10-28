@@ -129,60 +129,64 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
         }
         if (s.mode == Mode.VICTORY) {
             s.battleResult?.let { result ->
-                Column(
-                    Modifier.align(Alignment.Center)
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp)
-                        .heightIn(max = maxHeight - 24.dp)
-                        .background(ink.copy(alpha = .96f), RoundedCornerShape(10.dp))
-                        .border(2.dp, amber, RoundedCornerShape(10.dp))
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                Box(
+                    Modifier.fillMaxSize().padding(bottom = 48.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        "전투 승리",
-                        color = amber,
-                        fontSize = 27.sp,
-                        lineHeight = 34.sp,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.semantics { contentDescription = "전투 승리" },
-                    )
-                    Text(
-                        "${result.enemy.name} 격파",
-                        color = pale,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                    )
-                    Text(
-                        "적 HP 0 / ${ceil(result.enemy.maxHp).toInt()}",
-                        color = muted,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                    )
-                    Text(
-                        "+${result.gold} G  ·  경험치 +${result.experience}",
-                        color = mint,
-                        fontSize = 15.sp,
-                        lineHeight = 21.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    if (result.items.isNotEmpty())
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                            .heightIn(max = maxHeight - 48.dp)
+                            .background(ink.copy(alpha = .96f), RoundedCornerShape(10.dp))
+                            .border(2.dp, amber, RoundedCornerShape(10.dp))
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
                         Text(
-                            "획득: ${result.items.joinToString(", ")}",
-                            color = pale,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                        )
-                    if (result.enemy.boss)
-                        Text(
-                            "${s.floor}층 이동 장치 해금",
+                            "전투 승리",
                             color = amber,
+                            fontSize = 24.sp,
+                            lineHeight = 30.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.semantics { contentDescription = "전투 승리" },
+                        )
+                        Text(
+                            "${result.enemy.name} 격파",
+                            color = pale,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                        )
+                        Text(
+                            "적 HP 0 / ${ceil(result.enemy.maxHp).toInt()}",
+                            color = muted,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
                         )
-                    Text("B로 결과 확인 후 계속", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                        Text(
+                            "+${result.gold} G  ·  경험치 +${result.experience}",
+                            color = mint,
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (result.items.isNotEmpty())
+                            Text(
+                                "획득: ${result.items.joinToString(", ")}",
+                                color = pale,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                            )
+                        if (result.enemy.boss)
+                            Text(
+                                "${s.floor}층 이동 장치 해금",
+                                color = amber,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                            )
+                        Text("B로 결과 확인 후 계속", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                    }
                 }
             }
         }
