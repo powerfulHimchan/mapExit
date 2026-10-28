@@ -186,8 +186,6 @@ private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt
     }
     torch(w * .16f, h * .25f, clock)
     torch(w * .78f, h * .25f, clock + 160)
-    drawOval(Color.Black.copy(alpha = .4f), Offset(w * .09f, h * .83f), Size(w * .35f, 8f))
-    drawOval(Color.Black.copy(alpha = .4f), Offset(w * .55f, h * .81f), Size(w * .35f, 10f))
     pixelRect(line, w * .1f, h * .08f, w * .8f, h * .045f)
     pixelRect(
         if (e.boss) amber else red,
@@ -197,18 +195,27 @@ private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt
         h * .045f,
     )
     val bob = if ((clock / 320) % 2 == 0L) 0f else 1f
-    val actionVisible = effectAt > 0 && clock - effectAt in 0..320
+    val actionVisible = effectAt > 0 && clock - effectAt in 0..160
     val shift =
         if (actionVisible && effect in listOf("attack", "strong")) 6f
         else if (actionVisible && effect == "dodge") -7f else 0f
     val heroWidth = min(w * .29f, h * .25f)
-    sprite("hero", w * .13f + shift, h * .82f - heroWidth * 1.5f + bob, heroWidth, mint)
+    val heroUnit = (heroWidth / 16).toInt().coerceAtLeast(1).toFloat()
+    val heroX = w * .13f + shift
+    val heroY = h * .82f - heroUnit * 24 + bob
+    drawOval(
+        Color.Black.copy(alpha = .4f),
+        Offset(heroX - 3, h * .83f),
+        Size(heroUnit * 16 + 6, 6f),
+    )
+    sprite("hero", heroX, heroY, heroWidth, mint)
     // Draw the equipped hand item rather than a generic attack marker.
     val weapon = Equipment.equipped(s).firstOrNull { it.weapon }
-    val wx = w * .39f
-    val wy = h * .57f
+    val wx = heroX + heroUnit * 14
+    val wy = heroY + heroUnit * 14 - 20f
     val metal = Color(0xFFCDD9D5)
     when (weapon?.kind) {
+        null -> Unit
         Kind.HAMMER -> {
             pixelRect(amber, wx, wy, 2f, 26f)
             pixelRect(metal, wx - 7f, wy - 3f, 16f, 9f)
@@ -225,38 +232,44 @@ private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt
         }
     }
     if (Equipment.equipped(s).any { it.kind == Kind.SHIELD }) {
-        pixelRect(Color(0xFF577985), w * .12f, h * .66f, 12f, 17f)
-        pixelRect(amber, w * .12f + 5, h * .66f + 5, 3f, 6f)
+        pixelRect(Color(0xFF577985), heroX - heroUnit, heroY + heroUnit * 12, 12f, 17f)
+        pixelRect(amber, heroX - heroUnit + 5, heroY + heroUnit * 12 + 5, 3f, 6f)
     }
-    sprite(
+    val enemyType =
         if (e.boss) "boss"
-        else if (e.name.contains("기사")) "knight" else if (e.name.contains("박쥐")) "bat" else "slime",
-        w * .53f,
-        h * .47f + bob,
-        min(w * .34f, h * .23f),
-        if (e.boss) red else Color(0xFF9ACB94),
+        else if (e.name.contains("기사")) "knight" else if (e.name.contains("박쥐")) "bat" else "slime"
+    val enemyWidth = min(w * .34f, h * .23f)
+    val enemyUnit = (enemyWidth / 16).toInt().coerceAtLeast(1).toFloat()
+    val enemyRows =
+        when (enemyType) {
+            "slime" -> 12
+            "bat" -> 10
+            else -> 24
+        }
+    val enemyX = w * .56f
+    val enemyY = h * (if (enemyType == "bat") .64f else .81f) - enemyRows * enemyUnit + bob
+    drawOval(
+        Color.Black.copy(alpha = .4f),
+        Offset(enemyX - 3, h * .83f),
+        Size(enemyUnit * 16 + 6, 6f),
     )
+    sprite(enemyType, enemyX, enemyY, enemyWidth, if (e.boss) red else Color(0xFF9ACB94))
     if (actionVisible && effect in listOf("attack", "strong")) {
         repeat(if (effect == "strong") 9 else 6) { n ->
             pixelRect(
                 if (effect == "strong") amber else pale,
-                w * .53f + n * 3,
-                h * .55f - n * 3,
+                enemyX + enemyUnit * 3 + n * 3,
+                enemyY + enemyUnit * 8 - n * 3,
                 3f,
                 5f,
             )
         }
     }
     if (actionVisible && effect == "guard") {
-        repeat(5) { n -> pixelRect(mint, w * .41f, h * .55f + n * 6, 2f, 4f) }
+        repeat(5) { n ->
+            pixelRect(mint, heroX + heroUnit * 16, heroY + heroUnit * 9 + n * 6, 2f, 4f)
+        }
     }
-    pixelRect(
-        if (s.mode == Mode.COMBAT_ATTACK) mint else red,
-        w * .44f,
-        h * .35f,
-        w * .10f,
-        h * .04f,
-    )
 }
 
 internal fun DrawScope.drawMap(s: State) {
