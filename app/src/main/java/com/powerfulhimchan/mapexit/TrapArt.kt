@@ -310,9 +310,10 @@ private fun DrawScope.fallingBeam(t: TrapState) {
     val fall = if (t.phase == TrapPhase.PREPARE) 0f else t.beamDescent()
     val heroHeight = 48 * spriteUnit(min(w * .23f, h * .28f))
     val thickness = heroHeight * .38f
-    val bottom = h * .85f - heroHeight * .65f
-    val targetY = bottom - thickness
-    val y = h * .14f + (targetY - h * .14f) * fall
+    val contactY = h * .85f - heroHeight - thickness
+    val passage = if (t.phase == TrapPhase.RESULT) (t.elapsedMs / 650f).coerceIn(0f, 1f) else 0f
+    // Contact reaches the standing head exactly at timeout, then passes over the crouched body.
+    val y = h * .14f + (contactY - h * .14f) * fall + heroHeight * .35f * passage
     // Rails and head-height marks make the collision plane visible throughout the descent.
     for (x in listOf(.17f, .80f)) {
         pixelRect(iron.copy(alpha = .7f), w * x, h * .13f, w * .018f, h * .58f)
