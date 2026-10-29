@@ -109,7 +109,7 @@ class ContextControls(private val engine: GameEngine) {
                         if (i == 0) button.copy(holdLabel = "가방 / 장비", holdChoice = inventory)
                         else if (routes != null)
                             button.copy(holdLabel = "방향 처음으로", holdChoice = Choice("처음", "_root"))
-                        else button.copy(holdLabel = "기록 / 능력치", holdChoice = help)
+                        else button.copy(holdLabel = "미션 / 기록", holdChoice = help)
                     }
                 }
             }

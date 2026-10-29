@@ -1012,6 +1012,100 @@ class LaunchTest {
         assertEquals(saved, SaveCodec.encode(e.state))
     }
 
+    @Test
+    fun dungeonHeaderMenusAndTurnStripUseSeparateAreas() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine(State(points = 3))
+                e.enterFloor(1)
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            val scene = bounds("메인 장면")
+            assertTrue(bounds("장비").bottom <= scene.top)
+            assertTrue(bounds("능력치").bottom <= scene.top)
+            capture("dungeon-toolbar")
+            tap("장비")
+            bounds("장비 장착")
+            capture("dungeon-equipment")
+            tap("돌아가기")
+            tap("능력치")
+            bounds("능력치 성장")
+            capture("dungeon-stats")
+            tap("돌아가기")
+            scenario.onActivity {
+                it.game.engine.startBattle(false)
+                it.game.engine.state.enemy!!.hp = 5000.0
+                it.game.refresh()
+            }
+            var turn = bounds("전투 차례")
+            var caption = bounds("현재 상황")
+            var action = bounds("A 일반 공격")
+            assertTrue(turn.top > caption.bottom && turn.bottom <= action.top)
+            bounds("공격 차례")
+            capture("turn-attack")
+            tap("A 일반 공격")
+            turn = bounds("전투 차례")
+            caption = bounds("현재 상황")
+            action = bounds("A 방어")
+            assertTrue(turn.top > caption.bottom && turn.bottom <= action.top)
+            bounds("방어 차례")
+            capture("turn-defense")
+        }
+    }
+
+    @Test
+    fun levelUpBannerAppearsAfterFinalStrikeAndCanBeDismissed() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine(State(experience = 79))
+                e.enterFloor(1)
+                e.startBattle(false)
+                e.state.enemy!!.hp = 1.0
+                e.state.rng = 0L
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+                it.game.choose(Choice("공격", "attack"))
+                assertTrue(it.game.battleBusy())
+                assertEquals(LevelUpNotice(1, 2, 3), e.state.levelUpNotice)
+            }
+            val banner = bounds("레벨 업 LV.1에서 LV.2")
+            assertTrue(banner.bottom <= bounds("메인 장면").top)
+            bounds("성장 포인트 +3P · 보유 3P")
+            capture("level-up")
+            tap("레벨업 알림 닫기")
+            scenario.onActivity { assertNull(it.game.engine.state.levelUpNotice) }
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "레벨 업 LV.1에서 LV.2"))
+            capture("level-up-dismissed")
+        }
+    }
+
+    @Test
+    fun deadEndMessageDisappearsAfterReturningToCorridor() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val d = Dungeon(9, 9, MutableList(81) { Cell() }, x = 4, y = 3, direction = 0)
+                for (y in 2..6) d.cell(4, y).wall = false
+                val e =
+                    GameEngine(
+                        State(bootstrapped = true, dungeon = d, floor = 1, mode = Mode.EXPLORE)
+                    )
+                e.choose(Choice("앞으로", "move", 0))
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("막다른 길입니다")
+            capture("dead-end")
+            tap("A ↓ 뒤로 이동")
+            bounds("통로를 탐험하고 있습니다")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "막다른 길입니다"))
+            capture("dead-end-cleared")
+        }
+    }
+
     private fun exportBitmap(name: String, bitmap: android.graphics.Bitmap) {
         val resolver = instrumentation.targetContext.contentResolver
         val values =

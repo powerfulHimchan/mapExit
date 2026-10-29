@@ -346,6 +346,23 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         }
     }
 
+    /** Header shortcuts stop automatic walking before opening a real menu. */
+    fun openDungeonPanel(type: String): Boolean {
+        if (
+            type !in listOf("equipment", "growth") ||
+                state.dungeon == null ||
+                state.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR)
+        )
+            return false
+        if (state.mode == Mode.MOVING) {
+            state.mode = Mode.EXPLORE
+            state.movementMs = 0L
+        }
+        if (type == "growth") state.levelUpNotice = null
+        open(type)
+        return true
+    }
+
     private fun open(type: String, arg: Long = 0L) {
         val s = state
         if (s.mode == Mode.MENU) s.menu?.let { s.menuStack.add(it) }
@@ -437,7 +454,10 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "growth",
             "equipment",
             "bank",
-            "help" -> open(c.action)
+            "help" -> {
+                if (c.action == "growth") s.levelUpNotice = null
+                open(c.action)
+            }
             "item" -> open("item", c.argument)
             "slotItem" -> {
                 val id = s.equipment[Slot.entries[c.argument.toInt()]]
@@ -639,6 +659,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         m.x = xx
         m.y = yy
         m.reveal()
+        // This positional hint must never survive arrival at a different tile.
+        if (s.message == "막다른 길입니다") s.message = "통로를 탐험하고 있습니다"
         val cell = m.here()
         if (!cell.resolved && cell.event != Event.NONE) {
             s.mode = Mode.EXPLORE
@@ -886,11 +908,21 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
 
     private fun gainExperience(amount: Int) {
         val s = state
+        val before = s.level
         s.experience += amount
         while (s.experience >= s.level * 80) {
             s.experience -= s.level * 80
             s.level++
             s.points += 3
+        }
+        if (s.level > before) {
+            val pending = s.levelUpNotice
+            s.levelUpNotice =
+                LevelUpNotice(
+                    pending?.from ?: before,
+                    s.level,
+                    (pending?.gainedPoints ?: 0) + (s.level - before) * 3,
+                )
         }
     }
 
@@ -1017,6 +1049,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.cycle++
         s.clears++
         s.level = 1
+        s.levelUpNotice = null
         s.experience = 0
         s.points = 0
         s.base = Stats()

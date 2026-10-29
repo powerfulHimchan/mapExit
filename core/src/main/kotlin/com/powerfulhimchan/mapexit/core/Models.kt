@@ -281,6 +281,8 @@ data class Quest(
         get() = progress >= target
 }
 
+@Serializable data class LevelUpNotice(val from: Int, val to: Int, val gainedPoints: Int)
+
 @Serializable
 data class Menu(val type: String, val argument: Long = 0L, val returnMode: Mode = Mode.SURFACE)
 
@@ -295,6 +297,7 @@ data class State(
     var clears: Int = 0,
     var level: Int = 1,
     var experience: Int = 0,
+    var levelUpNotice: LevelUpNotice? = null,
     var points: Int = 0,
     var base: Stats = Stats(),
     var hp: Double = 360.0,

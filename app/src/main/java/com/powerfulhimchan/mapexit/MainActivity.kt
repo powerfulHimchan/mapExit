@@ -168,6 +168,20 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
+    fun openDungeonPanel(type: String) {
+        if (loadError != null || battleBusy()) return
+        if (engine.openDungeonPanel(type)) {
+            save()
+            refresh()
+        }
+    }
+
+    fun dismissLevelUp() {
+        engine.state.levelUpNotice = null
+        save()
+        refresh()
+    }
+
     fun back() {
         engine.navigateBack()
         save()

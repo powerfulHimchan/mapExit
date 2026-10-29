@@ -88,7 +88,7 @@ fun MapExitScreen(vm: GameModel) {
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
             Row(
-                Modifier.fillMaxWidth().height(if (canRetreat) 48.dp else 34.dp),
+                Modifier.fillMaxWidth().height(34.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -105,16 +105,14 @@ fun MapExitScreen(vm: GameModel) {
                     color = amber,
                     fontSize = 12.sp,
                 )
-                if (canRetreat)
-                    TextButton(
-                        onClick = {
-                            if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
-                            confirmRetreat = true
-                        }
-                    ) {
-                        Text("지상으로", color = red, fontSize = 12.sp)
-                    }
             }
+            if (s.dungeon != null && s.mode !in listOf(Mode.MENU, Mode.RUN_RESULT, Mode.INHERIT))
+                DungeonToolbar(vm) {
+                    if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
+                    confirmRetreat = true
+                }
+            if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode != Mode.MENU)
+                LevelUpBanner(s.levelUpNotice!!, s.points, vm::dismissLevelUp)
             if (vm.loadError != null) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(vm.loadError!!, color = red)
@@ -215,9 +213,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
         ) {
             ScenePresentation(vm, clock, Modifier.fillMaxWidth().weight(1f))
             Text(
-                if (motion != null)
-                    "${if (motion.impact.target == ImpactTarget.ENEMY) "공격 중" else "적 반격"} · ${s.message}"
-                else sceneMessage(s),
+                sceneMessage(s),
                 color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
                 fontSize = if (compact) 13.sp else 14.sp,
                 lineHeight = if (compact) 18.sp else 20.sp,
@@ -282,6 +278,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                         )
                 }
             }
+            CombatTurnStrip(s, motion)
             Row(
                 Modifier.fillMaxWidth().height(if (compact) 62.dp else 76.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -619,7 +616,5 @@ private fun sceneMessage(s: State): String =
         s.mode == Mode.TRAP_GUIDE -> s.trap?.cue() ?: "곧 시작"
         s.mode == Mode.VICTORY -> "전투 종료 · 보상을 확인하고 계속하세요"
         s.mode == Mode.TRAP -> s.trap?.prompt() ?: "함정"
-        s.enemy != null ->
-            "${if (s.mode == Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"} · ${s.message}"
         else -> s.message
     }
