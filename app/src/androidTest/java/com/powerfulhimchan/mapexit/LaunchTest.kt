@@ -393,6 +393,24 @@ class LaunchTest {
                 bounds("머리: 비어 있음", allowScroll = true)
                 capture("compact-equipment")
                 bounds("신발: 비어 있음", allowScroll = true)
+                scenario.onActivity {
+                    val e = it.game.engine
+                    e.navigateBack()
+                    e.state.points = 1
+                    e.choose(e.choices().first { c -> c.action == "growth" })
+                    it.game.refresh()
+                }
+                bounds("남은 성장 포인트 1P · 카드당 1P")
+                capture("compact-growth")
+                scenario.onActivity {
+                    val e = it.game.engine
+                    e.navigateBack()
+                    e.state.gold = 1000
+                    e.choose(e.choices().first { c -> c.action == "shop" })
+                    it.game.refresh()
+                }
+                bounds("아이템 판매")
+                capture("compact-shop")
             }
         } finally {
             val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
@@ -515,6 +533,182 @@ class LaunchTest {
             tap("B 지나가기")
             scenario.onActivity { assertEquals(Mode.EXPLORE, it.game.engine.state.mode) }
         }
+    }
+
+    @Test
+    fun iconGrowthAndTradingCardsRefreshImmediately() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var hpChoice = ""
+            var attackChoice = ""
+            scenario.onActivity {
+                val e = GameEngine(State(gold = 10000, points = 1))
+                e.choose(e.choices().first { c -> c.action == "growth" })
+                hpChoice =
+                    e.choices()
+                        .first { c -> c.action == "stat" && c.argument == Stat.HP.ordinal.toLong() }
+                        .label
+                attackChoice =
+                    e.choices()
+                        .first { c ->
+                            c.action == "stat" && c.argument == Stat.ATTACK.ordinal.toLong()
+                        }
+                        .label
+                it.game.engine = e
+                it.game.active = false
+                it.game.refresh()
+            }
+            val hp = bounds(hpChoice)
+            val attack = bounds(attackChoice)
+            assertEquals(hp.top, attack.top)
+            assertTrue(hp.centerX() < attack.centerX())
+            bounds("최대 체력 성장 후 385")
+            capture("growth-grid")
+            tap(hpChoice)
+            bounds("남은 성장 포인트 0P · 카드당 1P")
+            var noPoints = ""
+            scenario.onActivity {
+                assertEquals(385.0, it.game.engine.stats().hp, .001)
+                noPoints = it.game.engine.choices().first { c -> c.action == "stat" }.label
+            }
+            tap(noPoints)
+            scenario.onActivity { assertEquals(0, it.game.engine.state.points) }
+            capture("growth-empty")
+            var swordLabel = ""
+            var shieldLabel = ""
+            var swordId = 0L
+            scenario.onActivity {
+                val e = it.game.engine
+                e.navigateBack()
+                val sword = ItemFactory.create(e.state, Kind.SWORD)
+                val shield = ItemFactory.create(e.state, Kind.SHIELD)
+                val potion = ItemFactory.create(e.state, Kind.POTION)
+                swordId = sword.id
+                e.state.shop = mutableListOf(sword, shield, potion)
+                e.choose(e.choices().first { c -> c.action == "shop" })
+                swordLabel =
+                    e.choices().first { c -> c.action == "buy" && c.argument == sword.id }.label
+                shieldLabel =
+                    e.choices().first { c -> c.action == "buy" && c.argument == shield.id }.label
+                it.game.refresh()
+            }
+            val sword = bounds(swordLabel)
+            val shield = bounds(shieldLabel)
+            assertEquals(sword.top, shield.top)
+            assertTrue(sword.centerX() < shield.centerX())
+            capture("shop-grid")
+            tap(swordLabel)
+            scenario.onActivity {
+                assertFalse(it.game.engine.state.shop.any { gear -> gear.id == swordId })
+                assertTrue(it.game.engine.state.inventory.any { gear -> gear.id == swordId })
+            }
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, swordLabel))
+            capture("shop-purchased")
+            var potionLabel = ""
+            scenario.onActivity {
+                val e = it.game.engine
+                val potion = e.state.shop.first { gear -> gear.kind == Kind.POTION }
+                potionLabel =
+                    e.choices().first { c -> c.action == "buy" && c.argument == potion.id }.label
+            }
+            tap(potionLabel, allowScroll = true)
+            var quantities = listOf<String>()
+            scenario.onActivity {
+                quantities =
+                    it.game.engine
+                        .choices()
+                        .filter { c -> c.action == "buyQuantity" }
+                        .map { c -> c.label }
+            }
+            val one = bounds(quantities[0])
+            val three = bounds(quantities[1])
+            val five = bounds(quantities[2])
+            assertEquals(one.top, three.top)
+            assertEquals(one.top, five.top)
+            capture("quantity-grid")
+            tap(quantities[1])
+            scenario.onActivity {
+                assertEquals(
+                    5,
+                    it.game.engine.state.inventory.count { gear -> gear.kind == Kind.POTION },
+                )
+            }
+            scenario.onActivity { it.game.back() }
+            tap("아이템 판매")
+            capture("sell-grid")
+        }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun continuousDungeonProjectionProducesDistinctOpaqueFrames() {
+        val e = GameEngine()
+        val map = Dungeon(9, 11, MutableList(99) { Cell() }, x = 4, y = 8, direction = 0)
+        for (y in 1..9) map.cell(4, y).wall = false
+        for (x in 2..4) map.cell(x, 3).wall = false
+        e.state.dungeon = map
+        e.state.floor = 1
+        e.state.mode = Mode.EXPLORE
+        val camera = DungeonCamera()
+        camera.observe(e.state, 0)
+        map.y--
+        camera.observe(e.state, 0)
+        val saved = SaveCodec.encode(e.state)
+        val renderer = DungeonRaster(480, 640)
+        var previous: IntArray? = null
+        for ((index, time) in listOf(0L, 150L, 300L, 450L, 600L).withIndex()) {
+            val bitmap = renderer.render(map, camera.sample(time)).asAndroidBitmap()
+            val pixels = IntArray(480 * 640)
+            bitmap.getPixels(pixels, 0, 480, 0, 0, 480, 640)
+            assertTrue(pixels.all { (it ushr 24) == 255 })
+            assertTrue(pixels.toSet().size > 40)
+            previous?.let { assertFalse(it.contentEquals(pixels)) }
+            previous = pixels
+            exportBitmap("walk-$index", bitmap)
+        }
+        assertEquals(saved, SaveCodec.encode(e.state))
+        for ((index, direction) in listOf(0, 1, 2, 3).withIndex()) {
+            val pose =
+                DungeonViewPose(4.5f, 3.5f, (-Math.PI / 2 + direction * Math.PI / 2).toFloat())
+            exportBitmap("turn-$index", renderer.render(map, pose).asAndroidBitmap())
+        }
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("메인 장면")
+            capture("smooth-corridor")
+        }
+    }
+
+    private fun exportBitmap(name: String, bitmap: android.graphics.Bitmap) {
+        val resolver = instrumentation.targetContext.contentResolver
+        val values =
+            android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "mapexit-$name.png")
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                put(
+                    android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS,
+                )
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        val uri =
+            requireNotNull(
+                resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            )
+        requireNotNull(resolver.openOutputStream(uri)).use {
+            assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+        }
+        resolver.update(
+            uri,
+            android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+            },
+            null,
+            null,
+        )
     }
 
     @Test

@@ -28,6 +28,8 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
     val s = vm.engine.state.copy()
     val inBattle = s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null)
     val enemy = s.enemy ?: s.battleResult?.enemy
+    val dungeonPose =
+        vm.dungeonCamera.sample(clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis())
     BoxWithConstraints(modifier.fillMaxWidth()) {
         if (inBattle) {
             key(s.battleId) {
@@ -38,6 +40,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                         s.copy(mode = Mode.EXPLORE, enemy = null, battleResult = null),
                         clock,
                         Modifier.fillMaxSize(),
+                        camera = dungeonPose,
                     )
                 PixelCanvas(
                     s,
@@ -47,7 +50,15 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     vm.visualEffectAt,
                 )
             }
-        } else PixelCanvas(s, clock, Modifier.fillMaxSize(), vm.visualEffect, vm.visualEffectAt)
+        } else
+            PixelCanvas(
+                s,
+                clock,
+                Modifier.fillMaxSize(),
+                vm.visualEffect,
+                vm.visualEffectAt,
+                dungeonPose,
+            )
         if (inBattle && enemy != null && s.mode != Mode.VICTORY) {
             Column(
                 Modifier.align(Alignment.TopCenter)

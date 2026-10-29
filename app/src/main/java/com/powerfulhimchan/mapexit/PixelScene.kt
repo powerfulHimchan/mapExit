@@ -95,6 +95,7 @@ internal fun DrawScope.drawScene(
     clock: Long = 0,
     effect: String = "",
     effectAt: Long = 0L,
+    camera: DungeonViewPose? = null,
 ) {
     drawRect(ink)
     when {
@@ -103,7 +104,7 @@ internal fun DrawScope.drawScene(
         s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) ->
             drawBattle(s, clock, effect, effectAt)
         s.floor == 0 || s.mode == Mode.INHERIT -> drawCamp(s, clock)
-        else -> drawDungeonPerspective(s, clock)
+        else -> drawDungeonPerspective(s, clock, camera)
     }
 }
 
