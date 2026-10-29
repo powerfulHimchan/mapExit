@@ -20,14 +20,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.powerfulhimchan.mapexit.core.*
 import kotlin.math.ceil
+import kotlinx.coroutines.delay
 
 /** Camera, labels and feedback share the scene area so compact message rows never hide vital HP. */
 @Composable
 internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
     vm.revision
-    val s = vm.engine.state.copy()
+    val time = clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis()
+    val s = vm.presentationState(time).copy()
+    val motion = vm.battleVisual?.takeIf { it.active(time) }
     val inBattle = s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null)
-    val enemy = s.enemy ?: s.battleResult?.enemy
+    val enemy =
+        if (
+            motion?.impact?.target == ImpactTarget.ENEMY &&
+                time < motion.startedAt + BattleAnimation.HIT_MS
+        )
+            motion.scene.enemy
+        else s.enemy ?: s.battleResult?.enemy
     val dungeonPose =
         vm.dungeonCamera.sample(clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis())
     BoxWithConstraints(modifier.fillMaxWidth()) {
@@ -38,26 +47,29 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 if (camera.value < 1f)
                     PixelCanvas(
                         s.copy(mode = Mode.EXPLORE, enemy = null, battleResult = null),
-                        clock,
+                        time,
                         Modifier.fillMaxSize(),
                         camera = dungeonPose,
+                        battle = motion,
                     )
                 PixelCanvas(
                     s,
-                    clock,
+                    time,
                     Modifier.fillMaxSize().graphicsLayer { alpha = camera.value },
                     vm.visualEffect,
                     vm.visualEffectAt,
+                    battle = motion,
                 )
             }
         } else
             PixelCanvas(
                 s,
-                clock,
+                time,
                 Modifier.fillMaxSize(),
                 vm.visualEffect,
                 vm.visualEffectAt,
                 dungeonPose,
+                motion,
             )
         if (inBattle && enemy != null && s.mode != Mode.VICTORY) {
             Column(
@@ -70,7 +82,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    "3인칭 전투 · ${if(s.mode==Mode.VICTORY) "종료" else if(s.mode==Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"}",
+                    "3인칭 전투 · ${if (motion != null) { if (motion.impact.target == ImpactTarget.ENEMY) "플레이어 공격 중" else "몬스터 공격 중" } else if(s.mode==Mode.VICTORY) "종료" else if(s.mode==Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"}",
                     color = mint,
                     fontSize = 10.sp,
                     lineHeight = 13.sp,
@@ -127,11 +139,12 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
             }
         }
         if (s.mode == Mode.ENCOUNTER) EncounterCaption(vm, Modifier.align(Alignment.TopCenter))
-        if (s.mode == Mode.VICTORY) {
+        if (s.mode == Mode.VICTORY && !vm.battleBusy(time)) {
             s.battleResult?.let { result ->
-                val victoryHeight = maxHeight - 48.dp
+                val feedbackSpace = if (vm.currentImpact?.critical == true) 80.dp else 56.dp
+                val victoryHeight = maxHeight - feedbackSpace
                 Box(
-                    Modifier.fillMaxSize().padding(bottom = 48.dp),
+                    Modifier.fillMaxSize().padding(bottom = feedbackSpace),
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(
@@ -194,34 +207,64 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
         vm.currentImpact?.let { impact ->
             key(impact.serial) {
                 val rise = remember { Animatable(0f) }
-                LaunchedEffect(Unit) { rise.animateTo(1f, tween(1200)) }
+                val hitTime =
+                    vm.battleVisual
+                        ?.takeIf { it.impact.serial == impact.serial }
+                        ?.let { it.startedAt + BattleAnimation.HIT_MS } ?: time
+                var visible by remember { mutableStateOf(time >= hitTime) }
+                LaunchedEffect(Unit) {
+                    delay((hitTime - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0))
+                    visible = true
+                    rise.animateTo(1f, tween(1200))
+                }
                 val enemyHit = impact.target == ImpactTarget.ENEMY
+                val avoided = impact.outcome in listOf(ImpactOutcome.DODGE, ImpactOutcome.MISS)
                 val popupColor =
-                    if (impact.outcome in listOf(ImpactOutcome.DODGE, ImpactOutcome.MISS)) mint
-                    else if (impact.critical || !enemyHit) red else amber
-                Text(
-                    impact.label(),
-                    color = popupColor,
-                    fontSize = 20.sp,
-                    lineHeight = 25.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier =
-                        (if (s.mode == Mode.VICTORY)
-                                Modifier.align(Alignment.BottomEnd).padding(8.dp)
-                            else
-                                Modifier.offset(
-                                    x = maxWidth * (if (enemyHit) .55f else .12f),
-                                    y =
-                                        maxHeight * (if (enemyHit) .32f else .62f) -
-                                            24.dp * rise.value,
-                                ))
-                            .background(ink.copy(alpha = .9f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .semantics {
-                                contentDescription =
-                                    "${if(enemyHit) "적" else "플레이어"} 피해 ${impact.label()}"
-                            },
-                )
+                    if (avoided) mint
+                    else if (!enemyHit) red else if (impact.critical) amber else pale
+                if (visible)
+                    Column(
+                        modifier =
+                            (if (s.mode == Mode.VICTORY && !vm.battleBusy(time))
+                                    Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                                else
+                                    Modifier.offset(
+                                        x = maxWidth * (if (enemyHit) .48f else .05f),
+                                        y =
+                                            maxHeight * (if (enemyHit) .34f else .62f) -
+                                                24.dp * rise.value,
+                                    ))
+                                .widthIn(max = maxWidth * .50f)
+                                .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
+                                .border(
+                                    if (impact.critical) 2.dp else 1.dp,
+                                    if (impact.critical) popupColor else line,
+                                    RoundedCornerShape(6.dp),
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription =
+                                        "${if(enemyHit) "적" else "플레이어"} 피해 ${impact.label()}"
+                                },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (impact.critical)
+                            Text(
+                                "치명타!",
+                                color = popupColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black,
+                            )
+                        Text(
+                            if (avoided) impact.label() else "-${impact.amount}",
+                            color = popupColor,
+                            fontSize = if (impact.critical) 32.sp else 25.sp,
+                            lineHeight = if (impact.critical) 36.sp else 30.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                        if (impact.outcome == ImpactOutcome.GUARD && !impact.critical)
+                            Text("방어", color = popupColor, fontSize = 10.sp)
+                    }
             }
         }
     }

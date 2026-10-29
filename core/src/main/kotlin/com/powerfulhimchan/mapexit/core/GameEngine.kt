@@ -381,6 +381,22 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.selection = 0
     }
 
+    private fun returnToGearSelection() {
+        val s = state
+        val index =
+            s.menuStack.indexOfLast { it.type == "equipment" }.takeIf { it >= 0 }
+                ?: s.menuStack.indexOfLast { it.type == "inventory" }
+        if (index < 0) {
+            closeMenu()
+            return
+        }
+        val destination = s.menuStack[index]
+        s.menuStack = s.menuStack.take(index).toMutableList()
+        s.menu = destination
+        s.mode = Mode.MENU
+        s.selection = 0
+    }
+
     private fun execute(c: Choice) {
         val s = state
         when (c.action) {
@@ -439,12 +455,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "equip" -> {
                 val id = s.menu?.argument ?: return
                 if (Equipment.equip(s, id, Slot.entries[c.argument.toInt()])) s.note("장비를 변경했습니다")
-                closeMenu()
+                returnToGearSelection()
             }
             "unequip" -> {
                 Equipment.unequip(s, c.argument)
                 s.note("장비를 해제했습니다")
-                closeMenu()
+                returnToGearSelection()
             }
             "useItem" -> {
                 usePotion(c.argument)

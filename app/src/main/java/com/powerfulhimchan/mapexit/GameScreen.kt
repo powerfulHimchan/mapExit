@@ -45,10 +45,11 @@ internal val red = Color(0xFFF29491)
 @Composable
 fun MapExitScreen(vm: GameModel) {
     vm.revision
-    val s = vm.engine.state
     var confirmRetreat by remember { mutableStateOf(false) }
-    val canRetreat = s.dungeon != null && s.mode in listOf(Mode.EXPLORE, Mode.MOVING)
     var clock by remember { mutableLongStateOf(0L) }
+    val now = clock.takeIf { it > 0 } ?: SystemClock.uptimeMillis()
+    val s = vm.presentationState(now)
+    val canRetreat = s.dungeon != null && s.mode in listOf(Mode.EXPLORE, Mode.MOVING)
     LaunchedEffect(vm) {
         var previous = 0L
         while (true) {
@@ -56,8 +57,15 @@ fun MapExitScreen(vm: GameModel) {
                 if (previous != 0L && now - previous >= 33_000_000) {
                     if (vm.active) {
                         vm.tick(((now - previous) / 1_000_000).coerceAtMost(100))
-                        clock = SystemClock.uptimeMillis()
                     }
+                    val uptime = SystemClock.uptimeMillis()
+                    if (
+                        vm.active ||
+                            vm.battleVisual?.let {
+                                uptime - it.startedAt <= BattleAnimation.DURATION_MS + 100
+                            } == true
+                    )
+                        clock = uptime
                     previous = now
                 } else if (previous == 0L) previous = now
             }
@@ -65,7 +73,7 @@ fun MapExitScreen(vm: GameModel) {
     }
     LaunchedEffect(vm.currentImpact?.serial) {
         val event = vm.currentImpact ?: return@LaunchedEffect
-        delay(1600)
+        delay(2600)
         vm.clearImpact(event.serial)
     }
     BackHandler(s.mode == Mode.MENU) { vm.back() }
@@ -155,6 +163,7 @@ internal fun PixelCanvas(
     effect: String = "",
     effectAt: Long = 0L,
     camera: DungeonViewPose? = null,
+    battle: BattleVisual? = null,
 ) {
     BoxWithConstraints(
         modifier.background(ink).border(1.dp, line).semantics { contentDescription = "메인 장면" }
@@ -172,7 +181,7 @@ internal fun PixelCanvas(
                 ImageCanvas(bitmap),
                 Size(480f, logicalH.toFloat()),
             ) {
-                drawScene(s, clock, effect, effectAt, camera)
+                drawScene(s, clock, effect, effectAt, camera, battle)
             }
             drawImage(
                 bitmap,
@@ -187,24 +196,41 @@ internal fun PixelCanvas(
 @Composable
 private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
     vm.revision
-    val s = vm.engine.state
-    val p = vm.engine.stats()
-    val buttons = vm.engine.controls.buttons()
+    val s = vm.presentationState(clock.takeIf { it > 0 } ?: SystemClock.uptimeMillis())
+    val p = Equipment.stats(s)
+    val motion =
+        vm.battleVisual?.takeIf {
+            it.active(clock.takeIf { time -> time > 0 } ?: SystemClock.uptimeMillis())
+        }
+    val buttons =
+        vm.engine.controls.buttons().map {
+            if (vm.battleBusy()) it.copy(enabled = false, holdChoice = null, holdLabel = null)
+            else it
+        }
     BoxWithConstraints(modifier) {
         val compact = maxHeight < 560.dp
         Column(
             Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp),
         ) {
             ScenePresentation(vm, clock, Modifier.fillMaxWidth().weight(1f))
             Text(
-                sceneMessage(s),
+                if (motion != null)
+                    "${if (motion.impact.target == ImpactTarget.ENEMY) "공격 중" else "적 반격"} · ${s.message}"
+                else sceneMessage(s),
                 color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                maxLines = if (compact) 1 else 2,
+                fontSize = if (compact) 13.sp else 14.sp,
+                lineHeight = if (compact) 18.sp else 20.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().heightIn(min = if (compact) 20.dp else 36.dp),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .heightIn(min = if (compact) 30.dp else 34.dp)
+                        .background(panel, RoundedCornerShape(6.dp))
+                        .border(1.dp, amber.copy(alpha = .6f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 10.dp, vertical = if (compact) 4.dp else 6.dp)
+                        .semantics { contentDescription = "현재 상황" },
             )
             Row(
                 Modifier.fillMaxWidth().height(if (compact) 54.dp else 68.dp),
@@ -393,6 +419,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (!surface) MenuArt(menu ?: "help", Modifier.padding(end = 10.dp).size(34.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
                             if (surface) "BASE CAMP / PREPARATION" else "EQUIPMENT / RECORD",
@@ -407,6 +434,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             }
             if (surface || s.mode == Mode.INHERIT)
                 item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
+            if (surface) item { PreparationMenuGrid(vm) }
             if (menu == "equipment")
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -415,7 +443,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     }
                 }
             if (menu !in listOf("growth", "shop", "sell", "quantity")) item { Summary(e) }
-            if (menu != "equipment")
+            if (surface || s.mode == Mode.INHERIT)
                 item {
                     Text(
                         s.message,
@@ -426,40 +454,6 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     )
                 }
             if (surface) {
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("장비" to "equipment", "가방" to "inventory", "상점" to "shop").forEach {
-                            (label, action) ->
-                            OutlinedButton(
-                                onClick = {
-                                    e.choices().firstOrNull { it.action == action }?.let(vm::choose)
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(8.dp),
-                            ) {
-                                Text(label)
-                            }
-                        }
-                    }
-                }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("성장 ${s.points}P" to "growth", "보관소" to "bank", "기록" to "help")
-                            .forEach { (label, action) ->
-                                OutlinedButton(
-                                    onClick = {
-                                        e.choices()
-                                            .firstOrNull { it.action == action }
-                                            ?.let(vm::choose)
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    contentPadding = PaddingValues(8.dp),
-                                ) {
-                                    Text(label, maxLines = 1)
-                                }
-                            }
-                    }
-                }
                 item { EquipmentOverview(vm) }
                 items(e.choices().filter { it.action == "enter" && it.argument != 1L }) { c ->
                     Button(
@@ -595,38 +589,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
 
 @Composable
 private fun Summary(e: GameEngine) {
-    val s = e.state
-    val p = e.stats()
-    Column(
-        Modifier.fillMaxWidth().background(panel).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
-        Text(
-            "LV.${s.level}    HP ${s.hp.toInt()} / ${p.hp.toInt()}    ${s.gold} G",
-            color = mint,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-            lineHeight = 17.sp,
-        )
-        Text(
-            "공격 ${p.attack.toInt()}  ·  방어 ${p.defense.toInt()}  ·  민첩 ${p.agility.toInt()}",
-            color = pale,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-        )
-        Text(
-            "치명 ${(p.crit * 100).toInt()}%  ·  치명 피해 ${(p.critDamage * 100).toInt()}%  ·  행운 ${p.luck.toInt()}",
-            color = muted,
-            fontSize = 11.sp,
-            lineHeight = 15.sp,
-        )
-        Text(
-            "회복약 ${s.inventory.count { it.kind == Kind.POTION }}개  ·  보관 ${s.bank}G  ·  성장 ${s.points}P",
-            color = amber,
-            fontSize = 11.sp,
-            lineHeight = 15.sp,
-        )
-    }
+    StatusSummary(e)
 }
 
 @Composable

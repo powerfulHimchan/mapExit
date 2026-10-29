@@ -1,4 +1,4 @@
-# MapExit 0.7.0
+# MapExit 0.8.0
 
 버튼 두 개로 탐험하는 오프라인 안드로이드 도트 던전 게임. Kotlin 게임 로직과 Compose/Canvas 화면을 분리했습니다.
 
@@ -9,7 +9,10 @@
 - 작은 주변 미니맵, 상태 요약, 상황별 A/B 직접 행동
 - 터치 방식 출정 준비: 장비 장착·비교, 소모품 수량 구매, 능력치 성장·골드 보관
 - 좌표에 고정된 벽·바닥 재질과 연속 카메라 이동/회전, 빠른 입력에서도 모서리를 통과하지 않는 이동 경로
-- 아이콘 카드형 능력치 성장(현재/투자 후 수치), 구매·판매·소모품 수량 선택
+- 한 줄 4개 능력치 성장 카드, 준비 메뉴 6개와 상태 요약의 항목별 아이콘
+- 연속 장착 후 부위 화면 유지, 하위 메뉴의 반복 행동 로그 제거
+- 무기별 실제 공격 동작·몬스터 반격·타격 시점 피해 숫자와 강조된 치명타
+- 아이콘 카드형 구매·판매·소모품 수량 선택
 - 통로 자동 이동, 갈림길 선택, 재도전마다 새로 생성되는 1~50층 던전
 - 상자·NPC·상인의 전용 조우 화면, NPC의 단일 의뢰 수락/거절, 상자 몬스터 20% 확률
 - 함정의 1초 자동 안내·약 2초 입력·결과 자동 복귀, 판매 목록의 장착 표시와 판매 즉시 제거
@@ -58,6 +61,6 @@ python3 tools/check_weapon_balance.py --check
 python3 tools/build_pixel_sprites.py --check
 ```
 
-[게임 설계](docs/game-design.md), [무기 밸런스 초안](docs/weapon-balance.md), [수정·플레이 가이드](docs/PLAYTEST.md), [검증 결과](docs/VERIFICATION-0.7.md)를 함께 관리합니다. GitHub Actions에서도 core 테스트·Android lint·APK 빌드를 실행하고 APK를 아티팩트로 보관합니다.
+[게임 설계](docs/game-design.md), [무기 밸런스 초안](docs/weapon-balance.md), [수정·플레이 가이드](docs/PLAYTEST.md), [검증 결과](docs/VERIFICATION-0.8.md)를 함께 관리합니다. GitHub Actions에서도 core 테스트·Android lint·APK 빌드를 실행하고 APK를 아티팩트로 보관합니다.
 
 층당 약 5분과 후반부 난이도는 실제 플레이로 조정할 목표입니다. 현재 무기 검증 모델은 반지·목걸이, 연속 탐험과 전체 층 성장 곡선을 포함하지 않습니다.

@@ -26,6 +26,37 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     private var lastActionAt = 0L
     private var observedImpact = 0L
     internal val dungeonCamera = DungeonCamera()
+    internal var battleVisual by mutableStateOf<BattleVisual?>(null)
+        private set
+
+    internal fun battleBusy(now: Long = android.os.SystemClock.uptimeMillis()) =
+        battleVisual?.active(now) == true
+
+    internal fun presentationState(now: Long): State {
+        val motion = battleVisual
+        if (motion != null && motion.active(now)) {
+            val beforeHit = now < motion.startedAt + BattleAnimation.HIT_MS
+            if (engine.state.mode == Mode.RUN_RESULT)
+                return motion.scene.copy(hp = if (beforeHit) motion.scene.hp else 0.0)
+            if (motion.impact.target == ImpactTarget.PLAYER && beforeHit)
+                return engine.state.copy(hp = motion.scene.hp)
+        }
+        return engine.state
+    }
+
+    private fun animateBattle(action: String?, before: State, now: Long) {
+        val impact = engine.state.lastImpact ?: return
+        if (
+            action !in listOf("attack", "strong", "guard", "dodge") ||
+                before.enemy == null ||
+                impact.serial == before.impactSequence
+        )
+            return
+        battleVisual = BattleVisual(before, action!!, now, impact)
+        visualEffect = action
+        visualEffectAt = now
+    }
+
     var currentImpact by mutableStateOf<BattleImpact?>(null)
         private set
 
@@ -64,7 +95,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
 
     fun down(button: Int) {
         if (loadError != null) return
-        downContext[button] = engine.controls.inputToken()
+        downContext[button] = if (battleBusy()) "BUSY" else engine.controls.inputToken()
         downInTrap[button] = engine.state.mode == Mode.TRAP
         if (downInTrap[button]) engine.rawDown(button)
         refresh()
@@ -96,18 +127,16 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             engine.state.mode != Mode.TRAP && downContext[button] == engine.controls.inputToken()
         ) {
             val now = android.os.SystemClock.uptimeMillis()
-            if (now - lastActionAt >= 180) {
+            if (now - lastActionAt >= 180 && !battleBusy(now)) {
                 val action =
                     engine.controls
                         .buttons()
                         .getOrNull(button)
                         ?.let { if (held) it.holdChoice else it.choice }
                         ?.action
+                val before = engine.state.battleSnapshot()
                 if (held) engine.hold(button) else engine.press(button)
-                if (action in listOf("attack", "strong", "guard", "dodge")) {
-                    visualEffect = action!!
-                    visualEffectAt = now
-                }
+                animateBattle(action, before, now)
                 lastActionAt = now
             }
         }
@@ -117,7 +146,24 @@ class GameModel(app: Application) : AndroidViewModel(app) {
 
     fun choose(choice: Choice) {
         if (loadError != null) return
+        if (
+            battleBusy() &&
+                choice.action in
+                    listOf(
+                        "attack",
+                        "strong",
+                        "guard",
+                        "dodge",
+                        "potion",
+                        "flee",
+                        "battleContinue",
+                        "runContinue",
+                    )
+        )
+            return
+        val before = engine.state.battleSnapshot()
         engine.choose(choice)
+        animateBattle(choice.action, before, android.os.SystemClock.uptimeMillis())
         save()
         refresh()
     }

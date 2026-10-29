@@ -66,6 +66,7 @@ class LaunchTest {
         SystemClock.sleep(if (held) 700 else 60)
         event(MotionEvent.ACTION_UP, SystemClock.uptimeMillis())
         instrumentation.waitForIdleSync()
+        if (label in listOf("A 일반 공격", "B 강공격", "A 방어", "B 회피")) SystemClock.sleep(800)
     }
 
     private fun capture(name: String) {
@@ -172,8 +173,37 @@ class LaunchTest {
             scenario.onActivity {
                 assertEquals(swordId, it.game.engine.state.equipment[Slot.LEFT])
                 assertNull(it.game.engine.state.equipment[Slot.RIGHT])
-                assertEquals(Mode.SURFACE, it.game.engine.state.mode)
+                assertEquals(Mode.MENU, it.game.engine.state.mode)
+                assertEquals("equipment", it.game.engine.state.menu?.type)
             }
+            capture("equipment-stays")
+            var helmetId = 0L
+            scenario.onActivity {
+                val e = it.game.engine
+                val helmet = ItemFactory.create(e.state, Kind.HEAD)
+                helmetId = helmet.id
+                e.state.inventory.add(helmet)
+                it.game.refresh()
+            }
+            tap("머리: 비어 있음", allowScroll = true)
+            var helmetChoice = ""
+            scenario.onActivity {
+                helmetChoice =
+                    it.game.engine
+                        .choices()
+                        .first { c -> c.action == "item" && c.argument == helmetId }
+                        .label
+            }
+            tap(helmetChoice, allowScroll = true)
+            tap("머리에 장착", allowScroll = true)
+            bounds("장비 장착")
+            scenario.onActivity {
+                assertEquals(helmetId, it.game.engine.state.equipment[Slot.HEAD])
+                assertEquals(swordId, it.game.engine.state.equipment[Slot.LEFT])
+                assertEquals("equipment", it.game.engine.state.menu?.type)
+            }
+            capture("equipment-continuous")
+            tap("돌아가기")
             tap("던전 진입")
             scenario.onActivity {
                 assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
@@ -551,6 +581,193 @@ class LaunchTest {
             bounds("떠돌이 상인")
             tap("B 지나가기")
             scenario.onActivity { assertEquals(Mode.EXPLORE, it.game.engine.state.mode) }
+        }
+    }
+
+    @Test
+    fun preparationMenusHideRepeatedLogAndGrowthUsesFourColumns() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val menus =
+                listOf(
+                    "equipment" to "장비 장착",
+                    "inventory" to "가방",
+                    "shop" to "상점",
+                    "growth" to "능력치 성장",
+                    "bank" to "골드 보관소",
+                    "help" to "탐험 기록",
+                )
+            for ((action, title) in menus) {
+                var labels = emptyList<String>()
+                scenario.onActivity {
+                    val e = GameEngine(State(points = 3, gold = 500))
+                    e.state.message = "반복 행동 배너 검사"
+                    e.choose(e.choices().first { c -> c.action == action })
+                    labels =
+                        e.choices().filter { c -> c.action == "stat" }.take(4).map { c -> c.label }
+                    it.game.active = false
+                    it.game.engine = e
+                    it.game.refresh()
+                }
+                bounds(title)
+                assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "반복 행동 배너 검사"))
+                if (action == "growth") {
+                    val cards = labels.map { bounds(it) }
+                    assertEquals(4, cards.size)
+                    assertTrue(cards.all { it.top == cards.first().top })
+                    assertTrue(cards.zipWithNext().all { (a, b) -> a.right <= b.left })
+                }
+                capture("menu-$action")
+            }
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(1)
+                it.game.engine = e
+                it.game.refresh()
+            }
+            val scene = bounds("메인 장면")
+            val caption = bounds("현재 상황")
+            val map = bounds("주변 미니맵")
+            assertTrue(caption.top >= scene.bottom && caption.bottom <= map.top)
+            capture("scene-caption")
+        }
+    }
+
+    @Test
+    fun liveCombatSynchronizesCriticalFeedbackAndPreventsOverlappingTurns() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var popup = ""
+            scenario.onActivity {
+                val e = GameEngine(State(base = Stats(crit = 1.0)))
+                e.enterFloor(1)
+                e.startBattle(false)
+                e.state.enemy = e.state.enemy!!.copy(hp = 5000.0, maxHp = 5000.0)
+                e.state.rng = 0L
+                it.game.engine = e
+                it.game.active = false
+                it.game.refresh()
+                it.game.choose(e.choices().first { c -> c.action == "attack" })
+                assertTrue(it.game.battleBusy())
+                val serial = e.state.impactSequence
+                it.game.choose(e.choices().first { c -> c.action == "guard" })
+                assertEquals(serial, e.state.impactSequence)
+                assertEquals(Mode.COMBAT_DEFEND, e.state.mode)
+                assertTrue(e.state.lastImpact!!.critical)
+                popup = "적 피해 ${e.state.lastImpact!!.label()}"
+            }
+            bounds(popup)
+            capture("critical-enemy")
+            SystemClock.sleep(800)
+            scenario.onActivity {
+                val s = it.game.engine.state
+                s.rng = (0L..1000L).first { seed -> s.copy(rng = seed).random() < .1 }
+            }
+            tap("A 방어")
+            scenario.onActivity {
+                val hit = it.game.engine.state.lastImpact!!
+                assertTrue(hit.critical)
+                assertEquals(ImpactTarget.PLAYER, hit.target)
+                popup = "플레이어 피해 ${hit.label()}"
+            }
+            val damage = bounds(popup)
+            val image = instrumentation.uiAutomation.takeScreenshot()!!
+            var redPixels = 0
+            for (y in damage.top until damage.bottom) for (x in damage.left until damage.right) {
+                val c = image.getPixel(x, y)
+                if (
+                    android.graphics.Color.red(c) > 180 &&
+                        android.graphics.Color.red(c) > android.graphics.Color.green(c) * 1.3 &&
+                        android.graphics.Color.red(c) > android.graphics.Color.blue(c) * 1.3
+                )
+                    redPixels++
+            }
+            image.recycle()
+            assertTrue("Player damage must be visibly red", redPixels > 10)
+            capture("critical-player")
+            scenario.onActivity {
+                val e = it.game.engine
+                e.state.mode = Mode.COMBAT_DEFEND
+                e.state.hp = 1.0
+                it.game.choose(e.choices().first { c -> c.action == "guard" })
+                assertEquals(Mode.RUN_RESULT, e.state.mode)
+                assertTrue(it.game.battleBusy())
+                assertEquals(
+                    Mode.COMBAT_DEFEND,
+                    it.game.presentationState(SystemClock.uptimeMillis()).mode,
+                )
+            }
+            bounds("사망했습니다")
+            scenario.onActivity { assertFalse(it.game.battleBusy()) }
+            capture("animated-death")
+        }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun renderEveryWeaponAndMonsterAtWindupStrikeAndRecovery() {
+        val bitmap = androidx.compose.ui.graphics.ImageBitmap(480, 640)
+        val scope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+        fun render(s: State, visual: BattleVisual, elapsed: Long): android.graphics.Bitmap {
+            scope.draw(
+                androidx.compose.ui.unit.Density(1f),
+                androidx.compose.ui.unit.LayoutDirection.Ltr,
+                androidx.compose.ui.graphics.Canvas(bitmap),
+                androidx.compose.ui.geometry.Size(480f, 640f),
+            ) {
+                drawScene(s, 1000L + elapsed, battle = visual)
+            }
+            return bitmap.asAndroidBitmap()
+        }
+        val phases = listOf(120L, 320L, 660L)
+        for (kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)) {
+            val e = GameEngine()
+            e.enterFloor(1)
+            e.state.equipment.clear()
+            val gear = ItemFactory.create(e.state, kind)
+            e.state.inventory.add(gear)
+            Equipment.equip(e.state, gear.id, Slot.RIGHT)
+            e.startBattle(false)
+            val before = e.state.battleSnapshot()
+            val saved = SaveCodec.encode(e.state)
+            val visual =
+                BattleVisual(
+                    before,
+                    if (kind == Kind.HAMMER) "strong" else "attack",
+                    1000,
+                    BattleImpact(
+                        1,
+                        ImpactTarget.ENEMY,
+                        100,
+                        ImpactOutcome.DAMAGE,
+                        critical = kind == Kind.SWORD,
+                    ),
+                )
+            var previous: IntArray? = null
+            phases.forEachIndexed { index, elapsed ->
+                val frame = render(e.state, visual, elapsed)
+                val pixels = IntArray(480 * 640)
+                frame.getPixels(pixels, 0, 480, 0, 0, 480, 640)
+                previous?.let { assertFalse(it.contentEquals(pixels)) }
+                previous = pixels
+                exportBitmap("motion-${kind.name.lowercase()}-$index", frame)
+            }
+            assertEquals(saved, SaveCodec.encode(e.state))
+        }
+        for ((name, id) in
+            listOf("동굴 슬라임" to "slime", "심연 박쥐" to "bat", "녹슨 기사" to "knight", "수문장" to "boss")) {
+            val e = GameEngine()
+            e.enterFloor(1)
+            e.startBattle(id == "boss")
+            e.state.enemy = e.state.enemy!!.copy(name = name)
+            val visual =
+                BattleVisual(
+                    e.state.battleSnapshot(),
+                    "guard",
+                    1000,
+                    BattleImpact(1, ImpactTarget.PLAYER, 30, ImpactOutcome.GUARD),
+                )
+            phases.forEachIndexed { index, elapsed ->
+                exportBitmap("motion-$id-$index", render(e.state, visual, elapsed))
+            }
         }
     }
 
