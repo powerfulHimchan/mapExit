@@ -31,7 +31,6 @@ import com.powerfulhimchan.mapexit.core.*
 import com.powerfulhimchan.mapexit.core.State
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 internal val ink = Color(0xFF090F18)
 internal val panel = Color(0xFF121E2A)
@@ -120,6 +119,18 @@ fun MapExitScreen(vm: GameModel) {
                         )
                     }
                 }
+                if (s.training)
+                    Row(
+                        Modifier.fillMaxWidth().height(34.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = vm::trainingMenu) {
+                            Text("테스트 목록", color = mint, fontSize = 12.sp)
+                        }
+                        TextButton(onClick = vm::exitTraining) {
+                            Text("테스트 종료", color = red, fontSize = 12.sp)
+                        }
+                    }
                 if (
                     s.dungeon != null &&
                         s.mode in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR)
@@ -151,13 +162,20 @@ fun MapExitScreen(vm: GameModel) {
             if (vm.goldNoticeVisible)
                 Snackbar(
                     modifier =
-                        Modifier.align(Alignment.BottomCenter)
+                        Modifier.align(Alignment.Center)
+                            .widthIn(max = 260.dp)
                             .windowInsetsPadding(WindowInsets.safeDrawing)
                             .padding(16.dp),
                     containerColor = panel,
                     contentColor = red,
                 ) {
-                    Text("골드부족", fontWeight = FontWeight.Bold)
+                    Text(
+                        "골드부족",
+                        Modifier.fillMaxWidth(),
+                        fontSize = 18.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
         }
         if (confirmRetreat && canRetreat)
@@ -230,10 +248,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
             it.active(clock.takeIf { time -> time > 0 } ?: SystemClock.uptimeMillis())
         }
     val buttons =
-        vm.engine.controls.buttons().map {
-            if (vm.battleBusy()) it.copy(enabled = false, holdChoice = null, holdLabel = null)
-            else it
-        }
+        vm.engine.controls.buttons().map { if (vm.battleBusy()) it.copy(enabled = false) else it }
     BoxWithConstraints(modifier) {
         val compact = maxHeight < 560.dp
         Column(
@@ -326,65 +341,38 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
 
 @Composable
 private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: Modifier) {
-    var held by remember { mutableStateOf(false) }
-    var longReady by remember { mutableStateOf(false) }
-    val coroutine = rememberCoroutineScope()
-    val trap = vm.engine.state.mode == Mode.TRAP
+    var pressed by remember { mutableStateOf(false) }
     val inputKey = vm.engine.controls.inputToken()
     Column(
         modifier
             .fillMaxHeight()
-            .background(if (held) Color(0xFF294C49) else panel, RoundedCornerShape(10.dp))
+            .background(if (pressed) Color(0xFF294C49) else panel, RoundedCornerShape(10.dp))
             .border(
-                if (held) 2.dp else 1.dp,
+                if (pressed) 2.dp else 1.dp,
                 if (b.enabled) mint else line,
                 RoundedCornerShape(10.dp),
             )
             .semantics {
                 role = Role.Button
                 contentDescription = "${if (index == 0) "A" else "B"} ${b.label}"
-                if (!b.enabled && b.holdChoice == null) disabled()
+                if (!b.enabled) disabled()
                 if (b.enabled)
                     onClick {
                         vm.down(index)
                         vm.up(index)
                         true
                     }
-                if (b.holdChoice != null)
-                    onLongClick(label = b.holdLabel) {
-                        vm.down(index)
-                        vm.up(index, held = true)
-                        true
-                    }
             }
-            .pointerInput(vm, index, if (trap) vm.engine.state.trap else inputKey, b.enabled) {
-                if (b.enabled || b.holdChoice != null)
+            .pointerInput(vm, index, inputKey, b.enabled) {
+                if (b.enabled)
                     detectTapGestures(
                         onPress = {
-                            held = true
-                            longReady = false
-                            val start = SystemClock.uptimeMillis()
+                            pressed = true
                             vm.down(index)
-                            val job =
-                                coroutine.launch {
-                                    delay(550)
-                                    longReady = true
-                                }
-                            var released = false
                             try {
-                                released = tryAwaitRelease()
+                                vm.up(index, released = tryAwaitRelease())
                             } finally {
-                                job.cancel()
-                                held = false
-                                longReady = false
-                                vm.up(
-                                    index,
-                                    released,
-                                    held =
-                                        !trap &&
-                                            b.holdChoice != null &&
-                                            SystemClock.uptimeMillis() - start >= 550,
-                                )
+                                pressed = false
                             }
                         }
                     )
@@ -393,16 +381,13 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            if (longReady) b.holdLabel ?: b.label else b.label,
+            b.label,
             fontSize = 16.sp,
             lineHeight = 21.sp,
             color = if (b.enabled) pale else muted,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
-        b.holdLabel?.let { hint ->
-            Text("길게: $hint", fontSize = 10.sp, lineHeight = 14.sp, color = mint)
-        }
     }
 }
 
@@ -432,6 +417,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "growth" -> "능력치 성장"
                 "bank" -> "골드 보관소"
                 "help" -> "탐험 기록"
+                "training" -> "테스트 메뉴"
+                "trainingTraps" -> "장애물 선택"
                 "item" -> "장비 / 아이템 상세"
                 else -> "${if (s.debug) "개발용 테스트" else "준비 메뉴"}"
             }
@@ -462,7 +449,14 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             }
             if (surface || s.mode == Mode.INHERIT)
                 item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
-            if (surface) item { PreparationMenuGrid(vm) }
+            if (surface) {
+                item { PreparationMenuGrid(vm) }
+                item {
+                    ExpeditionButton("테스트 메뉴", "장애물·전투·상인·미션 NPC", "level") {
+                        vm.choose(Choice("테스트 메뉴", "training"))
+                    }
+                }
+            }
             if (menu == "equipment")
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -470,7 +464,19 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         EquipmentOverview(vm)
                     }
                 }
-            if (menu !in listOf("growth", "shop", "sell", "quantity", "help")) item { Summary(e) }
+            if (
+                menu !in
+                    listOf(
+                        "growth",
+                        "shop",
+                        "sell",
+                        "quantity",
+                        "help",
+                        "training",
+                        "trainingTraps",
+                    )
+            )
+                item { Summary(e) }
             if (surface || s.mode == Mode.INHERIT)
                 item {
                     Text(
@@ -486,16 +492,6 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 items(e.choices().filter { it.action == "enter" && it.argument != 1L }) { c ->
                     ExpeditionButton(c.label, "이동 장치로 출발", "enter") { vm.choose(c) }
                 }
-                if (BuildConfig.DEBUG)
-                    item {
-                        TextButton(
-                            onClick = {
-                                e.choices().firstOrNull { it.action == "debug" }?.let(vm::choose)
-                            }
-                        ) {
-                            Text("개발용 테스트 · 별도 저장", color = muted, fontSize = 11.sp)
-                        }
-                    }
             } else {
                 if (menu == "growth") growthCards(vm)
                 if (menu in listOf("shop", "sell", "quantity")) tradeCards(vm, menu!!)
@@ -504,6 +500,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 items(
                     menuChoices.filterNot {
                         (menu == "help") ||
+                            (menu in listOf("training", "trainingTraps") && it.action == "back") ||
                             (menu == "equipment" && it.action == "slotItem") ||
                             (menu == "growth" && it.action == "stat") ||
                             (menu in listOf("growth", "shop", "sell", "quantity") &&

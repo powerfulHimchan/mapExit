@@ -59,7 +59,7 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
     val kind = Equipment.equipped(scene).firstOrNull { it.weapon }?.kind
     val pose = BattleAnimation.pose(kind, elapsed, motion?.action == "strong")
     val monsterPose = BattleAnimation.pose(if (enemy.boss) Kind.HAMMER else Kind.SWORD, elapsed)
-    val playerDamage = defending && motion!!.impact.outcome != ImpactOutcome.DODGE
+    val playerDamage = defending && motion!!.impact.amount > 0
     val enemyDamage = attacking && motion!!.impact.outcome != ImpactOutcome.MISS
     val w = size.width
     val h = size.height

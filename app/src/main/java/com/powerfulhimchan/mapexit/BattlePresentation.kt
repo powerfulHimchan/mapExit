@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -203,6 +204,8 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 }
             }
         }
+        if (s.mode == Mode.EXPLORE && s.chestLoot != null)
+            ChestLootCard(s.chestLoot!!, vm, Modifier.align(Alignment.Center).padding(16.dp))
         vm.currentImpact
             ?.takeIf {
                 s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND) || vm.battleBusy(time)
@@ -221,7 +224,9 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                         rise.animateTo(1f, tween(1200))
                     }
                     val enemyHit = impact.target == ImpactTarget.ENEMY
-                    val avoided = impact.outcome in listOf(ImpactOutcome.DODGE, ImpactOutcome.MISS)
+                    val avoided =
+                        impact.outcome in
+                            listOf(ImpactOutcome.DODGE, ImpactOutcome.MISS, ImpactOutcome.BLOCK)
                     val popupColor =
                         if (avoided) mint
                         else if (!enemyHit) red else if (impact.critical) amber else pale
@@ -248,6 +253,13 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                     },
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
+                            if (impact.outcome == ImpactOutcome.BLOCK)
+                                Text(
+                                    "완전 방어",
+                                    color = mint,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
                             if (impact.critical)
                                 Text(
                                     "치명타!",
@@ -256,7 +268,8 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                     fontWeight = FontWeight.Black,
                                 )
                             Text(
-                                if (avoided) impact.label() else "-${impact.amount}",
+                                if (impact.outcome == ImpactOutcome.BLOCK) "0"
+                                else if (avoided) impact.label() else "-${impact.amount}",
                                 color = popupColor,
                                 fontSize = if (impact.critical) 32.sp else 25.sp,
                                 lineHeight = if (impact.critical) 36.sp else 30.sp,
@@ -267,5 +280,55 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                         }
                 }
             }
+    }
+}
+
+@Composable
+private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifier) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .heightIn(max = 300.dp)
+            .background(ink.copy(alpha = .97f), RoundedCornerShape(8.dp))
+            .border(2.dp, amber, RoundedCornerShape(8.dp))
+            .verticalScroll(rememberScrollState())
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            "상자 획득",
+            color = amber,
+            fontSize = 22.sp,
+            lineHeight = 28.sp,
+            fontWeight = FontWeight.Black,
+        )
+        loot.items.forEach { gear ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ItemArt(gear.kind, Modifier.size(42.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        gear.name,
+                        color = pale,
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+            }
+        }
+        Text(
+            "+${loot.gold} G",
+            color = mint,
+            fontSize = 17.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        TextButton(onClick = vm::dismissChestLoot, modifier = Modifier.align(Alignment.End)) {
+            Text("획득 확인", color = mint)
+        }
     }
 }

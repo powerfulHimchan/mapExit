@@ -4,8 +4,13 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-class GameEngine(var state: State = State(), private val debugTools: Boolean = false) {
+class GameEngine(
+    var state: State = State(),
+    private val debugTools: Boolean = false,
+    private val mapSeed: (() -> Long)? = null,
+) {
     private var debugBackup: String? = null
+    private var trainingBackup: String? = null
     val controls = ContextControls(this)
 
     init {
@@ -20,6 +25,15 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             state.shop.add(ItemFactory.create(state, Kind.POTION, 1))
             state.note("출정 준비: 장비와 소모품을 확인한 뒤 던전에 진입하세요")
         }
+        if (
+            !state.training &&
+                state.mode == Mode.MENU &&
+                state.menu?.type in listOf("training", "trainingTraps")
+        ) {
+            state.mode = state.menu?.returnMode ?: Mode.SURFACE
+            state.menu = null
+            state.menuStack.clear()
+        }
         if (state.mode == Mode.TRAP_GUIDE) state.mode = Mode.TRAP
         // Saves from before expedition records can still report their current depth.
         if (state.dungeon != null) state.runDeepestFloor = max(state.runDeepestFloor, state.floor)
@@ -31,6 +45,60 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     }
 
     fun stats() = Equipment.stats(state)
+
+    fun trainingMenu() {
+        if (!state.training) return
+        state.enemy = null
+        state.trap = null
+        state.battleResult = null
+        state.lastImpact = null
+        state.encounter = null
+        state.chestLoot = null
+        state.menuStack.clear()
+        state.mode = Mode.MENU
+        state.menu = Menu("training", returnMode = Mode.SURFACE)
+    }
+
+    fun exitTraining() {
+        if (!state.training) return
+        trainingBackup?.let { state = SaveCodec.decode(it) }
+            ?: run { state = GameEngine(State(), debugTools, mapSeed).state }
+        state.training = false
+        state.debug = false
+        trainingBackup = null
+        controls.reset()
+    }
+
+    private fun beginTraining(activity: String, trapType: Int = 0) {
+        if (!state.training) {
+            val normal =
+                state.copy(
+                    mode = state.menu?.returnMode ?: Mode.SURFACE,
+                    menu = null,
+                    menuStack = mutableListOf(),
+                )
+            trainingBackup = SaveCodec.encode(normal)
+        }
+        state =
+            GameEngine(State(rng = state.rng), false)
+                .state
+                .copy(training = true, debug = true, gold = 1000)
+        enterFloor(1)
+        when (activity) {
+            "trap" -> {
+                state.trap = Traps.create(state, trapType)
+                state.mode = Mode.TRAP
+            }
+            "battle" -> startBattle(false)
+            "merchant",
+            "npc" -> {
+                val event = if (activity == "merchant") Event.MERCHANT else Event.NPC
+                state.dungeon!!.here().event = event
+                beginEncounter(event)
+            }
+        }
+        controls.reset()
+    }
 
     private fun beginEncounter(event: Event) {
         val s = state
@@ -86,6 +154,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.selection = 0
         if (message != null) s.note(message)
         controls.skipCurrentEvent()
+        if (s.training) trainingMenu()
     }
 
     fun choices(): List<Choice> {
@@ -102,6 +171,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     add(c("골드 보관소", "bank"))
                     add(c("지상 상점", "shop"))
                     add(c("기록 / 도움말", "help"))
+                    add(c("테스트 메뉴", "training"))
                     if (debugTools) add(c("개발용 테스트", "debug"))
                 }
             Mode.EXPLORE ->
@@ -257,6 +327,17 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                         }
                 }
                 "help" -> emptyList()
+                "training" ->
+                    listOf(
+                        c("장애물 피하기", "trainingTraps"),
+                        c("전투", "trainBattle"),
+                        c("상인", "trainMerchant"),
+                        c("미션 NPC 대화", "trainNpc"),
+                    )
+                "trainingTraps" ->
+                    listOf("뜨거운 물 솥", "바닥 칼날", "좁혀오는 벽", "기억 석판", "천장 나무봉").mapIndexed { i, name ->
+                        c(name, "trainTrap", i.toLong())
+                    }
                 "debug" ->
                     buildList {
                         repeat(5) { add(c("함정 ${it+1} 바로 테스트", "testTrap", it.toLong())) }
@@ -278,8 +359,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
 
     fun press(button: Int) {
         if (state.mode == Mode.TRAP) {
-            rawDown(button)
-            rawUp(button)
+            state.trap?.let { Traps.tap(it, button) }
+            applyTrapResult()
             return
         }
         controls.press(button)
@@ -290,10 +371,6 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         choices()
             .firstOrNull { it.action == choice.action && it.argument == choice.argument }
             ?.let(::execute)
-    }
-
-    fun hold(button: Int) {
-        controls.press(button, held = true)
     }
 
     fun navigateBack() {
@@ -373,6 +450,10 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
 
     private fun back() {
         val s = state
+        if (s.training && s.menu?.type == "training") {
+            exitTraining()
+            return
+        }
         if (s.menuStack.isNotEmpty()) s.menu = s.menuStack.removeAt(s.menuStack.lastIndex)
         else {
             s.mode = s.menu?.returnMode ?: Mode.SURFACE
@@ -422,6 +503,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 s.mode = result.returnMode
                 s.selection = 0
                 s.note(if (s.mode == Mode.FLOOR_CLEAR) "보스 격파 · 층 클리어" else "전투 종료 · 탐험을 계속하세요")
+                if (s.training) trainingMenu()
             }
             "encounter" -> beginEncounter(Event.entries[c.argument.toInt()])
             "encounterLeave" -> leaveEncounter("탐험을 계속합니다")
@@ -434,6 +516,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "enter" -> enterFloor(c.argument.toInt())
             "return" -> surface(false)
             "move" -> {
+                s.chestLoot = null
+                if (s.message == "갈림길: 방향을 선택하세요") s.message = "통로를 탐험하고 있습니다"
                 val dungeon = s.dungeon ?: return
                 val facing = dungeon.direction
                 val backward = c.argument.toInt() == (facing + 2) % 4
@@ -568,6 +652,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "ending" -> beginInheritance()
             "inherit" -> newCycle(c.argument)
             "back" -> back()
+            "training" -> open("training")
+            "trainingTraps" -> open("trainingTraps")
+            "trainTrap" -> beginTraining("trap", c.argument.toInt())
+            "trainBattle" -> beginTraining("battle")
+            "trainMerchant" -> beginTraining("merchant")
+            "trainNpc" -> beginTraining("npc")
             "debug" -> {
                 if (!s.debug) debugBackup = SaveCodec.encode(s)
                 s.debug = true
@@ -626,9 +716,11 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             s.runDeepestFloor = 0
         }
         s.runResult = null
+        s.chestLoot = null
         s.runDeepestFloor = max(s.runDeepestFloor, floor)
         s.floor = floor
         s.highest = max(s.highest, floor)
+        mapSeed?.let { s.rng = it() }
         s.dungeon = MapGenerator.generate(s, floor)
         s.enemy = null
         s.battleResult = null
@@ -660,7 +752,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         m.y = yy
         m.reveal()
         // This positional hint must never survive arrival at a different tile.
-        if (s.message == "막다른 길입니다") s.message = "통로를 탐험하고 있습니다"
+        if (s.message == "막다른 길입니다" || s.message == "갈림길: 방향을 선택하세요") s.message = "통로를 탐험하고 있습니다"
         val cell = m.here()
         if (!cell.resolved && cell.event != Event.NONE) {
             s.mode = Mode.EXPLORE
@@ -715,6 +807,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         if (cell.resolved) return
         cell.resolved = true
         s.runChests++
+        s.chestLoot = null
         s.quest?.takeIf { it.kind == "chest" }?.let { it.progress++ }
         s.encounter = null
         s.mode = Mode.EXPLORE
@@ -727,9 +820,15 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val extra = Equipment.charm(s) == Charm.CHEST && s.random() < .25
         val gear = ItemFactory.create(s)
         s.inventory.add(gear)
-        if (extra) s.inventory.add(ItemFactory.create(s))
+        val rewards = mutableListOf(gear)
+        if (extra) {
+            val bonus = ItemFactory.create(s)
+            s.inventory.add(bonus)
+            rewards.add(bonus)
+        }
         val gold = 15 + s.floor * 3 + s.nextInt(15)
         s.gold += gold
+        s.chestLoot = ChestLootNotice(rewards, gold)
         s.note("${gear.name} · ${gold}G${if(extra)" · 추가 아이템!" else ""}")
     }
 
@@ -809,17 +908,21 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 1.0 -
                     GameBalance.model("guard_reduction") -
                     (if (shield) GameBalance.shield("guard_bonus") else 0.0)
+        val fullGuard = !dodge && s.random() < Defense.zeroDamageChance(p)
+        if (fullGuard) damage = 0.0
         val previousHp = s.hp
         s.hp = max(0.0, s.hp - damage)
         impact(
             ImpactTarget.PLAYER,
             previousHp - s.hp,
-            if (damage == 0.0) ImpactOutcome.DODGE
+            if (fullGuard) ImpactOutcome.BLOCK
+            else if (damage == 0.0) ImpactOutcome.DODGE
             else if (!dodge) ImpactOutcome.GUARD else ImpactOutcome.DAMAGE,
             critical && damage > 0,
         )
         s.note(
-            if (damage == 0.0) "회피 성공!"
+            if (fullGuard) "완전 방어! 피해를 받지 않았습니다"
+            else if (damage == 0.0) "회피 성공!"
             else "${if(dodge)"회피 실패 · " else "방어 · "}${damage.roundToInt()} 피해"
         )
         if (s.hp <= 0) {
@@ -973,9 +1076,11 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         state.trap = null
         state.mode = if (state.dungeon == null) Mode.SURFACE else Mode.EXPLORE
         state.selection = 0
+        if (state.training) trainingMenu()
     }
 
     fun die() {
+        state.chestLoot = null
         endRun(retreated = false)
     }
 
@@ -1049,6 +1154,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.cycle++
         s.clears++
         s.level = 1
+        s.chestLoot = null
         s.levelUpNotice = null
         s.experience = 0
         s.points = 0

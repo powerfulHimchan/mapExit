@@ -226,6 +226,7 @@ enum class ImpactTarget {
 enum class ImpactOutcome {
     DAMAGE,
     GUARD,
+    BLOCK,
     DODGE,
     MISS,
 }
@@ -242,6 +243,7 @@ data class BattleImpact(
         when (outcome) {
             ImpactOutcome.MISS -> "빗나감"
             ImpactOutcome.DODGE -> "회피"
+            ImpactOutcome.BLOCK -> "완전 방어 · 0 피해"
             ImpactOutcome.GUARD -> "${if(critical) "치명타 · " else ""}방어 -$amount"
             else -> "${if(critical) "치명타 " else ""}-$amount"
         }
@@ -298,6 +300,7 @@ data class State(
     var level: Int = 1,
     var experience: Int = 0,
     var levelUpNotice: LevelUpNotice? = null,
+    var chestLoot: ChestLootNotice? = null,
     var points: Int = 0,
     var base: Stats = Stats(),
     var hp: Double = 360.0,
@@ -333,6 +336,7 @@ data class State(
     var movementMs: Long = 0L,
     var playMs: Long = 0L,
     var debug: Boolean = false,
+    var training: Boolean = false,
     var bootstrapped: Boolean = false,
 ) {
     fun random(): Double {

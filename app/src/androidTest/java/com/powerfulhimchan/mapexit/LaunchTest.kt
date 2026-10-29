@@ -264,7 +264,7 @@ class LaunchTest {
             scenario.onActivity { assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode) }
             tap("B 회피")
             scenario.onActivity { assertEquals(Mode.COMBAT_ATTACK, it.game.engine.state.mode) }
-            tap("A 일반 공격", held = true)
+            tap("회복약 사용")
             scenario.onActivity {
                 assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode)
                 assertEquals(
@@ -1216,6 +1216,118 @@ class LaunchTest {
                 }
                 assertEquals(saved, SaveCodec.encode(e.state))
                 exportBitmap("obstacle-$type-$index", bitmap)
+            }
+        }
+    }
+
+    @Test
+    fun longPressNeverOpensAnAlternateMenuAndGoldNoticeIsCentered() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(1)
+                e.startBattle(false)
+                e.state.enemy!!.hp = 5000.0
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            tap("A 일반 공격", held = true)
+            scenario.onActivity {
+                assertEquals(
+                    2,
+                    it.game.engine.state.inventory.count { gear -> gear.kind == Kind.POTION },
+                )
+                assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode)
+            }
+            capture("tap-only-combat")
+            var label = ""
+            scenario.onActivity {
+                val e = GameEngine(State(gold = 0))
+                e.choose(Choice("상점", "shop"))
+                label = e.choices().first { c -> c.action == "buy" }.label
+                it.game.engine = e
+                it.game.refresh()
+            }
+            tap(label)
+            val message = bounds("골드부족")
+            val image = instrumentation.uiAutomation.takeScreenshot()!!
+            assertTrue(kotlin.math.abs(message.centerY() - image.height / 2) < image.height * .12)
+            image.recycle()
+            capture("gold-center")
+        }
+    }
+
+    @Test
+    fun chestLootAppearsInSceneAndFullGuardShowsZero() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(1)
+                e.state.dungeon!!.here().event = Event.CHEST
+                e.state.rng = 1L
+                e.choose(Choice("상자", "encounter", Event.CHEST.ordinal.toLong()))
+                e.choose(Choice("열기", "chest"))
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            val loot = bounds("상자 획득")
+            val scene = bounds("메인 장면")
+            assertTrue(loot.top > scene.top && loot.bottom < scene.bottom)
+            capture("chest-loot")
+            tap("획득 확인")
+            scenario.onActivity {
+                assertNull(it.game.engine.state.chestLoot)
+                val e = GameEngine(State(base = Stats(defense = 400.0, luck = 200.0)))
+                e.enterFloor(1)
+                e.startBattle(false)
+                e.state.mode = Mode.COMBAT_DEFEND
+                e.state.rng = 0L
+                it.game.engine = e
+                it.game.refresh()
+            }
+            tap("A 방어")
+            bounds("플레이어 피해 완전 방어 · 0 피해")
+            scenario.onActivity {
+                assertEquals(ImpactOutcome.BLOCK, it.game.engine.state.lastImpact!!.outcome)
+            }
+            capture("full-guard-zero")
+        }
+    }
+
+    @Test
+    fun publicTrainingMenuCanChooseAllFourActivitiesAndExitSafely() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                it.game.active = false
+                it.game.engine = GameEngine(State(gold = 57))
+                it.game.refresh()
+            }
+            tap("테스트 메뉴", allowScroll = true)
+            for (label in listOf("장애물 피하기", "전투", "상인", "미션 NPC 대화")) bounds(label)
+            capture("training-menu")
+            tap("전투")
+            bounds("A 일반 공격")
+            capture("training-battle")
+            tap("테스트 목록")
+            tap("상인")
+            bounds("A 거래하기")
+            capture("training-merchant")
+            tap("테스트 목록")
+            tap("미션 NPC 대화")
+            capture("training-npc")
+            scenario.onActivity { assertNotNull(it.game.engine.state.dungeon!!.here().questOffer) }
+            tap("테스트 목록")
+            tap("장애물 피하기")
+            tap("천장 나무봉")
+            bounds("봉을 피해라")
+            capture("training-trap")
+            tap("테스트 종료")
+            bounds("출정 준비")
+            scenario.onActivity {
+                assertEquals(57, it.game.engine.state.gold)
+                assertFalse(it.game.engine.state.training)
             }
         }
     }

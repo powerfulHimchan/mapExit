@@ -72,7 +72,7 @@ class ContextControlsTest {
         val e = corridor(listOf(0, 1, 2, 3))
         val rng = e.state.rng
         e.press(1)
-        e.hold(1)
+        e.controls.resetDirections()
         assertEquals("앞 / 뒤 방향", e.controls.buttons()[0].label)
         assertEquals(4, e.state.dungeon!!.y)
         assertEquals(rng, e.state.rng)
@@ -114,23 +114,23 @@ class ContextControlsTest {
     }
 
     @Test
-    fun displayedHoldPotionConsumesOneItemAndTheAttackTurn() {
+    fun directPotionConsumesOneItemAndTheAttackTurn() {
         val e = GameEngine()
         e.enterFloor(1)
         e.startBattle(false)
         e.state.hp = 40.0
         val count = e.state.inventory.count { it.kind == Kind.POTION }
-        e.hold(0)
+        choose(e, "potion")
         assertEquals(count - 1, e.state.inventory.count { it.kind == Kind.POTION })
         assertTrue(e.state.hp > 40)
         assertEquals(Mode.COMBAT_DEFEND, e.state.mode)
     }
 
     @Test
-    fun holdingPotionWithoutStockDoesNotConsumeATurn() {
+    fun potionWithoutStockDoesNotConsumeATurn() {
         val e = corridor()
         e.startBattle(false)
-        e.hold(0)
+        choose(e, "potion")
         assertEquals(Mode.COMBAT_ATTACK, e.state.mode)
     }
 
@@ -162,11 +162,11 @@ class ContextControlsTest {
         val e = GameEngine()
         e.enterFloor(1)
         e.state.dungeon!!.here().resolved = true
-        e.hold(0)
+        assertTrue(e.openDungeonPanel("inventory"))
         assertEquals("inventory", e.state.menu!!.type)
         e.navigateBack()
         assertEquals(Mode.EXPLORE, e.state.mode)
-        e.hold(1)
+        assertTrue(e.openDungeonPanel("help"))
         assertEquals("help", e.state.menu!!.type)
         assertEquals(listOf("back"), e.choices().map { it.action })
         e.navigateBack()
@@ -230,7 +230,7 @@ class ContextControlsTest {
         val restored = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
         restored.state.rng = 1L
         restored.state.base = restored.state.base.copy(agility = 200.0)
-        restored.hold(1)
+        choose(restored, "flee")
         assertEquals(Mode.EXPLORE, restored.state.mode)
         assertEquals(4, restored.state.dungeon!!.x)
         assertEquals(4, restored.state.dungeon!!.y)

@@ -147,6 +147,37 @@ object Traps {
         }
     }
 
+    /** The beam challenge uses two separate taps: engage, then release on its visual signal. */
+    fun tap(t: TrapState, button: Int) {
+        if (t.phase != TrapPhase.ACTIVE) return
+        if (t.type != 4) {
+            down(t, button)
+            up(t, button)
+            return
+        }
+        if (t.rehold) {
+            t.rehold = false
+            t.held = -1
+            return
+        }
+        if (button != t.pattern[0]) {
+            finish(t, false, "다른 동작을 선택했습니다")
+            return
+        }
+        if (t.holdStarted < 0) {
+            t.holdStarted = t.elapsedMs
+            t.held = -1
+            return
+        }
+        val elapsed = t.elapsedMs - t.holdStarted
+        finish(
+            t,
+            elapsed in t.signalMs..t.signalMs + t.releaseWindowMs,
+            if (elapsed in t.signalMs..t.signalMs + t.releaseWindowMs) "신호에 맞춰 회피!"
+            else "너무 일찍 놓았습니다",
+        )
+    }
+
     fun down(t: TrapState, button: Int) {
         if (t.phase != TrapPhase.ACTIVE || t.held != -1) return
         if (t.rehold) {

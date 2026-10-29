@@ -1,12 +1,6 @@
 package com.powerfulhimchan.mapexit.core
 
-data class ContextButton(
-    val label: String,
-    val choice: Choice? = null,
-    val holdLabel: String? = null,
-    val holdChoice: Choice? = null,
-    val enabled: Boolean = true,
-)
+data class ContextButton(val label: String, val choice: Choice? = null, val enabled: Boolean = true)
 
 /** Transient navigation lives outside the save: reopening always shows actual available actions. */
 class ContextControls(private val engine: GameEngine) {
@@ -56,18 +50,8 @@ class ContextControls(private val engine: GameEngine) {
         }
         fun b(label: String, action: String, arg: Long = 0) =
             ContextButton(label, Choice(label, action, arg))
-        val inventory = Choice("가방 / 장비", "inventory")
-        val help = Choice("미션 / 기록", "help")
         return when (s.mode) {
-            Mode.COMBAT_ATTACK ->
-                listOf(
-                    b("일반 공격", "attack")
-                        .copy(
-                            holdLabel = "회복약 ${s.inventory.count { it.kind == Kind.POTION }}개",
-                            holdChoice = Choice("회복약", "potion"),
-                        ),
-                    b("강공격", "strong").copy(holdLabel = "도주 시도", holdChoice = Choice("도주", "flee")),
-                )
+            Mode.COMBAT_ATTACK -> listOf(b("일반 공격", "attack"), b("강공격", "strong"))
             Mode.VICTORY ->
                 listOf(ContextButton("전투 승리", enabled = false), b("결과 확인 · 계속", "battleContinue"))
             Mode.RUN_RESULT ->
@@ -114,12 +98,7 @@ class ContextControls(private val engine: GameEngine) {
                                 listOf(b("앞 / 뒤 방향", "_pair", 0), b("좌 / 우 방향", "_pair", 1))
                             else -> listOf(moveButton(moves.first()), b("다른 방향 ›", "_routes"))
                         }
-                    result.mapIndexed { i, button ->
-                        if (i == 0) button.copy(holdLabel = "가방 / 장비", holdChoice = inventory)
-                        else if (routes != null)
-                            button.copy(holdLabel = "방향 처음으로", holdChoice = Choice("처음", "_root"))
-                        else button.copy(holdLabel = "미션 / 기록", holdChoice = help)
-                    }
+                    result
                 }
             }
             Mode.FLOOR_CLEAR ->
@@ -161,11 +140,11 @@ class ContextControls(private val engine: GameEngine) {
         return ContextButton(label, choice)
     }
 
-    fun press(button: Int, held: Boolean = false) {
+    fun press(button: Int) {
         val buttons = buttons()
         val b = buttons.getOrNull(button) ?: return
-        if (!b.enabled && !held) return
-        val c = (if (held) b.holdChoice else b.choice) ?: return
+        if (!b.enabled) return
+        val c = b.choice ?: return
         when (c.action) {
             "_skip" -> eventSkipped = true
             "_pair" -> {
