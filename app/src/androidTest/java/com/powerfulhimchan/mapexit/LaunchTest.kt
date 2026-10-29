@@ -133,7 +133,7 @@ class LaunchTest {
                 it.game.back()
                 it.game.back()
             }
-            tap("장비")
+            tap("장비", allowScroll = true)
             bounds("장비 장착")
             var slotLabel = ""
             var swordId = 0L
@@ -389,7 +389,7 @@ class LaunchTest {
                 resultScreenshot.recycle()
                 capture("compact-death")
                 tap("준비 화면으로")
-                tap("장비")
+                tap("장비", allowScroll = true)
                 bounds("머리: 비어 있음", allowScroll = true)
                 capture("compact-equipment")
                 bounds("신발: 비어 있음", allowScroll = true)
@@ -560,7 +560,7 @@ class LaunchTest {
             }
             tap("준비 화면으로")
             bounds("출정 준비")
-            tap("장비")
+            tap("장비", allowScroll = true)
             bounds("장착 현황 · 0/9 부위")
             capture("equipment-empty")
             tap("머리: 비어 있음", allowScroll = true)
