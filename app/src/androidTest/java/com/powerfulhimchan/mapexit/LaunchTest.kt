@@ -71,6 +71,25 @@ class LaunchTest {
     private fun capture(name: String) {
         instrumentation.waitForIdleSync()
         SystemClock.sleep(250)
+        // Accessibility may be ready before the cold-launch window has been replaced by a frame.
+        var blank = true
+        for (attempt in 0..19) {
+            val frame = instrumentation.uiAutomation.takeScreenshot()!!
+            blank =
+                listOf(1 to 3, 2 to 2, 3 to 3).all { (x, y) ->
+                    val pixel = frame.getPixel(frame.width * x / 4, frame.height / y)
+                    android.graphics.Color.red(pixel) >= 245 &&
+                        android.graphics.Color.green(pixel) >= 245 &&
+                        android.graphics.Color.blue(pixel) >= 245
+                }
+            frame.recycle()
+            if (!blank) break
+            SystemClock.sleep(100)
+        }
+        assertFalse(
+            "Capture must contain the rendered game rather than the launch window: $name",
+            blank,
+        )
         val descriptor =
             instrumentation.uiAutomation.executeShellCommand(
                 "screencap -p /sdcard/Download/mapexit-$name.png"

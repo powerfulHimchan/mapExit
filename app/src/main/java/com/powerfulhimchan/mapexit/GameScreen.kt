@@ -499,6 +499,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     menuChoices.filterNot {
                         (menu == "equipment" && it.action == "slotItem") ||
                             (menu == "growth" && it.action == "stat") ||
+                            (menu in listOf("growth", "shop", "sell", "quantity") &&
+                                it.action == "back") ||
                             (menu in listOf("shop", "sell", "quantity") &&
                                 it.action in listOf("buy", "sell", "buyQuantity", "sellMenu"))
                     },
