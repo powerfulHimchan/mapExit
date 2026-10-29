@@ -20,24 +20,49 @@ import com.powerfulhimchan.mapexit.core.*
 internal fun DungeonToolbar(vm: GameModel, onRetreat: () -> Unit) {
     val s = vm.engine.state
     val canOpen = s.mode in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR) && !vm.battleBusy()
-    Row(
-        Modifier.fillMaxWidth().padding(bottom = 4.dp).height(44.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        DungeonShortcut("장비", "equipment", canOpen, Modifier.weight(1f)) {
-            vm.openDungeonPanel("equipment")
-        }
-        DungeonShortcut("능력치", "growth", canOpen, Modifier.weight(1f)) {
-            vm.openDungeonPanel("growth")
-        }
-        DungeonShortcut(
-            "지상으로",
-            "return",
-            s.mode in listOf(Mode.EXPLORE, Mode.MOVING),
-            Modifier.weight(1f),
-            danger = true,
-            onClick = onRetreat,
+    val menus =
+        listOf(
+            "장비" to "equipment",
+            "능력치" to "growth",
+            "가방" to "inventory",
+            "기록" to "help",
+            "방향 처음" to "directions",
+            "지상으로" to "return",
         )
+    Column(
+        Modifier.fillMaxWidth().padding(bottom = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        menus.chunked(3).forEach { row ->
+            Row(
+                Modifier.fillMaxWidth().height(40.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                row.forEach { (label, action) ->
+                    val enabled =
+                        when (action) {
+                            "return" -> s.mode in listOf(Mode.EXPLORE, Mode.MOVING)
+                            "directions" ->
+                                s.mode == Mode.EXPLORE &&
+                                    vm.engine.controls.directionSelectionActive()
+                            else -> canOpen
+                        }
+                    DungeonShortcut(
+                        label,
+                        if (action == "directions") "return" else action,
+                        enabled,
+                        Modifier.weight(1f),
+                        danger = action == "return",
+                    ) {
+                        when (action) {
+                            "return" -> onRetreat()
+                            "directions" -> vm.resetDirections()
+                            else -> vm.openDungeonPanel(action)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -140,5 +165,36 @@ internal fun CombatTurnStrip(s: State, motion: BattleVisual?, compact: Boolean) 
                 fontSize = 9.sp,
                 lineHeight = 14.sp,
             )
+    }
+}
+
+@Composable
+internal fun CombatShortcuts(vm: GameModel) {
+    val s = vm.engine.state
+    val enabled = s.mode == Mode.COMBAT_ATTACK && !vm.battleBusy()
+    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        listOf("회복약 ${s.inventory.count { it.kind == Kind.POTION }}" to "potion", "도주" to "flee")
+            .forEach { (label, action) ->
+                Row(
+                    Modifier.height(30.dp)
+                        .background(panel, RoundedCornerShape(5.dp))
+                        .border(1.dp, line, RoundedCornerShape(5.dp))
+                        .clickable(enabled = enabled, role = Role.Button) {
+                            vm.choose(Choice(label, action))
+                        }
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = if (action == "potion") "회복약 사용" else "도주 시도"
+                        }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        label,
+                        color = if (enabled) mint else muted,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                    )
+                }
+            }
     }
 }

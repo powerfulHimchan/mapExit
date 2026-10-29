@@ -41,38 +41,42 @@ data class TrapState(
 
     fun signal(): Boolean = holdStarted >= 0 && elapsedMs - holdStarted >= signalMs
 
+    /** Input direction is conveyed by the scene, never by answer text. */
+    fun visualSide(): Int? =
+        when {
+            phase == TrapPhase.PREPARE || phase == TrapPhase.RESULT -> null
+            type == 3 && phase == TrapPhase.REVEAL -> {
+                val index =
+                    ((elapsedMs * pattern.size) / revealMs.coerceAtLeast(1))
+                        .toInt()
+                        .coerceIn(0, pattern.lastIndex)
+                val stepMs = revealMs.toFloat() / pattern.size
+                if ((elapsedMs % stepMs.toLong().coerceAtLeast(1)) / stepMs < .8f) pattern[index]
+                else null
+            }
+            type == 3 -> null
+            type == 0 -> pattern.getOrNull(progress)
+            else -> pattern.firstOrNull()
+        }
+
     fun prompt(): String =
         when {
-            phase == TrapPhase.RESULT -> result
+            phase == TrapPhase.RESULT -> if (success) "회피 성공" else "회피 실패"
             phase == TrapPhase.PREPARE -> cue()
-            rehold -> "${button(pattern[0])}를 다시 누르면 이어집니다"
-            phase == TrapPhase.REVEAL -> "기억하세요  ${pattern.joinToString(" "){button(it)}}"
-            type == 0 -> "${pattern.joinToString(" → "){button(it)}}  ($progress/${pattern.size})"
-            type == 1 -> "목표 구간에서 ${button(pattern[0])}!"
-            type == 2 -> "${button(pattern[0])} 연타  $progress / $required"
-            type == 3 -> "기억한 순서 입력  $progress / ${pattern.size}"
-            holdStarted < 0 -> "${button(pattern[0])}를 누르고 유지하세요"
-            signal() -> "지금 놓으세요!"
-            else -> "계속 누르고 있으세요…"
+            phase == TrapPhase.REVEAL -> "기억해라"
+            else -> listOf("솥을 살피세요", "칼날을 살피세요", "벽을 밀어내세요", "기억한 움직임을 따라 하세요", "나무봉을 살피세요")[type]
         }
 
     fun cue(): String =
         when (type) {
-            0 -> "순서대로 눌러라"
-            1 -> "초록에 맞춰라"
-            2 -> "빠르게 눌러라"
+            0 -> "솥을 피해라"
+            1 -> "칼날을 피해라"
+            2 -> "벽을 밀어라"
             3 -> "기억해라"
-            else -> "신호에 놓아라"
+            else -> "봉을 피해라"
         }
 
-    fun instruction(): String =
-        when (type) {
-            0 -> "보이는 A/B 순서 입력"
-            1 -> "바가 목표에 오면 입력"
-            2 -> "지정 버튼을 눌렀다 떼기"
-            3 -> "패턴이 사라지면 그대로 입력"
-            else -> "신호가 바뀌면 손 떼기"
-        }
+    fun instruction(): String = "장면의 움직임과 빛을 살피세요"
 
     companion object {
         fun button(n: Int) = if (n == 0) "A" else "B"

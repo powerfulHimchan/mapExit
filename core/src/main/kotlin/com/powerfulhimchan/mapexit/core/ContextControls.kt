@@ -31,6 +31,15 @@ class ContextControls(private val engine: GameEngine) {
         eventSkipped = true
     }
 
+    fun directionSelectionActive(): Boolean {
+        buttons()
+        return routes != null
+    }
+
+    fun resetDirections() {
+        routes = null
+    }
+
     fun reset() {
         routes = null
         eventSkipped = false
@@ -131,17 +140,7 @@ class ContextControls(private val engine: GameEngine) {
                     )
                 else
                     (0..1).map { i ->
-                        val label =
-                            when {
-                                t == null -> "대기"
-                                t.phase in listOf(TrapPhase.PREPARE, TrapPhase.REVEAL) -> "준비 / 기억"
-                                t.type in listOf(0, 3) -> "${if (i == 0) "A" else "B"} 입력"
-                                t.pattern.firstOrNull() != i -> "입력 금지"
-                                t.type == 1 -> "목표에서 누르기"
-                                t.type == 2 -> "연타하기"
-                                t.signal() -> "지금 놓기"
-                                else -> "누르고 유지"
-                            }
+                        val label = if (i == 0) "왼쪽 동작" else "오른쪽 동작"
                         ContextButton(label, enabled = t?.phase == TrapPhase.ACTIVE)
                     }
             }

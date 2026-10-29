@@ -76,60 +76,89 @@ fun MapExitScreen(vm: GameModel) {
         delay(2600)
         vm.clearImpact(event.serial)
     }
+    LaunchedEffect(vm.goldNoticeSerial) {
+        val serial = vm.goldNoticeSerial
+        if (vm.goldNoticeVisible) {
+            delay(2000)
+            vm.clearGoldNotice(serial)
+        }
+    }
     BackHandler(s.mode == Mode.MENU) { vm.back() }
     MaterialTheme(
         colorScheme =
             darkColorScheme(background = ink, surface = panel, onSurface = pale, primary = mint)
     ) {
-        Column(
-            Modifier.fillMaxSize()
-                .background(ink)
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Row(
-                Modifier.fillMaxWidth().height(34.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                Modifier.fillMaxSize()
+                    .background(ink)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text(
-                    "MAP / EXIT",
-                    color = mint,
-                    fontSize = 15.sp,
-                    letterSpacing = 3.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.weight(1f),
+                Row(
+                    Modifier.fillMaxWidth().height(34.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "MAP / EXIT",
+                        color = mint,
+                        fontSize = if (s.enemy != null) 12.sp else 15.sp,
+                        letterSpacing = if (s.enemy != null) 1.sp else 3.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (s.enemy != null && s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND))
+                        CombatShortcuts(vm)
+                    else {
+                        Text(
+                            if (s.debug) "TEST"
+                            else "${s.cycle}회차 · ${if (s.floor == 0) "지상" else "B${s.floor}"}",
+                            color = amber,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+                if (
+                    s.dungeon != null &&
+                        s.mode in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR)
                 )
-                Text(
-                    if (s.debug) "TEST"
-                    else "${s.cycle}회차 · ${if (s.floor == 0) "지상" else "B${s.floor}"}",
-                    color = amber,
-                    fontSize = 12.sp,
-                )
+                    DungeonToolbar(vm) {
+                        if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
+                        confirmRetreat = true
+                    }
+                if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode != Mode.MENU)
+                    LevelUpBanner(s.levelUpNotice!!, s.points, vm::dismissLevelUp)
+                if (vm.loadError != null) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                        Text(vm.loadError!!, color = red)
+                        Spacer(Modifier.height(20.dp))
+                        Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
+                    }
+                } else if (s.mode == Mode.RUN_RESULT) {
+                    RunResultScreen(vm, Modifier.weight(1f))
+                } else if (s.mode in listOf(Mode.SURFACE, Mode.MENU, Mode.INHERIT)) {
+                    if (s.mode == Mode.SURFACE && vm.currentImpact?.target == ImpactTarget.PLAYER) {
+                        Text("받은 피해 ${vm.currentImpact!!.label()}", color = red, fontSize = 16.sp)
+                    }
+                    PreparationScreen(vm, Modifier.weight(1f))
+                } else {
+                    DungeonScreen(vm, clock, Modifier.weight(1f))
+                }
+                vm.saveError?.let { Text(it, color = red, fontSize = 11.sp) }
             }
-            if (s.dungeon != null && s.mode in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR))
-                DungeonToolbar(vm) {
-                    if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
-                    confirmRetreat = true
+            if (vm.goldNoticeVisible)
+                Snackbar(
+                    modifier =
+                        Modifier.align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .padding(16.dp),
+                    containerColor = panel,
+                    contentColor = red,
+                ) {
+                    Text("골드부족", fontWeight = FontWeight.Bold)
                 }
-            if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode != Mode.MENU)
-                LevelUpBanner(s.levelUpNotice!!, s.points, vm::dismissLevelUp)
-            if (vm.loadError != null) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                    Text(vm.loadError!!, color = red)
-                    Spacer(Modifier.height(20.dp))
-                    Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
-                }
-            } else if (s.mode == Mode.RUN_RESULT) {
-                RunResultScreen(vm, Modifier.weight(1f))
-            } else if (s.mode in listOf(Mode.SURFACE, Mode.MENU, Mode.INHERIT)) {
-                if (s.mode == Mode.SURFACE && vm.currentImpact?.target == ImpactTarget.PLAYER) {
-                    Text("받은 피해 ${vm.currentImpact!!.label()}", color = red, fontSize = 16.sp)
-                }
-                PreparationScreen(vm, Modifier.weight(1f))
-            } else {
-                DungeonScreen(vm, clock, Modifier.weight(1f))
-            }
-            vm.saveError?.let { Text(it, color = red, fontSize = 11.sp) }
         }
         if (confirmRetreat && canRetreat)
             AlertDialog(
@@ -274,7 +303,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                         if (!compact)
                             Text(
                                 s.quest?.let { "의뢰 ${it.progress}/${it.target} · ${it.title}" }
-                                    ?: "${directionHint(s)} · 길게 누르기 기능은 버튼 아래 표시",
+                                    ?: "${directionHint(s)} · 상단 메뉴에서 가방과 기록 확인",
                                 color = muted,
                                 fontSize = 10.sp,
                                 lineHeight = 14.sp,
@@ -545,8 +574,6 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                                     modifier = Modifier.padding(top = 5.dp),
                                 )
                             }
-                            if (c.action == "buy" && !enabled)
-                                Text("골드가 부족합니다", color = red, fontSize = 10.sp)
                         }
                     }
                 }

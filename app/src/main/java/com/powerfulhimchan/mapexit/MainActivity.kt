@@ -69,6 +69,22 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     var visualEffectAt by mutableLongStateOf(0L)
         private set
 
+    var goldNoticeSerial by mutableLongStateOf(0L)
+        private set
+
+    var goldNoticeVisible by mutableStateOf(false)
+        private set
+
+    fun clearGoldNotice(serial: Long) {
+        if (serial == goldNoticeSerial) goldNoticeVisible = false
+    }
+
+    fun resetDirections() {
+        if (engine.state.mode != Mode.EXPLORE) return
+        engine.controls.resetDirections()
+        refresh()
+    }
+
     var active = false
     var loadError: String? = null
         private set
@@ -161,6 +177,25 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                     )
         )
             return
+        val valid =
+            engine.choices().any { it.action == choice.action && it.argument == choice.argument }
+        if (valid && choice.action in listOf("buy", "buyQuantity")) {
+            val item =
+                engine.state.shop.find {
+                    it.id ==
+                        if (choice.action == "buy") choice.argument else engine.state.menu?.argument
+                }
+            val count = if (choice.action == "buyQuantity") choice.argument.toInt() else 1
+            if (
+                item != null &&
+                    count > 0 &&
+                    engine.state.gold < Equipment.buyPrice(engine.state, item) * count
+            ) {
+                goldNoticeSerial++
+                goldNoticeVisible = true
+                return
+            }
+        }
         val before = engine.state.battleSnapshot()
         engine.choose(choice)
         animateBattle(choice.action, before, android.os.SystemClock.uptimeMillis())

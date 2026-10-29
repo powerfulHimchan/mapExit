@@ -1,4 +1,4 @@
-# MapExit 0.10.0
+# MapExit 0.11.0
 
 버튼 두 개로 탐험하는 오프라인 안드로이드 도트 던전 게임. Kotlin 게임 로직과 Compose/Canvas 화면을 분리했습니다.
 

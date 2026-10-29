@@ -139,10 +139,7 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                         .forEach { choice ->
                             val price = Equipment.buyPrice(s, potion) * choice.argument.toInt()
                             Column(
-                                Modifier.weight(1f).fillMaxHeight().card(
-                                    gold >= price,
-                                    choice.label,
-                                ) {
+                                Modifier.weight(1f).fillMaxHeight().card(true, choice.label) {
                                     vm.choose(choice)
                                 },
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -151,7 +148,7 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                                 ItemArt(Kind.POTION, Modifier.size(40.dp))
                                 Text(
                                     "${choice.argument}개",
-                                    color = pale,
+                                    color = if (gold < price) red else pale,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
                                 )
@@ -162,7 +159,7 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    if (gold >= price) "구매" else "골드 부족",
+                                    "구매",
                                     color = if (gold >= price) mint else red,
                                     fontSize = 11.sp,
                                 )
@@ -207,7 +204,8 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                     }
                 val price =
                     if (menu == "sell") Equipment.sellPrice(gear) else Equipment.buyPrice(s, gear)
-                val enabled = choice != null && (menu == "sell" || gold >= price)
+                val enabled = choice != null
+                val affordable = menu == "sell" || gold >= price
                 Column(
                     Modifier.weight(1f).fillMaxHeight().card(enabled, choice?.label ?: gear.name) {
                         choice?.let(vm::choose)
@@ -217,7 +215,7 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                     ItemArt(gear.kind, Modifier.size(60.dp))
                     Text(
                         gear.name,
-                        color = pale,
+                        color = if (affordable) pale else red,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         lineHeight = 18.sp,
@@ -231,11 +229,10 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                     Text(
                         when {
                             menu == "sell" -> "판매하기"
-                            !enabled -> "골드 부족"
                             gear.kind == Kind.POTION -> "수량 선택"
                             else -> "구매하기"
                         },
-                        color = if (enabled) mint else red,
+                        color = if (affordable) mint else muted,
                         fontSize = 12.sp,
                     )
                 }

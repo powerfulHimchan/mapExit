@@ -118,8 +118,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 val caption =
                     when (trap.phase) {
                         TrapPhase.PREPARE -> trap.cue()
-                        TrapPhase.REVEAL ->
-                            "기억해라  ${trap.pattern.joinToString(" · ") { TrapState.button(it) }}"
+                        TrapPhase.REVEAL -> "기억해라"
                         TrapPhase.RESULT -> if (trap.success) "회피 성공" else "회피 실패"
                         else -> null
                     }
@@ -204,68 +203,69 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 }
             }
         }
-        vm.currentImpact?.let { impact ->
-            key(impact.serial) {
-                val rise = remember { Animatable(0f) }
-                val hitTime =
-                    vm.battleVisual
-                        ?.takeIf { it.impact.serial == impact.serial }
-                        ?.let { it.startedAt + BattleAnimation.HIT_MS } ?: time
-                var visible by remember { mutableStateOf(time >= hitTime) }
-                LaunchedEffect(Unit) {
-                    delay((hitTime - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0))
-                    visible = true
-                    rise.animateTo(1f, tween(1200))
-                }
-                val enemyHit = impact.target == ImpactTarget.ENEMY
-                val avoided = impact.outcome in listOf(ImpactOutcome.DODGE, ImpactOutcome.MISS)
-                val popupColor =
-                    if (avoided) mint
-                    else if (!enemyHit) red else if (impact.critical) amber else pale
-                if (visible)
-                    Column(
-                        modifier =
-                            (if (s.mode == Mode.VICTORY && !vm.battleBusy(time))
-                                    Modifier.align(Alignment.BottomEnd).padding(8.dp)
-                                else
-                                    Modifier.offset(
+        vm.currentImpact
+            ?.takeIf {
+                s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND) || vm.battleBusy(time)
+            }
+            ?.let { impact ->
+                key(impact.serial) {
+                    val rise = remember { Animatable(0f) }
+                    val hitTime =
+                        vm.battleVisual
+                            ?.takeIf { it.impact.serial == impact.serial }
+                            ?.let { it.startedAt + BattleAnimation.HIT_MS } ?: time
+                    var visible by remember { mutableStateOf(time >= hitTime) }
+                    LaunchedEffect(Unit) {
+                        delay((hitTime - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0))
+                        visible = true
+                        rise.animateTo(1f, tween(1200))
+                    }
+                    val enemyHit = impact.target == ImpactTarget.ENEMY
+                    val avoided = impact.outcome in listOf(ImpactOutcome.DODGE, ImpactOutcome.MISS)
+                    val popupColor =
+                        if (avoided) mint
+                        else if (!enemyHit) red else if (impact.critical) amber else pale
+                    if (visible && rise.value < 1f)
+                        Column(
+                            modifier =
+                                Modifier.offset(
                                         x = maxWidth * (if (enemyHit) .48f else .05f),
                                         y =
                                             maxHeight * (if (enemyHit) .34f else .62f) -
                                                 24.dp * rise.value,
-                                    ))
-                                .widthIn(max = maxWidth * .50f)
-                                .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
-                                .border(
-                                    if (impact.critical) 2.dp else 1.dp,
-                                    if (impact.critical) popupColor else line,
-                                    RoundedCornerShape(6.dp),
+                                    )
+                                    .widthIn(max = maxWidth * .50f)
+                                    .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
+                                    .border(
+                                        if (impact.critical) 2.dp else 1.dp,
+                                        if (impact.critical) popupColor else line,
+                                        RoundedCornerShape(6.dp),
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .semantics(mergeDescendants = true) {
+                                        contentDescription =
+                                            "${if(enemyHit) "적" else "플레이어"} 피해 ${impact.label()}"
+                                    },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            if (impact.critical)
+                                Text(
+                                    "치명타!",
+                                    color = popupColor,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
                                 )
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .semantics(mergeDescendants = true) {
-                                    contentDescription =
-                                        "${if(enemyHit) "적" else "플레이어"} 피해 ${impact.label()}"
-                                },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        if (impact.critical)
                             Text(
-                                "치명타!",
+                                if (avoided) impact.label() else "-${impact.amount}",
                                 color = popupColor,
-                                fontSize = 14.sp,
+                                fontSize = if (impact.critical) 32.sp else 25.sp,
+                                lineHeight = if (impact.critical) 36.sp else 30.sp,
                                 fontWeight = FontWeight.Black,
                             )
-                        Text(
-                            if (avoided) impact.label() else "-${impact.amount}",
-                            color = popupColor,
-                            fontSize = if (impact.critical) 32.sp else 25.sp,
-                            lineHeight = if (impact.critical) 36.sp else 30.sp,
-                            fontWeight = FontWeight.Black,
-                        )
-                        if (impact.outcome == ImpactOutcome.GUARD && !impact.critical)
-                            Text("방어", color = popupColor, fontSize = 10.sp)
-                    }
+                            if (impact.outcome == ImpactOutcome.GUARD && !impact.critical)
+                                Text("방어", color = popupColor, fontSize = 10.sp)
+                        }
+                }
             }
-        }
     }
 }

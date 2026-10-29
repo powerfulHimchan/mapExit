@@ -349,7 +349,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     /** Header shortcuts stop automatic walking before opening a real menu. */
     fun openDungeonPanel(type: String): Boolean {
         if (
-            type !in listOf("equipment", "growth") ||
+            type !in listOf("equipment", "growth", "inventory", "help") ||
                 state.dungeon == null ||
                 state.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR)
         )
@@ -551,7 +551,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "questInfo" ->
                 s.note(
                     s.quest?.let { "${it.title} (${it.progress}/${it.target}) · 귀환/사망 시 종료" }
-                        ?: "버튼 이름의 행동을 바로 실행 · 길게 누르기로 가방·회복약·도주 · 출구에서 귀환"
+                        ?: "버튼 이름의 행동을 바로 실행 · 상단 메뉴로 가방·기록·회복약·도주 · 출구에서 귀환"
                 )
             "exit" -> exitFloor()
             "attack" -> attack(false)

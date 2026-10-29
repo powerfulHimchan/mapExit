@@ -98,12 +98,14 @@ class LaunchTest {
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
     }
 
-    private fun assertVictoryFeedbackLayout(scenario: ActivityScenario<MainActivity>) {
+    private fun assertVictoryClearsDamage(scenario: ActivityScenario<MainActivity>) {
         var popupLabel = ""
         scenario.onActivity { popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
-        val footer = bounds("B로 결과 확인 후 계속")
-        val popup = bounds(popupLabel)
-        assertTrue("Final damage must sit below the victory card", popup.top >= footer.bottom)
+        bounds("B로 결과 확인 후 계속")
+        assertNull(
+            "Finished combat must not retain the final damage popup",
+            find(instrumentation.uiAutomation.rootInActiveWindow, popupLabel),
+        )
         assertNull(
             "Victory replaces the combat header",
             find(instrumentation.uiAutomation.rootInActiveWindow, "3인칭 전투"),
@@ -326,7 +328,7 @@ class LaunchTest {
             }
             tap("B 강공격")
             bounds("전투 승리")
-            assertVictoryFeedbackLayout(scenario)
+            assertVictoryClearsDamage(scenario)
             capture("victory")
             var gold = 0
             scenario.onActivity {
@@ -416,7 +418,7 @@ class LaunchTest {
                 }
                 tap("A 일반 공격")
                 bounds("전투 승리")
-                assertVictoryFeedbackLayout(scenario)
+                assertVictoryClearsDamage(scenario)
                 capture("compact-victory")
                 tap("B 결과 확인 · 계속")
                 scenario.onActivity {
@@ -425,7 +427,7 @@ class LaunchTest {
                     s.mode = Mode.TRAP
                     it.game.refresh()
                 }
-                bounds("신호에 놓아라")
+                bounds("봉을 피해라")
                 capture("compact-cue")
                 scenario.onActivity {
                     it.game.engine.die()
@@ -1106,6 +1108,118 @@ class LaunchTest {
         }
     }
 
+    @Test
+    fun unaffordableShopItemsStayTouchableAndOnlyWarnAfterTap() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var buy = ""
+            var itemId = 0L
+            scenario.onActivity {
+                val e = GameEngine(State(gold = 0))
+                val item = ItemFactory.create(e.state, Kind.HEAD)
+                itemId = item.id
+                e.state.shop = mutableListOf(item)
+                e.choose(Choice("상점", "shop"))
+                buy = e.choices().first { it.action == "buy" }.label
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "골드부족"))
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "골드 부족"))
+            capture("shop-red-name")
+            tap(buy)
+            bounds("골드부족")
+            scenario.onActivity {
+                assertEquals(0, it.game.engine.state.gold)
+                assertTrue(it.game.engine.state.shop.any { gear -> gear.id == itemId })
+                assertFalse(it.game.engine.state.inventory.any { gear -> gear.id == itemId })
+            }
+            capture("shop-gold-toast")
+        }
+    }
+
+    @Test
+    fun topMenusExposeInventoryRecordsDirectionResetPotionAndFlee() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(1)
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            val scene = bounds("메인 장면")
+            for (label in listOf("가방", "기록", "방향 처음")) assertTrue(bounds(label).bottom <= scene.top)
+            capture("top-explore-menus")
+            tap("가방")
+            bounds("가방")
+            tap("돌아가기")
+            tap("기록")
+            bounds("탐험 기록")
+            tap("돌아가기")
+            scenario.onActivity {
+                val e = it.game.engine
+                e.startBattle(false)
+                e.state.enemy!!.hp = 5000.0
+                e.state.hp = 100.0
+                it.game.refresh()
+            }
+            assertTrue(bounds("회복약 사용").bottom <= bounds("메인 장면").top)
+            assertTrue(bounds("도주 시도").bottom <= bounds("메인 장면").top)
+            capture("top-combat-menus")
+            tap("회복약 사용")
+            scenario.onActivity {
+                assertEquals(
+                    1,
+                    it.game.engine.state.inventory.count { gear -> gear.kind == Kind.POTION },
+                )
+                assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode)
+                assertTrue(it.game.engine.state.hp > 100.0)
+            }
+        }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun allPhysicalObstaclesRenderDistinctPhaseFramesWithoutMutatingGame() {
+        val image = androidx.compose.ui.graphics.ImageBitmap(480, 640)
+        val scope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+        val e = GameEngine()
+        e.enterFloor(1)
+        e.state.mode = Mode.TRAP
+        val kinds = mutableListOf<IntArray>()
+        for (type in 0..4) {
+            e.state.trap = Traps.create(e.state, type)
+            var previous: IntArray? = null
+            for ((index, time) in listOf(100L, 700L, 1400L).withIndex()) {
+                val t = e.state.trap!!
+                t.phase = if (type == 3 && index == 0) TrapPhase.REVEAL else TrapPhase.ACTIVE
+                t.elapsedMs = time
+                if (type == 4) t.holdStarted = 0
+                val saved = SaveCodec.encode(e.state)
+                scope.draw(
+                    androidx.compose.ui.unit.Density(1f),
+                    androidx.compose.ui.unit.LayoutDirection.Ltr,
+                    androidx.compose.ui.graphics.Canvas(image),
+                    androidx.compose.ui.geometry.Size(480f, 640f),
+                ) {
+                    drawScene(e.state, time)
+                }
+                val bitmap = image.asAndroidBitmap()
+                val pixels = IntArray(480 * 640)
+                bitmap.getPixels(pixels, 0, 480, 0, 0, 480, 640)
+                previous?.let { assertFalse(it.contentEquals(pixels)) }
+                previous = pixels
+                if (index == 1) {
+                    assertTrue(kinds.none { it.contentEquals(pixels) })
+                    kinds.add(pixels)
+                }
+                assertEquals(saved, SaveCodec.encode(e.state))
+                exportBitmap("obstacle-$type-$index", bitmap)
+            }
+        }
+    }
+
     private fun exportBitmap(name: String, bitmap: android.graphics.Bitmap) {
         val resolver = instrumentation.targetContext.contentResolver
         val values =
@@ -1252,7 +1366,7 @@ class LaunchTest {
                 }
                 awaitGame(scenario) { it.trap?.phase == TrapPhase.ACTIVE }
                 if (type == 0) {
-                    for (b in pattern) tap(if (b == 0) "A A 입력" else "B B 입력")
+                    for (b in pattern) tap(if (b == 0) "A 왼쪽 동작" else "B 오른쪽 동작")
                 }
                 awaitGame(scenario) { it.trap?.phase == TrapPhase.RESULT }
                 scenario.onActivity { assertEquals(type == 0, it.game.engine.state.trap!!.success) }
