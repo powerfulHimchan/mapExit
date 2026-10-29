@@ -130,7 +130,7 @@ class GameEngine(
                 s.dungeon?.cells?.count { it.event == Event.MONSTER && !it.resolved } ?: 0
             val chests = s.dungeon?.cells?.count { it.event == Event.CHEST && !it.resolved } ?: 0
             val kills = if (s.floor < 50) 5 else min(5, monsters)
-            val boxes = if (s.floor < 50) 3 else min(3, chests)
+            val boxes = min(3, chests + (50 - s.floor).coerceAtLeast(0) * 2)
             if (kills > 0) add(Quest("몬스터 ${kills}마리 처치", "kill", kills, reward = 80 + s.floor * 8))
             if (boxes > 0) add(Quest("상자 ${boxes}개 열기", "chest", boxes, reward = 100 + s.floor * 8))
             if (s.floor < 50)

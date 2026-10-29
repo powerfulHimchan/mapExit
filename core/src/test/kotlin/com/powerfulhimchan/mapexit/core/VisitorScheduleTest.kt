@@ -6,6 +6,33 @@ import org.junit.Test
 
 class VisitorScheduleTest {
     @Test
+    fun lateNpcNeverRequestsMoreChestsThanRemainInTheCurrentAndLastFloor() {
+        var offeredChestQuest = false
+        for (seed in 1L..100L) {
+            val d = Dungeon(9, 9, MutableList(81) { Cell() })
+            d.here().wall = false
+            d.here().event = Event.NPC
+            val e =
+                GameEngine(
+                    State(
+                        bootstrapped = true,
+                        rng = seed,
+                        floor = 49,
+                        dungeon = d,
+                        mode = Mode.EXPLORE,
+                    )
+                )
+            e.choose(Choice("NPC", "encounter", Event.NPC.ordinal.toLong()))
+            val offer = e.state.dungeon!!.here().questOffer
+            if (offer?.kind == "chest") {
+                offeredChestQuest = true
+                assertEquals(2, offer.target)
+            }
+        }
+        assertTrue(offeredChestQuest)
+    }
+
+    @Test
     fun visitorsStartOnThirdOrFourthFloorAndEveryFollowingGapIsThreeOrFour() {
         val gaps = mutableSetOf<Int>()
         for (seed in 1L..100L) for (event in listOf(Event.NPC, Event.MERCHANT)) {
