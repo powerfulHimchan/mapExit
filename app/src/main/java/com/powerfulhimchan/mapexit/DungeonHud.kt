@@ -107,7 +107,7 @@ internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onDismiss: () -> 
 }
 
 @Composable
-internal fun CombatTurnStrip(s: State, motion: BattleVisual?) {
+internal fun CombatTurnStrip(s: State, motion: BattleVisual?, compact: Boolean) {
     if (s.enemy == null || s.mode !in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND)) return
     val player =
         motion?.let { it.impact.target == ImpactTarget.ENEMY } ?: (s.mode == Mode.COMBAT_ATTACK)
@@ -120,16 +120,25 @@ internal fun CombatTurnStrip(s: State, motion: BattleVisual?) {
         Modifier.fillMaxWidth()
             .background(panel, RoundedCornerShape(5.dp))
             .border(1.dp, color.copy(alpha = .7f), RoundedCornerShape(5.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
             .semantics(mergeDescendants = true) { contentDescription = "전투 차례" },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         Text(
-            if (motion != null) "동작 재생 중" else if (player) "공격을 선택하세요" else "방어 행동을 선택하세요",
-            color = muted,
-            fontSize = 10.sp,
+            label,
+            color = color,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            maxLines = 1,
+            fontWeight = FontWeight.Bold,
         )
+        if (!compact)
+            Text(
+                if (motion != null) "동작 재생 중" else if (player) "공격을 선택하세요" else "방어 행동을 선택하세요",
+                color = muted,
+                fontSize = 9.sp,
+                lineHeight = 14.sp,
+            )
     }
 }

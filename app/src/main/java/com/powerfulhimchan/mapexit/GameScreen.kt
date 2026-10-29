@@ -260,25 +260,30 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                                 .background(if (s.hp < p.hp * .3) red else mint)
                         )
                     }
-                    Text(
-                        "공격 ${p.attack.toInt()} · 방어 ${p.defense.toInt()} · 회복약 ${s.inventory.count { it.kind == Kind.POTION }}",
-                        color = muted,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp,
-                    )
-                    if (!compact)
+                    if (
+                        s.enemy != null && s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND)
+                    ) {
+                        CombatTurnStrip(s, motion, compact)
+                    } else {
                         Text(
-                            s.quest?.let { "의뢰 ${it.progress}/${it.target} · ${it.title}" }
-                                ?: "${directionHint(s)} · 길게 누르기 기능은 버튼 아래 표시",
+                            "공격 ${p.attack.toInt()} · 방어 ${p.defense.toInt()} · 회복약 ${s.inventory.count { it.kind == Kind.POTION }}",
                             color = muted,
                             fontSize = 10.sp,
                             lineHeight = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
+                        if (!compact)
+                            Text(
+                                s.quest?.let { "의뢰 ${it.progress}/${it.target} · ${it.title}" }
+                                    ?: "${directionHint(s)} · 길게 누르기 기능은 버튼 아래 표시",
+                                color = muted,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                    }
                 }
             }
-            CombatTurnStrip(s, motion)
             Row(
                 Modifier.fillMaxWidth().height(if (compact) 62.dp else 76.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
