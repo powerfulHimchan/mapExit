@@ -30,7 +30,14 @@ internal fun spriteHeight(type: String, width: Float) =
     (FineSprites.all[type]?.height ?: 48) * spriteUnit(width)
 
 @Suppress("UNUSED_PARAMETER")
-internal fun DrawScope.sprite(type: String, x: Float, y: Float, width: Float, color: Color = pale) {
+internal fun DrawScope.sprite(
+    type: String,
+    x: Float,
+    y: Float,
+    width: Float,
+    color: Color = pale,
+    flash: Color? = null,
+) {
     val art = FineSprites.all[type] ?: FineSprites.all.getValue("npc")
     val unit = spriteUnit(width)
     drawImage(
@@ -39,6 +46,13 @@ internal fun DrawScope.sprite(type: String, x: Float, y: Float, width: Float, co
         dstOffset = IntOffset(x.roundToInt(), y.roundToInt()),
         dstSize = IntSize((art.width * unit).toInt(), (art.height * unit).toInt()),
         filterQuality = FilterQuality.None,
+        colorFilter =
+            flash?.let {
+                androidx.compose.ui.graphics.ColorFilter.tint(
+                    it,
+                    androidx.compose.ui.graphics.BlendMode.SrcAtop,
+                )
+            },
     )
 }
 
@@ -67,13 +81,15 @@ internal fun DrawScope.adventurer(
     baseline: Float,
     width: Float,
     back: Boolean = true,
+    armed: Boolean = true,
+    hitTint: Color? = null,
 ): HeroPose {
     val unit = spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
     contactShadow(x, baseline + 3, actual)
-    sprite(if (back) "heroBack" else "hero", x, y, actual)
-    if (back) {
+    sprite(if (back) "heroBack" else "hero", x, y, actual, flash = hitTint)
+    if (back && armed) {
         val weapon = Equipment.equipped(s).firstOrNull { it.weapon }
         weapon?.let {
             val type = gearSprite(it.kind)
@@ -96,13 +112,14 @@ internal fun DrawScope.drawScene(
     effect: String = "",
     effectAt: Long = 0L,
     camera: DungeonViewPose? = null,
+    battle: BattleVisual? = null,
 ) {
     drawRect(ink)
     when {
         s.mode == Mode.ENCOUNTER -> drawEncounter(s, clock)
         s.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE) -> s.trap?.let { drawTrap(it) }
         s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) ->
-            drawBattle(s, clock, effect, effectAt)
+            drawAnimatedBattle(s, clock, battle)
         s.floor == 0 || s.mode == Mode.INHERIT -> drawCamp(s, clock)
         else -> drawDungeonPerspective(s, clock, camera)
     }
@@ -161,50 +178,6 @@ internal fun DrawScope.arena(clock: Long, horizon: Float = .45f) {
     pixelRect(Color(0xff66736d), 0f, h * horizon - 4, w, 1f)
     torch(w * .15f, h * .29f, clock)
     torch(w * .82f, h * .29f, clock + 170)
-}
-
-private fun DrawScope.drawBattle(s: State, clock: Long, effect: String, effectAt: Long) {
-    val e = s.enemy ?: s.battleResult?.enemy ?: return
-    val w = size.width
-    val h = size.height
-    arena(clock)
-    val action = effectAt > 0 && clock - effectAt in 0..180
-    val shift =
-        if (action && effect in listOf("attack", "strong")) 12f
-        else if (action && effect == "dodge") -14f else 0f
-    val hero = adventurer(s, w * .18f + shift, h * .90f, min(w * .34f, h * .32f))
-    val type =
-        when {
-            e.boss -> "boss"
-            e.name.contains("기사") -> "knight"
-            e.name.contains("박쥐") -> "bat"
-            else -> "slime"
-        }
-    val width = min(w * (if (e.boss) .34f else .28f), h * (if (e.boss) .26f else .20f))
-    val unit = spriteUnit(width)
-    val ex = w * .64f
-    val baseline = h * (if (type == "bat") .57f else .73f)
-    val bob = if ((clock / 320) % 2 == 0L) 0f else 1f
-    val ey = baseline - spriteHeight(type, width) + bob
-    contactShadow(ex, h * .74f, unit * 32)
-    if (s.mode != Mode.VICTORY) sprite(type, ex, ey, width)
-    else {
-        pixelRect(Color(0xff3c524a), ex, baseline - 5, unit * 32, 5f)
-        for (i in 0..6) pixelRect(amber, ex + i * 7, baseline - 9 - (i % 3) * 3, 1f, 2f)
-        sprite("coin", ex + unit * 12, baseline - 35, 32f)
-    }
-    if (action && effect in listOf("attack", "strong")) {
-        val color = if (effect == "strong") amber else pale
-        for (i in 0..12) {
-            pixelRect(color, ex + unit * 5 + i * 4, ey + unit * 10 - i * 3, 2f, 6f)
-            if (i % 2 == 0)
-                pixelRect(Color.White, ex + unit * 5 + i * 4 + 2, ey + unit * 10 - i * 3, 1f, 3f)
-        }
-    }
-    if (action && effect == "guard")
-        for (i in 0..6) {
-            pixelRect(mint, hero.x + hero.unit * 31, hero.y + hero.unit * 20 + i * 6, 2f, 4f)
-        }
 }
 
 internal fun DrawScope.drawMap(s: State) {

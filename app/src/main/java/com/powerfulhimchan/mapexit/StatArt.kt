@@ -102,6 +102,11 @@ internal fun StatArt(stat: Stat, modifier: Modifier = Modifier) {
             Stat.LUCK -> mint
             else -> Color(0xffa2c9eb)
         }
+    PixelGlyph(rows, color, modifier)
+}
+
+@Composable
+internal fun PixelGlyph(rows: List<String>, color: Color, modifier: Modifier) {
     Canvas(modifier.clearAndSetSemantics {}) {
         val unit = floor(minOf(size.width, size.height) / 10).coerceAtLeast(1f)
         val ox = (size.width - 8 * unit) / 2

@@ -21,15 +21,20 @@ import kotlin.math.roundToInt
 
 internal fun statValue(stat: Stat, value: Double): String =
     if (stat in listOf(Stat.CRIT, Stat.CRIT_DAMAGE))
-        String.format(Locale.ROOT, "%.1f%%", value * 100)
+        String.format(Locale.ROOT, "%.1f", value * 100).removeSuffix(".0") + "%"
     else value.roundToInt().toString()
 
-private fun Modifier.card(enabled: Boolean, label: String, action: () -> Unit): Modifier =
+private fun Modifier.card(
+    enabled: Boolean,
+    label: String,
+    compact: Boolean = false,
+    action: () -> Unit,
+): Modifier =
     background(panel, RoundedCornerShape(8.dp))
         .border(1.dp, if (enabled) line else line.copy(alpha = .5f), RoundedCornerShape(8.dp))
         .clickable(enabled = enabled, role = Role.Button, onClick = action)
         .semantics(mergeDescendants = true) { contentDescription = label }
-        .padding(12.dp)
+        .padding(if (compact) 6.dp else 12.dp)
 
 internal fun LazyListScope.growthCards(vm: GameModel) {
     val s = vm.engine.state
@@ -43,32 +48,43 @@ internal fun LazyListScope.growthCards(vm: GameModel) {
             fontWeight = FontWeight.Bold,
         )
     }
-    items(Stat.entries.chunked(2), key = { "stats:${it.first().name}" }) { row ->
+    items(Stat.entries.chunked(4), key = { "stats:${it.first().name}" }) { row ->
+        val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 320
         Row(
             Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (narrow) 4.dp else 8.dp),
         ) {
             row.forEach { stat ->
                 val choice = Choice("${stat.label} 올리기 (${points}P)", "stat", stat.ordinal.toLong())
                 val next = Growth.preview(s, stat)
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().card(points > 0, choice.label) {
+                    Modifier.weight(1f).fillMaxHeight().card(
+                        points > 0,
+                        choice.label,
+                        compact = true,
+                    ) {
                         vm.choose(choice)
                     },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    StatArt(stat, Modifier.size(44.dp))
-                    Text(stat.label, color = pale, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    StatArt(stat, Modifier.size(if (narrow) 24.dp else 30.dp))
+                    Text(
+                        stat.label,
+                        color = pale,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                    )
                     Text(
                         statValue(stat, current.value(stat)),
                         color = pale,
                         fontWeight = FontWeight.Black,
-                        fontSize = 22.sp,
+                        fontSize = if (narrow) 12.sp else 17.sp,
                     )
                     Text(
-                        "성장 후 ${statValue(stat, next.value(stat))}",
+                        "→ ${statValue(stat, next.value(stat))}",
                         color = mint,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         modifier =
                             Modifier.semantics {
                                 contentDescription =
@@ -76,13 +92,13 @@ internal fun LazyListScope.growthCards(vm: GameModel) {
                             },
                     )
                     Text(
-                        if (points > 0) "+ 강화 · 1P" else "포인트 없음",
+                        if (points > 0) "+ 1P" else "0P",
                         color = if (points > 0) amber else muted,
                         fontSize = 12.sp,
                     )
                 }
             }
-            if (row.size == 1) Spacer(Modifier.weight(1f))
+            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
 }
