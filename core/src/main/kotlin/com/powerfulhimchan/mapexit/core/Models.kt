@@ -123,6 +123,8 @@ data class Stats(
   }
 }
 
+@Serializable data class WeaponAffix(val stat: Stat, val amount: Double)
+
 @Serializable
 data class Gear(
     val id: Long,
@@ -134,6 +136,9 @@ data class Gear(
     val charm: Charm = Charm.NONE,
     var inherited: Boolean = false,
     val price: Int = 30,
+    val variantId: String? = null,
+    val bossOriginFloor: Int? = null,
+    val affixes: List<WeaponAffix> = emptyList(),
 ) {
   val twoHanded: Boolean
     get() = kind == Kind.SPEAR || kind == Kind.HAMMER
@@ -141,7 +146,28 @@ data class Gear(
   val weapon: Boolean
     get() = kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)
 
-  fun summary(): String {
+  fun flatValue(stat: Stat): Double =
+      flat.value(stat) + affixes.filter { it.stat == stat }.sumOf { it.amount }
+
+  fun affixSummary(): String =
+      affixes.joinToString(" / ") { option ->
+        val value =
+            if (option.stat in listOf(Stat.CRIT, Stat.CRIT_DAMAGE)) option.amount * 100
+            else option.amount
+        "${option.stat.label} +${number(value)}${if (option.stat in listOf(Stat.CRIT, Stat.CRIT_DAMAGE)) "%p" else ""}"
+      }
+
+  private fun number(value: Double): String {
+    val rounded = kotlin.math.round(value * 10) / 10
+    return if (rounded == rounded.toInt().toDouble()) rounded.toInt().toString()
+    else rounded.toString()
+  }
+
+  fun summary(): String =
+      if (affixes.isEmpty()) baseSummary()
+      else "보스 전리품 · ${bossOriginFloor}층\n기본: ${baseSummary()}\n추가 옵션: ${affixSummary()}"
+
+  fun baseSummary(): String {
     if (kind == Kind.POTION) return "최대 HP의 35% 회복"
     if (kind == Kind.NECKLACE)
         return when (charm) {
@@ -160,10 +186,10 @@ data class Gear(
           else
               st.label +
                   when {
-                    p != 0.0 -> " ${if(p>0) "+" else ""}${(p*100).toInt()}%"
-                    st == Stat.CRIT -> " ${if(f>0) "+" else ""}${(f*100).toInt()}%p"
-                    st == Stat.CRIT_DAMAGE -> " ${if(f>0) "+" else ""}${(f*100).toInt()}%p"
-                    else -> " ${if(f>0) "+" else ""}${f.toInt()}"
+                    p != 0.0 -> " ${if(p>0) "+" else ""}${number(p*100)}%"
+                    st == Stat.CRIT -> " ${if(f>0) "+" else ""}${number(f*100)}%p"
+                    st == Stat.CRIT_DAMAGE -> " ${if(f>0) "+" else ""}${number(f*100)}%p"
+                    else -> " ${if(f>0) "+" else ""}${number(f)}"
                   }
         }
         .joinToString(" / ")
@@ -256,6 +282,7 @@ data class BattleResult(
     val experience: Int,
     val items: List<String>,
     val returnMode: Mode,
+    val rewards: List<Gear> = emptyList(),
 )
 
 @Serializable

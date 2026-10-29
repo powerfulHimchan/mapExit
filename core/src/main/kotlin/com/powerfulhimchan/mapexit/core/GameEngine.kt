@@ -16,7 +16,7 @@ class GameEngine(
     init {
         if (!state.bootstrapped) {
             state.bootstrapped = true
-            state.inventory.add(ItemFactory.create(state, Kind.SWORD, 1))
+            state.inventory.add(ItemFactory.create(state, Kind.SWORD, 1, variantId = "longsword"))
             state.inventory.add(ItemFactory.create(state, Kind.SHIELD, 1))
             repeat(2) { state.inventory.add(ItemFactory.create(state, Kind.POTION, 1)) }
             Equipment.equip(state, state.inventory[0].id, Slot.RIGHT)
@@ -957,6 +957,7 @@ class GameEngine(
         val gold = 20 + s.floor * 4
         val experience = 25 + s.floor * 5
         val items = mutableListOf<String>()
+        val rewards = mutableListOf<Gear>()
         s.runKills++
         s.gold += gold
         gainExperience(experience)
@@ -964,21 +965,24 @@ class GameEngine(
         if (enemy.boss) {
             s.devices.add(s.floor)
             s.dungeon?.bossCleared = true
-            val reward = ItemFactory.create(s, Kind.entries[s.nextInt(Kind.entries.size - 1)])
+            val reward = ItemFactory.bossWeapon(s)
             s.inventory.add(reward)
             items.add(reward.name)
+            rewards.add(reward)
         } else {
             s.dungeon?.here()?.resolved = true
             if (s.random() < (.25 + stats().luck * .003).coerceAtMost(.65)) {
                 val reward = ItemFactory.create(s)
                 s.inventory.add(reward)
                 items.add(reward.name)
+                rewards.add(reward)
             }
         }
         val returnMode =
             if (enemy.boss) Mode.FLOOR_CLEAR
             else if (s.dungeon == null) Mode.SURFACE else Mode.EXPLORE
-        s.battleResult = BattleResult(enemy.copy(hp = 0.0), gold, experience, items, returnMode)
+        s.battleResult =
+            BattleResult(enemy.copy(hp = 0.0), gold, experience, items, returnMode, rewards)
         s.enemy = null
         s.mode = Mode.VICTORY
         s.selection = 0

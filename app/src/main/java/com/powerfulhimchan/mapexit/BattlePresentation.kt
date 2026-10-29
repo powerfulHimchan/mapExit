@@ -196,6 +196,29 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                 lineHeight = 17.sp,
                             )
                         if (result.enemy.boss)
+                            result.rewards
+                                .filter { it.bossOriginFloor != null }
+                                .forEach { gear ->
+                                    Text(
+                                        "보스 전리품",
+                                        color = amber,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        "기본: ${gear.baseSummary()}",
+                                        color = pale,
+                                        fontSize = 12.sp,
+                                        lineHeight = 17.sp,
+                                    )
+                                    Text(
+                                        "추가 옵션: ${gear.affixSummary()}",
+                                        color = mint,
+                                        fontSize = 12.sp,
+                                        lineHeight = 17.sp,
+                                    )
+                                }
+                        if (result.enemy.boss)
                             Text(
                                 "${s.floor}층 이동 장치 해금",
                                 color = amber,

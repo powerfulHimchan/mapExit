@@ -13,7 +13,7 @@ object Equipment {
         var result = Stats.zero()
         val gear = equipped(state)
         for (stat in Stat.entries) {
-            val flat = gear.sumOf { it.flat.value(stat) }
+            val flat = gear.sumOf { it.flatValue(stat) }
             val percent = gear.sumOf { it.percent.value(stat) }
             var value = (state.base.value(stat) + flat) * (1 + percent)
             value =
@@ -124,7 +124,12 @@ object Equipment {
 }
 
 object ItemFactory {
-    fun create(s: State, kind: Kind? = null, floor: Int = max(1, s.floor)): Gear {
+    fun create(
+        s: State,
+        kind: Kind? = null,
+        floor: Int = max(1, s.floor),
+        variantId: String? = null,
+    ): Gear {
         val k = kind ?: Kind.entries[s.nextInt(Kind.entries.size)]
         val tier = (1 + (floor - 1) / 10 + s.nextInt(2)).coerceAtMost(7)
         val t = tier.toDouble()
@@ -132,12 +137,20 @@ object ItemFactory {
         var p = Stats.zero()
         var charm = Charm.NONE
         var title = k.label
+        var variant: WeaponVariant? = null
         when (k) {
             Kind.SWORD,
             Kind.SPEAR,
             Kind.HAMMER,
             Kind.CLAW,
-            Kind.WHIP -> f = GameBalance.weapon(k, t)
+            Kind.WHIP -> {
+                val variants = WeaponCatalog.of(k)
+                variant =
+                    if (variantId == null) variants[s.nextInt(variants.size)]
+                    else variants.first { it.id == variantId }
+                f = variant.stats(tier)
+                title = variant.name
+            }
             Kind.SHIELD -> f = f.copy(defense = GameBalance.shield("defense") * t)
 
             Kind.HEAD,
@@ -195,6 +208,38 @@ object ItemFactory {
             p,
             charm,
             price = if (k == Kind.POTION) 25 else 35 * tier,
+            variantId = variant?.id,
+        )
+    }
+
+    /** A guaranteed weapon with preserved base stats and distinct, additive rolled affixes. */
+    fun bossWeapon(s: State, floor: Int = max(1, s.floor)): Gear {
+        val variant = WeaponCatalog.all[s.nextInt(WeaponCatalog.all.size)]
+        val normal = create(s, variant.kind, floor, variant.id)
+        val pool = Stat.entries.toMutableList()
+        val count = (2 + (floor.coerceIn(1, 50) - 1) / 20).coerceAtMost(4)
+        val options =
+            List(count) {
+                val stat = pool.removeAt(s.nextInt(pool.size))
+                val roll = .8 + s.random() * .4
+                val t = normal.tier.toDouble()
+                val amount =
+                    when (stat) {
+                        Stat.HP -> kotlin.math.round(18 * t * roll)
+                        Stat.ATTACK -> kotlin.math.round(5 * t * roll)
+                        Stat.DEFENSE -> kotlin.math.round(4 * t * roll)
+                        Stat.AGILITY -> kotlin.math.round(3 * t * roll)
+                        Stat.LUCK -> kotlin.math.round(3 * t * roll)
+                        Stat.CRIT -> kotlin.math.round((.015 + .003 * t) * roll * 1000) / 1000
+                        Stat.CRIT_DAMAGE -> kotlin.math.round((.08 + .012 * t) * roll * 1000) / 1000
+                    }
+                WeaponAffix(stat, amount)
+            }
+        return normal.copy(
+            name = "수문장의 ${normal.name}",
+            bossOriginFloor = floor,
+            affixes = options,
+            price = normal.price * 2,
         )
     }
 }

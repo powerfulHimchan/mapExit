@@ -1429,6 +1429,94 @@ class LaunchTest {
         }
     }
 
+    @Test
+    fun weaponVarietiesAndBossOptionsAreVisibleInShopVictoryAndEquipmentDetail() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val names = mutableListOf<String>()
+            scenario.onActivity {
+                val e = GameEngine(State(gold = 5000))
+                e.state.shop =
+                    WeaponCatalog.of(Kind.SWORD)
+                        .map { v -> ItemFactory.create(e.state, Kind.SWORD, 1, v.id) }
+                        .toMutableList()
+                names.addAll(e.state.shop.map { it.name })
+                e.choose(Choice("상점", "shop"))
+                it.game.engine = e
+                it.game.active = false
+                it.game.refresh()
+            }
+            bounds(names[0])
+            bounds(names[1])
+            capture("weapon-varieties")
+            var reward: Gear? = null
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(50)
+                e.startBattle(true)
+                e.state.enemy!!.hp = 1.0
+                e.state.rng = 0L
+                e.attack(false)
+                reward = e.state.battleResult!!.rewards.single()
+                assertEquals(4, reward!!.affixes.size)
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("보스 전리품", allowScroll = true)
+            bounds("추가 옵션: ${reward!!.affixSummary()}", allowScroll = true)
+            capture("boss-affixes")
+            scenario.onActivity {
+                val e = it.game.engine
+                e.press(1)
+                assertTrue(e.openDungeonPanel("inventory"))
+                e.choose(Choice("상세", "item", reward!!.id))
+                it.game.refresh()
+            }
+            bounds(reward!!.name)
+            bounds(reward!!.summary(), allowScroll = true)
+            capture("boss-weapon-detail")
+        }
+    }
+
+    @Test
+    fun deepFloorWallAndMemoryKeepTheirReadableActionsWithMoreInputs() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(50)
+                e.state.mode = Mode.TRAP
+                e.state.trap =
+                    Traps.create(e.state, 2).copy(phase = TrapPhase.ACTIVE, elapsedMs = 500)
+                assertEquals(6, e.state.trap!!.required)
+                assertEquals(1510L, e.state.trap!!.limitMs)
+                it.game.engine = e
+                it.game.active = false
+                it.game.refresh()
+            }
+            bounds("A 왼쪽 동작")
+            bounds("B 오른쪽 동작")
+            capture("deep-wall")
+            scenario.onActivity {
+                val e = it.game.engine
+                e.state.trap =
+                    Traps.create(e.state, 3).copy(phase = TrapPhase.REVEAL, elapsedMs = 100)
+                assertEquals(5, e.state.trap!!.pattern.size)
+                it.game.refresh()
+            }
+            bounds("기억해라")
+            capture("deep-memory")
+            scenario.onActivity {
+                val e = it.game.engine
+                val t = e.state.trap!!
+                t.phase = TrapPhase.ACTIVE
+                t.elapsedMs = 0
+                t.pattern.forEach { action -> e.press(action) }
+                assertTrue(t.success)
+                it.game.refresh()
+            }
+            bounds("회피 성공")
+        }
+    }
+
     private fun exportBitmap(name: String, bitmap: android.graphics.Bitmap) {
         val resolver = instrumentation.targetContext.contentResolver
         val values =

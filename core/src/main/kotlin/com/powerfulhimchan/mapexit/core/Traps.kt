@@ -114,21 +114,24 @@ object Traps {
     fun create(s: State, type: Int): TrapState {
         require(type in 0..4)
         val charm = if (Equipment.charm(s) == Charm.TRAP) 1.25 else 1.0
+        val depth = s.floor.coerceIn(1, 50) - 1
         val first = s.nextInt(2)
         val pattern =
             when (type) {
-                0 -> listOf(first, 1 - first)
-                3 -> List((3 + s.floor / 25).coerceAtMost(5)) { s.nextInt(2) }
+                0 -> List(2 + depth / 20) { if (it % 2 == 0) first else 1 - first }
+                3 -> List(3 + depth / 20) { s.nextInt(2) }
                 else -> listOf(first)
             }
         return TrapState(
             type,
             pattern,
-            (2000 * charm).toLong(),
-            1000L,
+            ((2000 - depth * 10) * charm).toLong(),
+            if (type == 3)
+                kotlin.math.round(pattern.size * (1000.0 / 3 - depth * .6) * charm).toLong()
+            else 1000L,
             .25 + s.random() * .5,
             .20 * charm,
-            4 + s.floor / 20,
+            4 + depth / 20,
             450 + s.nextInt(300).toLong(),
             (400 * charm).toLong(),
         )
