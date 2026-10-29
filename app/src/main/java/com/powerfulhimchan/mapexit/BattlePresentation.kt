@@ -225,7 +225,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     val popupColor =
                         if (avoided) mint
                         else if (!enemyHit) red else if (impact.critical) amber else pale
-                    if (visible && rise.value < 1f)
+                    if (visible)
                         Column(
                             modifier =
                                 Modifier.offset(
