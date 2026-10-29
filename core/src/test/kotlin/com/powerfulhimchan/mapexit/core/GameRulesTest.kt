@@ -191,6 +191,8 @@ class GameRulesTest {
         s.quest = Quest("의뢰", "kill", 3)
         val e = GameEngine(s)
         e.die()
+        assertEquals(Mode.RUN_RESULT, s.mode)
+        e.choose(e.choices().single())
         assertEquals(210.0, s.base.attack, .001)
         assertEquals(7, s.level)
         assertEquals(700, s.bank)
@@ -459,7 +461,8 @@ class GameRulesTest {
         s.trap = Traps.create(s, 0)
         s.mode = Mode.TRAP
         repeat(200) { e.tick(50) }
-        assertEquals(Mode.SURFACE, s.mode)
+        assertEquals(Mode.RUN_RESULT, s.mode)
+        assertNotNull(s.runResult)
         assertNull(s.trap)
     }
 

@@ -133,7 +133,7 @@ class LaunchTest {
                 it.game.back()
                 it.game.back()
             }
-            tap("장비")
+            tap("장비", allowScroll = true)
             bounds("장비 장착")
             var slotLabel = ""
             var swordId = 0L
@@ -378,6 +378,21 @@ class LaunchTest {
                 }
                 bounds("신호에 놓아라")
                 capture("compact-cue")
+                scenario.onActivity {
+                    it.game.engine.die()
+                    it.game.refresh()
+                }
+                bounds("사망했습니다")
+                val continueButton = bounds("준비 화면으로")
+                val resultScreenshot = instrumentation.uiAutomation.takeScreenshot()!!
+                assertTrue(continueButton.bottom <= resultScreenshot.height)
+                resultScreenshot.recycle()
+                capture("compact-death")
+                tap("준비 화면으로")
+                tap("장비", allowScroll = true)
+                bounds("머리: 비어 있음", allowScroll = true)
+                capture("compact-equipment")
+                bounds("신발: 비어 있음", allowScroll = true)
             }
         } finally {
             val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
@@ -499,6 +514,107 @@ class LaunchTest {
             bounds("떠돌이 상인")
             tap("B 지나가기")
             scenario.onActivity { assertEquals(Mode.EXPLORE, it.game.engine.state.mode) }
+        }
+    }
+
+    @Test
+    fun expeditionResultsRetreatConfirmationAndEquipmentLayout() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                it.game.active = false
+                val e = GameEngine(State(gold = 120, bank = 500))
+                e.enterFloor(7)
+                e.state.runKills = 9
+                e.state.runChests = 2
+                e.state.runElapsedMs = 65000
+                it.game.engine = e
+                it.game.refresh()
+            }
+            val retreat = bounds("지상으로")
+            val scene = bounds("메인 장면")
+            assertTrue(retreat.bottom <= scene.top)
+            assertTrue(retreat.centerX() > scene.centerX())
+            tap("지상으로")
+            bounds("탐험을 포기하고 지상으로 갈까요?")
+            capture("retreat-confirm")
+            tap("계속 탐험")
+            scenario.onActivity {
+                assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
+                assertEquals(120, it.game.engine.state.gold)
+                assertTrue(it.game.engine.state.inventory.isNotEmpty())
+            }
+            tap("지상으로")
+            tap("포기하고 귀환")
+            bounds("탐험을 포기했습니다")
+            bounds("처치한 적 9명")
+            bounds("귀환한 위치 지하 7층")
+            capture("retreat-result")
+            scenario.onActivity {
+                assertEquals(Mode.RUN_RESULT, it.game.engine.state.mode)
+                assertEquals(0, it.game.engine.state.gold)
+                assertTrue(it.game.engine.state.equipment.isEmpty())
+                it.game.pause()
+                val cold = GameModel(it.application)
+                assertEquals(Mode.RUN_RESULT, cold.engine.state.mode)
+                assertEquals(9, cold.engine.state.runResult!!.kills)
+            }
+            tap("준비 화면으로")
+            bounds("출정 준비")
+            tap("장비", allowScroll = true)
+            bounds("장착 현황 · 0/9 부위")
+            capture("equipment-empty")
+            tap("머리: 비어 있음", allowScroll = true)
+            scenario.onActivity { assertEquals("inventory", it.game.engine.state.menu?.type) }
+            scenario.onActivity {
+                val e = GameEngine()
+                val spear = ItemFactory.create(e.state, Kind.SPEAR)
+                e.state.inventory.add(spear)
+                Equipment.equip(e.state, spear.id, Slot.RIGHT)
+                e.choose(e.choices().first { c -> c.action == "equipment" })
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("장비 장착")
+            capture("equipment-body-layout")
+            var left = ""
+            var right = ""
+            scenario.onActivity {
+                val e = it.game.engine
+                left =
+                    e.choices()
+                        .first { c ->
+                            c.action == "slotItem" && c.argument == Slot.LEFT.ordinal.toLong()
+                        }
+                        .label
+                right =
+                    e.choices()
+                        .first { c ->
+                            c.action == "slotItem" && c.argument == Slot.RIGHT.ordinal.toLong()
+                        }
+                        .label
+            }
+            val l = bounds(left, allowScroll = true)
+            val r = bounds(right)
+            assertTrue(l.centerX() < r.centerX())
+            assertEquals(l.top, r.top)
+            scenario.onActivity {
+                val e = GameEngine(State(gold = 60))
+                e.enterFloor(4)
+                e.state.runKills = 3
+                e.startBattle(false)
+                e.state.mode = Mode.COMBAT_DEFEND
+                e.state.hp = 1.0
+                e.defend(false)
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("사망했습니다")
+            bounds("사망한 위치 지하 4층")
+            bounds("처치한 적 3명")
+            capture("death-result")
+            tap("준비 화면으로")
+            bounds("출정 준비")
+            scenario.onActivity { assertEquals(Mode.SURFACE, it.game.engine.state.mode) }
         }
     }
 

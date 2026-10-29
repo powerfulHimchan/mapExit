@@ -61,6 +61,8 @@ class ContextControls(private val engine: GameEngine) {
                 )
             Mode.VICTORY ->
                 listOf(ContextButton("전투 승리", enabled = false), b("결과 확인 · 계속", "battleContinue"))
+            Mode.RUN_RESULT ->
+                listOf(ContextButton("탐험 종료", enabled = false), b("준비 화면으로", "runContinue"))
             Mode.ENCOUNTER ->
                 engine
                     .choices()

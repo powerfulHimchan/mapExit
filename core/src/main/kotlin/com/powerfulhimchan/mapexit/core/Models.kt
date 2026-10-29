@@ -20,6 +20,7 @@ enum class Mode {
     INHERIT,
     MENU,
     NOTICE,
+    RUN_RESULT,
 }
 
 @Serializable
@@ -256,6 +257,19 @@ data class BattleResult(
 )
 
 @Serializable
+data class RunResult(
+    val retreated: Boolean,
+    val floor: Int,
+    val deepestFloor: Int,
+    val kills: Int,
+    val chests: Int,
+    val traps: Int,
+    val elapsedMs: Long,
+    val lostGold: Int,
+    val lostItems: Int,
+)
+
+@Serializable
 data class Quest(
     val title: String,
     val kind: String,
@@ -288,6 +302,12 @@ data class State(
     var bank: Int = 0,
     var floor: Int = 0,
     var highest: Int = 0,
+    var runDeepestFloor: Int = 0,
+    var runKills: Int = 0,
+    var runChests: Int = 0,
+    var runTraps: Int = 0,
+    var runElapsedMs: Long = 0L,
+    var runResult: RunResult? = null,
     var devices: MutableSet<Int> = mutableSetOf(),
     var inventory: MutableList<Gear> = mutableListOf(),
     var equipment: MutableMap<Slot, Long> = mutableMapOf(),

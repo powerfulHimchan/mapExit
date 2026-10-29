@@ -46,6 +46,8 @@ internal val red = Color(0xFFF29491)
 fun MapExitScreen(vm: GameModel) {
     vm.revision
     val s = vm.engine.state
+    var confirmRetreat by remember { mutableStateOf(false) }
+    val canRetreat = s.dungeon != null && s.mode in listOf(Mode.EXPLORE, Mode.MOVING)
     var clock by remember { mutableLongStateOf(0L) }
     LaunchedEffect(vm) {
         var previous = 0L
@@ -78,7 +80,7 @@ fun MapExitScreen(vm: GameModel) {
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
             Row(
-                Modifier.fillMaxWidth().height(34.dp),
+                Modifier.fillMaxWidth().height(if (canRetreat) 48.dp else 34.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -95,6 +97,15 @@ fun MapExitScreen(vm: GameModel) {
                     color = amber,
                     fontSize = 12.sp,
                 )
+                if (canRetreat)
+                    TextButton(
+                        onClick = {
+                            if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
+                            confirmRetreat = true
+                        }
+                    ) {
+                        Text("지상으로", color = red, fontSize = 12.sp)
+                    }
             }
             if (vm.loadError != null) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
@@ -102,6 +113,8 @@ fun MapExitScreen(vm: GameModel) {
                     Spacer(Modifier.height(20.dp))
                     Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
                 }
+            } else if (s.mode == Mode.RUN_RESULT) {
+                RunResultScreen(vm, Modifier.weight(1f))
             } else if (s.mode in listOf(Mode.SURFACE, Mode.MENU, Mode.INHERIT)) {
                 if (s.mode == Mode.SURFACE && vm.currentImpact?.target == ImpactTarget.PLAYER) {
                     Text("받은 피해 ${vm.currentImpact!!.label()}", color = red, fontSize = 16.sp)
@@ -112,6 +125,25 @@ fun MapExitScreen(vm: GameModel) {
             }
             vm.saveError?.let { Text(it, color = red, fontSize = 11.sp) }
         }
+        if (confirmRetreat && canRetreat)
+            AlertDialog(
+                onDismissRequest = { confirmRetreat = false },
+                title = { Text("탐험을 포기하고 지상으로 갈까요?") },
+                text = { Text("사망과 동일하게 장비·아이템·소지 골드를 모두 잃습니다. 성장, 보관 골드와 이동 장치는 유지됩니다.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            confirmRetreat = false
+                            vm.choose(Choice("탐험 포기", "retreat"))
+                        }
+                    ) {
+                        Text("포기하고 귀환", color = red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmRetreat = false }) { Text("계속 탐험") }
+                },
+            )
     }
 }
 
@@ -374,16 +406,24 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             }
             if (surface || s.mode == Mode.INHERIT)
                 item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
+            if (menu == "equipment")
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("장비를 누르면 상세 정보, 빈 부위를 누르면 가방이 열립니다.", color = muted, fontSize = 12.sp)
+                        EquipmentOverview(vm)
+                    }
+                }
             item { Summary(e) }
-            item {
-                Text(
-                    s.message,
-                    color = amber,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.fillMaxWidth().background(panel).padding(12.dp),
-                )
-            }
+            if (menu != "equipment")
+                item {
+                    Text(
+                        s.message,
+                        color = amber,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.fillMaxWidth().background(panel).padding(12.dp),
+                    )
+                }
             if (surface) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -419,31 +459,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             }
                     }
                 }
-                item { Text("장착 현황", color = mint, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                item {
-                    Column(
-                        Modifier.fillMaxWidth().background(panel).padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        Slot.entries.chunked(2).forEach { slots ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                slots.forEach { slot ->
-                                    val gear = s.inventory.find { it.id == s.equipment[slot] }
-                                    Column(Modifier.weight(1f).padding(vertical = 3.dp)) {
-                                        Text(slot.label, color = muted, fontSize = 10.sp)
-                                        Text(
-                                            gear?.name ?: "비어 있음",
-                                            color = if (gear == null) muted else pale,
-                                            fontSize = 12.sp,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                }
-                                if (slots.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
+                item { EquipmentOverview(vm) }
                 items(e.choices().filter { it.action == "enter" && it.argument != 1L }) { c ->
                     Button(
                         onClick = { vm.choose(c) },
@@ -476,15 +492,10 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             lineHeight = 19.sp,
                         )
                     }
-                if (menu == "equipment")
-                    item {
-                        Text(
-                            "슬롯을 눌러 장착 중인 장비를 확인하세요. 빈 슬롯은 가방에서 장착할 수 있습니다.",
-                            color = muted,
-                            fontSize = 12.sp,
-                        )
-                    }
-                items(menuChoices, key = { "${it.action}:${it.argument}" }) { c ->
+                items(
+                    menuChoices.filterNot { menu == "equipment" && it.action == "slotItem" },
+                    key = { "${it.action}:${it.argument}" },
+                ) { c ->
                     val gear =
                         when (menu) {
                             "shop" -> shopItems.find { it.id == c.argument }

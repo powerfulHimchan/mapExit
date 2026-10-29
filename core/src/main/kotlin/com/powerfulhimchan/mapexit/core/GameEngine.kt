@@ -21,6 +21,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             state.note("출정 준비: 장비와 소모품을 확인한 뒤 던전에 진입하세요")
         }
         if (state.mode == Mode.TRAP_GUIDE) state.mode = Mode.TRAP
+        // Saves from before expedition records can still report their current depth.
+        if (state.dungeon != null) state.runDeepestFloor = max(state.runDeepestFloor, state.floor)
         if (state.mode == Mode.MENU && state.menu?.type == "npc") {
             state.menu = null
             state.menuStack.clear()
@@ -105,6 +107,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             Mode.EXPLORE ->
                 buildList {
                     val m = s.dungeon ?: return@buildList
+                    add(c("지상으로 · 탐험 포기", "retreat"))
                     val cell = m.here()
                     if (!cell.resolved)
                         when (cell.event) {
@@ -128,7 +131,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     add(c("미션 / 기록", "help"))
                     if (s.debug) add(c("개발용 테스트", "debug"))
                 }
-            Mode.MOVING -> listOf(c("이동 중 · B로 멈추기", "stop"))
+            Mode.MOVING -> listOf(c("이동 중 · B로 멈추기", "stop"), c("지상으로 · 탐험 포기", "retreat"))
+            Mode.RUN_RESULT -> listOf(c("준비 화면으로", "runContinue"))
             Mode.COMBAT_ATTACK ->
                 listOf(
                     c("일반 공격 · 명중 ${(GameBalance.model("normal_hit")*100).toInt()}%", "attack"),
@@ -330,6 +334,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val s = state
         val delta = deltaMs.coerceIn(0L, 250L)
         s.playMs += delta
+        if (s.dungeon != null && s.mode != Mode.RUN_RESULT) s.runElapsedMs += delta
         if (s.mode == Mode.MOVING) {
             s.movementMs += delta
             if (s.movementMs >= 600) {
@@ -379,6 +384,13 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     private fun execute(c: Choice) {
         val s = state
         when (c.action) {
+            "retreat" -> endRun(retreated = true)
+            "runContinue" -> {
+                s.runResult = null
+                s.lastImpact = null
+                s.mode = Mode.SURFACE
+                controls.reset()
+            }
             "battleContinue" -> {
                 val result = s.battleResult ?: return
                 s.battleResult = null
@@ -422,7 +434,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "item" -> open("item", c.argument)
             "slotItem" -> {
                 val id = s.equipment[Slot.entries[c.argument.toInt()]]
-                if (id != null) open("item", id)
+                if (id != null) open("item", id) else open("inventory")
             }
             "equip" -> {
                 val id = s.menu?.argument ?: return
@@ -579,6 +591,15 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     fun enterFloor(floor: Int) {
         require(floor in 1..50)
         val s = state
+        if (s.dungeon == null) {
+            s.runKills = 0
+            s.runChests = 0
+            s.runTraps = 0
+            s.runElapsedMs = 0L
+            s.runDeepestFloor = 0
+        }
+        s.runResult = null
+        s.runDeepestFloor = max(s.runDeepestFloor, floor)
         s.floor = floor
         s.highest = max(s.highest, floor)
         s.dungeon = MapGenerator.generate(s, floor)
@@ -664,6 +685,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val cell = s.dungeon?.here() ?: return
         if (cell.resolved) return
         cell.resolved = true
+        s.runChests++
         s.quest?.takeIf { it.kind == "chest" }?.let { it.progress++ }
         s.encounter = null
         s.mode = Mode.EXPLORE
@@ -803,6 +825,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val gold = 20 + s.floor * 4
         val experience = 25 + s.floor * 5
         val items = mutableListOf<String>()
+        s.runKills++
         s.gold += gold
         gainExperience(experience)
         s.quest?.takeIf { it.kind == "kill" }?.let { it.progress++ }
@@ -904,6 +927,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val t = s.trap ?: return
         if (t.phase != TrapPhase.RESULT || t.applied) return
         t.applied = true
+        if (t.success) s.runTraps++
         s.dungeon?.here()?.let { if (it.event == Event.TRAP) it.resolved = true }
         if (!t.success) {
             val damage = stats().hp * .15 + s.floor * 2
@@ -922,11 +946,36 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     }
 
     fun die() {
+        endRun(retreated = false)
+    }
+
+    private fun endRun(retreated: Boolean) {
+        val s = state
+        if (s.mode == Mode.RUN_RESULT) return
+        val result =
+            RunResult(
+                retreated,
+                s.floor,
+                max(s.floor, s.runDeepestFloor),
+                s.runKills,
+                s.runChests,
+                s.runTraps,
+                s.runElapsedMs,
+                s.gold,
+                s.inventory.size,
+            )
         surface(true)
+        s.runResult = result
+        s.mode = Mode.RUN_RESULT
+        s.note(
+            if (retreated) "탐험 포기 · 사망과 동일하게 장비·아이템·소지 골드를 잃었습니다" else "사망했습니다 · 이번 탐험 기록을 확인하세요"
+        )
+        controls.reset()
     }
 
     private fun surface(dead: Boolean) {
         val s = state
+        s.runResult = null
         if (dead) {
             s.inventory.clear()
             s.equipment.clear()
@@ -976,6 +1025,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.hp = s.base.hp
         s.gold = 0
         s.bank = 0
+        s.runResult = null
+        s.runDeepestFloor = 0
+        s.runKills = 0
+        s.runChests = 0
+        s.runTraps = 0
+        s.runElapsedMs = 0L
         s.devices.clear()
         s.floor = 0
         s.dungeon = null

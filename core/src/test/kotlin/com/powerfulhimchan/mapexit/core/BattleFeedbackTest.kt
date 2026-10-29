@@ -151,7 +151,7 @@ class BattleFeedbackTest {
         e.state.mode = Mode.COMBAT_DEFEND
         e.state.hp = 1.0
         e.defend(false)
-        assertEquals(Mode.SURFACE, e.state.mode)
+        assertEquals(Mode.RUN_RESULT, e.state.mode)
         assertNull(e.state.battleResult)
         assertEquals(ImpactTarget.PLAYER, e.state.lastImpact!!.target)
         assertEquals(1, e.state.lastImpact!!.amount)
