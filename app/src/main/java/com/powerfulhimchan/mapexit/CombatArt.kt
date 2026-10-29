@@ -70,7 +70,7 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
     val heroX =
         w * .18f + (if (attacking) pose.advance * w * .17f else 0f) -
             heroRecoil * 15 -
-            dodge * w * .17f
+            dodge * w * .11f
     val heroBase =
         h * .90f - (if (attacking) pose.advance * h * .11f + pose.lift * h else 0f) +
             defense.crouch * h * .045f

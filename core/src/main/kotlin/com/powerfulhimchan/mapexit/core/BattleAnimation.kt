@@ -28,7 +28,7 @@ object BattleAnimation {
         val envelope =
             if (elapsed < 180) ease(elapsed / 180f)
             else if (elapsed < 420) 1f else 1f - ease((elapsed - 420) / 340f)
-        return if (action == "dodge") DefensePose(envelope, envelope, -28f * envelope, 0f)
+        return if (action == "dodge") DefensePose(envelope, envelope, -20f * envelope, 0f)
         else if (action == "guard")
             DefensePose(.05f * envelope, .15f * envelope, -5f * envelope, envelope)
         else DefensePose(0f, 0f, 0f, 0f)
