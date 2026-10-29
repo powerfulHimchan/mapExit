@@ -154,6 +154,7 @@ internal fun PixelCanvas(
     modifier: Modifier = Modifier,
     effect: String = "",
     effectAt: Long = 0L,
+    camera: DungeonViewPose? = null,
 ) {
     BoxWithConstraints(
         modifier.background(ink).border(1.dp, line).semantics { contentDescription = "메인 장면" }
@@ -171,7 +172,7 @@ internal fun PixelCanvas(
                 ImageCanvas(bitmap),
                 Size(480f, logicalH.toFloat()),
             ) {
-                drawScene(s, clock, effect, effectAt)
+                drawScene(s, clock, effect, effectAt, camera)
             }
             drawImage(
                 bitmap,
@@ -413,7 +414,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         EquipmentOverview(vm)
                     }
                 }
-            item { Summary(e) }
+            if (menu !in listOf("growth", "shop", "sell", "quantity")) item { Summary(e) }
             if (menu != "equipment")
                 item {
                     Text(
@@ -482,6 +483,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         }
                     }
             } else {
+                if (menu == "growth") growthCards(vm)
+                if (menu in listOf("shop", "sell", "quantity")) tradeCards(vm, menu!!)
                 if (menu == "item") item { ItemComparison(e) }
                 if (menu == "help")
                     item {
@@ -493,7 +496,14 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         )
                     }
                 items(
-                    menuChoices.filterNot { menu == "equipment" && it.action == "slotItem" },
+                    menuChoices.filterNot {
+                        (menu == "equipment" && it.action == "slotItem") ||
+                            (menu == "growth" && it.action == "stat") ||
+                            (menu in listOf("growth", "shop", "sell", "quantity") &&
+                                it.action == "back") ||
+                            (menu in listOf("shop", "sell", "quantity") &&
+                                it.action in listOf("buy", "sell", "buyQuantity", "sellMenu"))
+                    },
                     key = { "${it.action}:${it.argument}" },
                 ) { c ->
                     val gear =

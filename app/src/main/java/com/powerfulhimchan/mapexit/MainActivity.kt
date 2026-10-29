@@ -25,6 +25,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     private val downContext = arrayOf("", "")
     private var lastActionAt = 0L
     private var observedImpact = 0L
+    internal val dungeonCamera = DungeonCamera()
     var currentImpact by mutableStateOf<BattleImpact?>(null)
         private set
 
@@ -57,6 +58,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                 }
             else null
         engine = GameEngine(saved ?: State(), BuildConfig.DEBUG)
+        dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = false)
         observedImpact = engine.state.impactSequence
     }
 
@@ -127,6 +129,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refresh() {
+        dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = active)
         if (observedImpact != engine.state.impactSequence) {
             observedImpact = engine.state.impactSequence
             currentImpact = engine.state.lastImpact
@@ -154,6 +157,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
 
     fun pause() {
         active = false
+        dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = false)
         engine.pause()
         save(blocking = true)
         refresh()

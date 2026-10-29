@@ -893,16 +893,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             s.note("배분할 성장 포인트가 없습니다")
             return
         }
-        val amount =
-            when (stat) {
-                Stat.HP -> 25.0
-                Stat.ATTACK -> 6.0
-                Stat.DEFENSE -> 5.0
-                Stat.AGILITY -> 3.0
-                Stat.CRIT -> .015
-                Stat.CRIT_DAMAGE -> .08
-                Stat.LUCK -> 3.0
-            }
+        val amount = Growth.amount(stat)
         s.base = s.base.add(stat, amount)
         s.points--
         if (stat == Stat.HP) s.hp = min(stats().hp, s.hp + amount)
