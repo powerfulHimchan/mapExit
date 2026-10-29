@@ -106,7 +106,7 @@ fun MapExitScreen(vm: GameModel) {
                     fontSize = 12.sp,
                 )
             }
-            if (s.dungeon != null && s.mode !in listOf(Mode.MENU, Mode.RUN_RESULT, Mode.INHERIT))
+            if (s.dungeon != null && s.mode in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR))
                 DungeonToolbar(vm) {
                     if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
                     confirmRetreat = true
