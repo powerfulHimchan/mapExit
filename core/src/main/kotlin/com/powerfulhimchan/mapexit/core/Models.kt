@@ -7,83 +7,83 @@ import kotlinx.serialization.json.Json
 
 @Serializable
 enum class Mode {
-    SURFACE,
-    EXPLORE,
-    MOVING,
-    COMBAT_ATTACK,
-    COMBAT_DEFEND,
-    VICTORY,
-    ENCOUNTER,
-    TRAP_GUIDE,
-    TRAP,
-    FLOOR_CLEAR,
-    INHERIT,
-    MENU,
-    NOTICE,
-    RUN_RESULT,
+  SURFACE,
+  EXPLORE,
+  MOVING,
+  COMBAT_ATTACK,
+  COMBAT_DEFEND,
+  VICTORY,
+  ENCOUNTER,
+  TRAP_GUIDE,
+  TRAP,
+  FLOOR_CLEAR,
+  INHERIT,
+  MENU,
+  NOTICE,
+  RUN_RESULT,
 }
 
 @Serializable
 enum class Event {
-    NONE,
-    MONSTER,
-    CHEST,
-    HEAL,
-    MERCHANT,
-    NPC,
-    EXIT,
-    TRAP,
+  NONE,
+  MONSTER,
+  CHEST,
+  HEAL,
+  MERCHANT,
+  NPC,
+  EXIT,
+  TRAP,
 }
 
 @Serializable
 enum class Slot(val label: String) {
-    HEAD("머리"),
-    LEFT("왼손"),
-    RIGHT("오른손"),
-    BODY("몸통"),
-    PANTS("바지"),
-    BOOTS("신발"),
-    NECK("목걸이"),
-    RING1("반지 1"),
-    RING2("반지 2"),
+  HEAD("머리"),
+  LEFT("왼손"),
+  RIGHT("오른손"),
+  BODY("몸통"),
+  PANTS("바지"),
+  BOOTS("신발"),
+  NECK("목걸이"),
+  RING1("반지 1"),
+  RING2("반지 2"),
 }
 
 @Serializable
 enum class Kind(val label: String) {
-    SWORD("검"),
-    SPEAR("창"),
-    HAMMER("해머"),
-    CLAW("클로"),
-    WHIP("채찍"),
-    SHIELD("방패"),
-    HEAD("투구"),
-    BODY("갑옷"),
-    PANTS("바지"),
-    BOOTS("신발"),
-    RING("반지"),
-    NECKLACE("목걸이"),
-    POTION("회복약"),
+  SWORD("검"),
+  SPEAR("창"),
+  HAMMER("해머"),
+  CLAW("클로"),
+  WHIP("채찍"),
+  SHIELD("방패"),
+  HEAD("투구"),
+  BODY("갑옷"),
+  PANTS("바지"),
+  BOOTS("신발"),
+  RING("반지"),
+  NECKLACE("목걸이"),
+  POTION("회복약"),
 }
 
 @Serializable
 enum class Charm {
-    NONE,
-    MAP,
-    CHEST,
-    MERCHANT,
-    TRAP,
-    QUEST,
+  NONE,
+  MAP,
+  CHEST,
+  MERCHANT,
+  TRAP,
+  QUEST,
 }
 
 @Serializable
 enum class Stat(val label: String) {
-    HP("최대 체력"),
-    ATTACK("공격력"),
-    DEFENSE("방어력"),
-    AGILITY("민첩"),
-    CRIT("치명타 확률"),
-    CRIT_DAMAGE("치명타 공격력"),
-    LUCK("행운"),
+  HP("최대 체력"),
+  ATTACK("공격력"),
+  DEFENSE("방어력"),
+  AGILITY("민첩"),
+  CRIT("치명타 확률"),
+  CRIT_DAMAGE("치명타 공격력"),
+  LUCK("행운"),
 }
 
 @Serializable
@@ -96,31 +96,31 @@ data class Stats(
     val critDamage: Double = 1.5,
     val luck: Double = 0.0,
 ) {
-    fun value(stat: Stat): Double =
-        when (stat) {
-            Stat.HP -> hp
-            Stat.ATTACK -> attack
-            Stat.DEFENSE -> defense
-            Stat.AGILITY -> agility
-            Stat.CRIT -> crit
-            Stat.CRIT_DAMAGE -> critDamage
-            Stat.LUCK -> luck
-        }
+  fun value(stat: Stat): Double =
+      when (stat) {
+        Stat.HP -> hp
+        Stat.ATTACK -> attack
+        Stat.DEFENSE -> defense
+        Stat.AGILITY -> agility
+        Stat.CRIT -> crit
+        Stat.CRIT_DAMAGE -> critDamage
+        Stat.LUCK -> luck
+      }
 
-    fun add(stat: Stat, amount: Double): Stats =
-        when (stat) {
-            Stat.HP -> copy(hp = hp + amount)
-            Stat.ATTACK -> copy(attack = attack + amount)
-            Stat.DEFENSE -> copy(defense = defense + amount)
-            Stat.AGILITY -> copy(agility = agility + amount)
-            Stat.CRIT -> copy(crit = crit + amount)
-            Stat.CRIT_DAMAGE -> copy(critDamage = critDamage + amount)
-            Stat.LUCK -> copy(luck = luck + amount)
-        }
+  fun add(stat: Stat, amount: Double): Stats =
+      when (stat) {
+        Stat.HP -> copy(hp = hp + amount)
+        Stat.ATTACK -> copy(attack = attack + amount)
+        Stat.DEFENSE -> copy(defense = defense + amount)
+        Stat.AGILITY -> copy(agility = agility + amount)
+        Stat.CRIT -> copy(crit = crit + amount)
+        Stat.CRIT_DAMAGE -> copy(critDamage = critDamage + amount)
+        Stat.LUCK -> copy(luck = luck + amount)
+      }
 
-    companion object {
-        fun zero() = Stats(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-    }
+  companion object {
+    fun zero() = Stats(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+  }
 }
 
 @Serializable
@@ -135,39 +135,39 @@ data class Gear(
     var inherited: Boolean = false,
     val price: Int = 30,
 ) {
-    val twoHanded: Boolean
-        get() = kind == Kind.SPEAR || kind == Kind.HAMMER
+  val twoHanded: Boolean
+    get() = kind == Kind.SPEAR || kind == Kind.HAMMER
 
-    val weapon: Boolean
-        get() = kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)
+  val weapon: Boolean
+    get() = kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)
 
-    fun summary(): String {
-        if (kind == Kind.POTION) return "최대 HP의 35% 회복"
-        if (kind == Kind.NECKLACE)
-            return when (charm) {
-                Charm.MAP -> "주변 시설 탐지"
-                Charm.CHEST -> "상자 추가 아이템 확률 +25%"
-                Charm.MERCHANT -> "구매 가격 20% 할인"
-                Charm.TRAP -> "함정 시간·목표 구간 +25%"
-                Charm.QUEST -> "미션 골드 보상 +25%"
-                else -> ""
-            }
-        return Stat.entries
-            .mapNotNull { st ->
-                val f = flat.value(st)
-                val p = percent.value(st)
-                if (f == 0.0 && p == 0.0) null
-                else
-                    st.label +
-                        when {
-                            p != 0.0 -> " ${if(p>0) "+" else ""}${(p*100).toInt()}%"
-                            st == Stat.CRIT -> " ${if(f>0) "+" else ""}${(f*100).toInt()}%p"
-                            st == Stat.CRIT_DAMAGE -> " ${if(f>0) "+" else ""}${(f*100).toInt()}%p"
-                            else -> " ${if(f>0) "+" else ""}${f.toInt()}"
-                        }
-            }
-            .joinToString(" / ")
-    }
+  fun summary(): String {
+    if (kind == Kind.POTION) return "최대 HP의 35% 회복"
+    if (kind == Kind.NECKLACE)
+        return when (charm) {
+          Charm.MAP -> "주변 시설 탐지"
+          Charm.CHEST -> "상자 추가 아이템 확률 +25%"
+          Charm.MERCHANT -> "구매 가격 20% 할인"
+          Charm.TRAP -> "함정 시간·목표 구간 +25%"
+          Charm.QUEST -> "미션 골드 보상 +25%"
+          else -> ""
+        }
+    return Stat.entries
+        .mapNotNull { st ->
+          val f = flat.value(st)
+          val p = percent.value(st)
+          if (f == 0.0 && p == 0.0) null
+          else
+              st.label +
+                  when {
+                    p != 0.0 -> " ${if(p>0) "+" else ""}${(p*100).toInt()}%"
+                    st == Stat.CRIT -> " ${if(f>0) "+" else ""}${(f*100).toInt()}%p"
+                    st == Stat.CRIT_DAMAGE -> " ${if(f>0) "+" else ""}${(f*100).toInt()}%p"
+                    else -> " ${if(f>0) "+" else ""}${f.toInt()}"
+                  }
+        }
+        .joinToString(" / ")
+  }
 }
 
 @Serializable
@@ -192,17 +192,17 @@ data class Dungeon(
     var bossCleared: Boolean = false,
     var arrivalDirection: Int = -1,
 ) {
-    fun cell(x: Int, y: Int): Cell =
-        if (x in 0 until width && y in 0 until height) cells[y * width + x] else Cell()
+  fun cell(x: Int, y: Int): Cell =
+      if (x in 0 until width && y in 0 until height) cells[y * width + x] else Cell()
 
-    fun here(): Cell = cell(x, y)
+  fun here(): Cell = cell(x, y)
 
-    fun reveal() {
-        for (yy in y - 1..y + 1) for (xx in x - 1..x + 1) if (
-            xx in 0 until width && yy in 0 until height
-        )
-            cell(xx, yy).seen = true
-    }
+  fun reveal() {
+    for (yy in y - 1..y + 1) for (xx in x - 1..x + 1) if (
+        xx in 0 until width && yy in 0 until height
+    )
+        cell(xx, yy).seen = true
+  }
 }
 
 @Serializable
@@ -218,17 +218,17 @@ data class Enemy(
 
 @Serializable
 enum class ImpactTarget {
-    PLAYER,
-    ENEMY,
+  PLAYER,
+  ENEMY,
 }
 
 @Serializable
 enum class ImpactOutcome {
-    DAMAGE,
-    GUARD,
-    BLOCK,
-    DODGE,
-    MISS,
+  DAMAGE,
+  GUARD,
+  BLOCK,
+  DODGE,
+  MISS,
 }
 
 @Serializable
@@ -239,14 +239,14 @@ data class BattleImpact(
     val outcome: ImpactOutcome,
     val critical: Boolean = false,
 ) {
-    fun label(): String =
-        when (outcome) {
-            ImpactOutcome.MISS -> "빗나감"
-            ImpactOutcome.DODGE -> "회피"
-            ImpactOutcome.BLOCK -> "완전 방어 · 0 피해"
-            ImpactOutcome.GUARD -> "${if(critical) "치명타 · " else ""}방어 -$amount"
-            else -> "${if(critical) "치명타 " else ""}-$amount"
-        }
+  fun label(): String =
+      when (outcome) {
+        ImpactOutcome.MISS -> "빗나감"
+        ImpactOutcome.DODGE -> "회피"
+        ImpactOutcome.BLOCK -> "완전 방어 · 0 피해"
+        ImpactOutcome.GUARD -> "${if(critical) "치명타 · " else ""}방어 -$amount"
+        else -> "${if(critical) "치명타 " else ""}-$amount"
+      }
 }
 
 @Serializable
@@ -279,11 +279,13 @@ data class Quest(
     var progress: Int = 0,
     val reward: Int = 100,
 ) {
-    val complete: Boolean
-        get() = progress >= target
+  val complete: Boolean
+    get() = progress >= target
 }
 
 @Serializable data class LevelUpNotice(val from: Int, val to: Int, val gainedPoints: Int)
+
+@Serializable data class ChestLootNotice(val items: List<Gear>, val gold: Int)
 
 @Serializable
 data class Menu(val type: String, val argument: Long = 0L, val returnMode: Mode = Mode.SURFACE)
@@ -339,34 +341,33 @@ data class State(
     var training: Boolean = false,
     var bootstrapped: Boolean = false,
 ) {
-    fun random(): Double {
-        rng = rng * 6364136223846793005L + 1442695040888963407L
-        return (rng ushr 11).toDouble() / 9007199254740992.0
-    }
+  fun random(): Double {
+    rng = rng * 6364136223846793005L + 1442695040888963407L
+    return (rng ushr 11).toDouble() / 9007199254740992.0
+  }
 
-    fun nextInt(bound: Int): Int =
-        (random() * max(1, bound)).toInt().coerceAtMost(max(1, bound) - 1)
+  fun nextInt(bound: Int): Int = (random() * max(1, bound)).toInt().coerceAtMost(max(1, bound) - 1)
 
-    fun note(text: String) {
-        message = text
-        log.add(text)
-        while (log.size > 18) log.removeAt(0)
-    }
+  fun note(text: String) {
+    message = text
+    log.add(text)
+    while (log.size > 18) log.removeAt(0)
+  }
 }
 
 object SaveCodec {
-    private val json = Json {
-        encodeDefaults = true
-        ignoreUnknownKeys = true
-    }
+  private val json = Json {
+    encodeDefaults = true
+    ignoreUnknownKeys = true
+  }
 
-    fun encode(state: State): String = json.encodeToString(state)
+  fun encode(state: State): String = json.encodeToString(state)
 
-    fun decode(text: String): State =
-        json.decodeFromString<State>(text).also {
-            require(it.version == 1) { "지원하지 않는 저장 버전" }
-            require(it.level >= 1 && it.cycle >= 1 && it.gold >= 0 && it.bank >= 0)
-            require(it.inventory.map { item -> item.id }.distinct().size == it.inventory.size)
-            require(it.equipment.values.all { id -> it.inventory.any { item -> item.id == id } })
-        }
+  fun decode(text: String): State =
+      json.decodeFromString<State>(text).also {
+        require(it.version == 1) { "지원하지 않는 저장 버전" }
+        require(it.level >= 1 && it.cycle >= 1 && it.gold >= 0 && it.bank >= 0)
+        require(it.inventory.map { item -> item.id }.distinct().size == it.inventory.size)
+        require(it.equipment.values.all { id -> it.inventory.any { item -> item.id == id } })
+      }
 }
