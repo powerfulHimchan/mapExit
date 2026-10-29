@@ -191,6 +191,8 @@ class GameRulesTest {
         s.quest = Quest("의뢰", "kill", 3)
         val e = GameEngine(s)
         e.die()
+        assertEquals(Mode.RUN_RESULT, s.mode)
+        e.choose(e.choices().single())
         assertEquals(210.0, s.base.attack, .001)
         assertEquals(7, s.level)
         assertEquals(700, s.bank)
