@@ -198,6 +198,10 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
     vm.revision
     val s = vm.presentationState(clock.takeIf { it > 0 } ?: SystemClock.uptimeMillis())
     val p = Equipment.stats(s)
+    val motion =
+        vm.battleVisual?.takeIf {
+            it.active(clock.takeIf { time -> time > 0 } ?: SystemClock.uptimeMillis())
+        }
     val buttons =
         vm.engine.controls.buttons().map {
             if (vm.battleBusy()) it.copy(enabled = false, holdChoice = null, holdLabel = null)
@@ -211,7 +215,9 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
         ) {
             ScenePresentation(vm, clock, Modifier.fillMaxWidth().weight(1f))
             Text(
-                sceneMessage(s),
+                if (motion != null)
+                    "${if (motion.impact.target == ImpactTarget.ENEMY) "공격 중" else "적 반격"} · ${s.message}"
+                else sceneMessage(s),
                 color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
                 fontSize = if (compact) 13.sp else 14.sp,
                 lineHeight = if (compact) 18.sp else 20.sp,

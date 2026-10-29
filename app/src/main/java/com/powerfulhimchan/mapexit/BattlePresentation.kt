@@ -82,7 +82,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    "3인칭 전투 · ${if(s.mode==Mode.VICTORY) "종료" else if(s.mode==Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"}",
+                    "3인칭 전투 · ${if (motion != null) { if (motion.impact.target == ImpactTarget.ENEMY) "플레이어 공격 중" else "몬스터 공격 중" } else if(s.mode==Mode.VICTORY) "종료" else if(s.mode==Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"}",
                     color = mint,
                     fontSize = 10.sp,
                     lineHeight = 13.sp,

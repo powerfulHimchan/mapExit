@@ -17,10 +17,11 @@ private fun DrawScope.arm(a: Offset, b: Offset, unit: Float) {
 }
 
 private fun DrawScope.heldWeapon(kind: Kind, hand: Offset, unit: Float, angle: Float) {
+    val scale = if (kind == Kind.SPEAR) (unit * .8f).toInt().coerceAtLeast(1).toFloat() else unit
     val gripX = if (kind == Kind.WHIP) 7 else 16
     val gripY = if (kind == Kind.SPEAR) 40 else if (kind == Kind.WHIP) 25 else 27
     withTransform({ rotate(angle, hand) }) {
-        sprite(gearSprite(kind), hand.x - gripX * unit, hand.y - gripY * unit, 32 * unit)
+        sprite(gearSprite(kind), hand.x - gripX * scale, hand.y - gripY * scale, 32 * scale)
     }
 }
 
@@ -79,13 +80,28 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
             Offset(heroX + heroWidth / 2, heroBase),
         )
     }) {
-        hero = adventurer(scene, heroX, heroBase, heroWidth, armed = false, hitTint = flash)
+        hero =
+            adventurer(
+                scene,
+                heroX,
+                heroBase,
+                heroWidth,
+                armed = false,
+                hitTint = flash,
+                articulated = true,
+            )
         val shoulder = Offset(hero.x + hero.unit * 23, hero.y + hero.unit * 23)
+        val overhead =
+            if (attacking && kind == Kind.HAMMER && elapsed <= BattleAnimation.HIT_MS)
+                sin(elapsed.toFloat() / BattleAnimation.HIT_MS * PI).toFloat() * 14f
+            else 0f
         val hand =
             shoulder +
                 Offset(
-                    hero.unit * (4 + if (attacking) pose.reach * 7 else 0f),
-                    hero.unit * (10 - if (attacking) pose.advance * 5 else 0f),
+                    hero.unit *
+                        (4 +
+                            if (attacking) pose.reach * (if (kind == Kind.SPEAR) 3 else 7) else 0f),
+                    hero.unit * (10 - (if (attacking) pose.advance * 5 else 0f) - overhead),
                 )
         arm(shoulder, hand, hero.unit)
         if (kind != null) {
@@ -152,7 +168,14 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
             if (type == "bat" && defending)
                 scale(1f + sin(elapsed * .03).toFloat() * .16f, 1f, pivot)
         }) {
-            sprite(type, ex, ey, enemyWidth, flash = tint)
+            sprite(
+                type,
+                ex,
+                ey,
+                enemyWidth,
+                flash = tint,
+                articulated = type in listOf("knight", "boss"),
+            )
             if (type in listOf("knight", "boss")) {
                 val hand = Offset(ex + unit * 8 - advance * unit * 4, ey + unit * 28)
                 arm(Offset(ex + unit * 12, ey + unit * 22), hand, unit)

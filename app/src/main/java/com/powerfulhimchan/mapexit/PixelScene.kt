@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.powerfulhimchan.mapexit.core.*
@@ -37,23 +38,38 @@ internal fun DrawScope.sprite(
     width: Float,
     color: Color = pale,
     flash: Color? = null,
+    articulated: Boolean = false,
 ) {
     val art = FineSprites.all[type] ?: FineSprites.all.getValue("npc")
     val unit = spriteUnit(width)
-    drawImage(
-        art.bitmap,
-        srcSize = IntSize(art.width, art.height),
-        dstOffset = IntOffset(x.roundToInt(), y.roundToInt()),
-        dstSize = IntSize((art.width * unit).toInt(), (art.height * unit).toInt()),
-        filterQuality = FilterQuality.None,
-        colorFilter =
-            flash?.let {
-                androidx.compose.ui.graphics.ColorFilter.tint(
-                    it,
-                    androidx.compose.ui.graphics.BlendMode.SrcAtop,
-                )
-            },
-    )
+    fun DrawScope.paint() {
+        drawImage(
+            art.bitmap,
+            srcSize = IntSize(art.width, art.height),
+            dstOffset = IntOffset(x.roundToInt(), y.roundToInt()),
+            dstSize = IntSize((art.width * unit).toInt(), (art.height * unit).toInt()),
+            filterQuality = FilterQuality.None,
+            colorFilter =
+                flash?.let {
+                    androidx.compose.ui.graphics.ColorFilter.tint(
+                        it,
+                        androidx.compose.ui.graphics.BlendMode.SrcAtop,
+                    )
+                },
+        )
+    }
+    if (articulated) {
+        val right = type == "heroBack"
+        clipRect(
+            x + (if (right) 24 else 4) * unit,
+            y + 23 * unit,
+            x + (if (right) 29 else 9) * unit,
+            y + 34 * unit,
+            clipOp = androidx.compose.ui.graphics.ClipOp.Difference,
+        ) {
+            paint()
+        }
+    } else paint()
 }
 
 internal fun gearSprite(kind: Kind): String =
@@ -83,12 +99,20 @@ internal fun DrawScope.adventurer(
     back: Boolean = true,
     armed: Boolean = true,
     hitTint: Color? = null,
+    articulated: Boolean = false,
 ): HeroPose {
     val unit = spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
     contactShadow(x, baseline + 3, actual)
-    sprite(if (back) "heroBack" else "hero", x, y, actual, flash = hitTint)
+    sprite(
+        if (back) "heroBack" else "hero",
+        x,
+        y,
+        actual,
+        flash = hitTint,
+        articulated = articulated,
+    )
     if (back && armed) {
         val weapon = Equipment.equipped(s).firstOrNull { it.weapon }
         weapon?.let {

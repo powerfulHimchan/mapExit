@@ -33,7 +33,7 @@ object BattleAnimation {
             }
         val windup =
             when (kind) {
-                Kind.HAMMER -> -120f
+                Kind.HAMMER -> -45f
                 Kind.WHIP -> -110f
                 Kind.SPEAR -> 5f
                 Kind.CLAW -> -45f
