@@ -1024,9 +1024,11 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
+            val statsButton = bounds("능력치")
+            val equipmentButton = bounds("장비")
             val scene = bounds("메인 장면")
-            assertTrue(bounds("장비").bottom <= scene.top)
-            assertTrue(bounds("능력치").bottom <= scene.top)
+            assertTrue(equipmentButton.bottom <= scene.top)
+            assertTrue(statsButton.bottom <= scene.top)
             capture("dungeon-toolbar")
             tap("장비")
             bounds("장비 장착")
@@ -1148,8 +1150,9 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
+            val shortcuts = listOf("방향 처음", "가방", "기록").map { bounds(it) }
             val scene = bounds("메인 장면")
-            for (label in listOf("가방", "기록", "방향 처음")) assertTrue(bounds(label).bottom <= scene.top)
+            shortcuts.forEach { assertTrue(it.bottom <= scene.top) }
             capture("top-explore-menus")
             tap("가방")
             bounds("가방")
@@ -1715,7 +1718,9 @@ class LaunchTest {
                 e.startBattle(false)
                 e.state.mode = Mode.COMBAT_DEFEND
                 e.state.hp = 1.0
+                e.state.rng = 0L
                 e.defend(false)
+                assertEquals(Mode.RUN_RESULT, e.state.mode)
                 it.game.engine = e
                 it.game.refresh()
             }
