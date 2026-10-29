@@ -406,16 +406,24 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             }
             if (surface || s.mode == Mode.INHERIT)
                 item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
+            if (menu == "equipment")
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("장비를 누르면 상세 정보, 빈 부위를 누르면 가방이 열립니다.", color = muted, fontSize = 12.sp)
+                        EquipmentOverview(vm)
+                    }
+                }
             item { Summary(e) }
-            item {
-                Text(
-                    s.message,
-                    color = amber,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.fillMaxWidth().background(panel).padding(12.dp),
-                )
-            }
+            if (menu != "equipment")
+                item {
+                    Text(
+                        s.message,
+                        color = amber,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.fillMaxWidth().background(panel).padding(12.dp),
+                    )
+                }
             if (surface) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -484,11 +492,6 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             lineHeight = 19.sp,
                         )
                     }
-                if (menu == "equipment")
-                    item {
-                        Text("장비를 누르면 상세 정보, 빈 부위를 누르면 가방이 열립니다.", color = muted, fontSize = 12.sp)
-                    }
-                if (menu == "equipment") item { EquipmentOverview(vm) }
                 items(
                     menuChoices.filterNot { menu == "equipment" && it.action == "slotItem" },
                     key = { "${it.action}:${it.argument}" },

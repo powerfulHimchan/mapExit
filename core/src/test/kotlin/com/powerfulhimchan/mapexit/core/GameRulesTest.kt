@@ -461,7 +461,8 @@ class GameRulesTest {
         s.trap = Traps.create(s, 0)
         s.mode = Mode.TRAP
         repeat(200) { e.tick(50) }
-        assertEquals(Mode.SURFACE, s.mode)
+        assertEquals(Mode.RUN_RESULT, s.mode)
+        assertNotNull(s.runResult)
         assertNull(s.trap)
     }
 
