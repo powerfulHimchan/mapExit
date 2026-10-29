@@ -131,7 +131,10 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                         lineHeight = 32.sp,
                         fontWeight = FontWeight.Black,
                         modifier =
-                            Modifier.align(Alignment.Center)
+                            Modifier.align(
+                                    if (trap.physicalAction) Alignment.TopCenter
+                                    else Alignment.Center
+                                )
                                 .padding(12.dp)
                                 .background(ink.copy(alpha = .94f), RoundedCornerShape(8.dp))
                                 .padding(horizontal = 16.dp, vertical = 12.dp),

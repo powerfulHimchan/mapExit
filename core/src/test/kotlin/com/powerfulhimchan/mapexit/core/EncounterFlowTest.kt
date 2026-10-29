@@ -212,14 +212,13 @@ class EncounterFlowTest {
                 0,
                 3 -> t.pattern.forEach { e.press(it) }
                 1 -> {
-                    advance(e, (t.target * 1000).toLong())
-                    e.press(t.pattern[0])
+                    advance(e, t.limitMs / 2)
+                    e.press(0)
                 }
                 2 -> repeat(t.required) { e.press(t.pattern[0]) }
                 4 -> {
-                    e.rawDown(t.pattern[0])
-                    advance(e, t.signalMs)
-                    e.rawUp(t.pattern[0])
+                    advance(e, t.limitMs / 2)
+                    e.press(1)
                 }
             }
             assertTrue("trap $type", t.success)

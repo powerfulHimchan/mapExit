@@ -93,14 +93,13 @@ class GameplayFeedbackTest {
     }
 
     @Test
-    fun beamChallengeUsesSeparateTapsInsteadOfHolding() {
-        val t = Traps.create(State(), 4).copy(phase = TrapPhase.ACTIVE, signalMs = 500)
-        Traps.tap(t, t.pattern[0])
-        assertEquals(TrapPhase.ACTIVE, t.phase)
-        assertEquals(-1, t.held)
+    fun beamChallengeUsesOneCrouchWithoutAnEngageOrReleaseStep() {
+        val t = Traps.create(State(), 4).copy(phase = TrapPhase.ACTIVE)
         Traps.tick(t, 550)
-        Traps.tap(t, t.pattern[0])
+        Traps.tap(t, 1)
         assertTrue(t.success)
+        assertEquals(1, t.action)
+        assertEquals(550L, t.actionAtMs)
         assertEquals(TrapPhase.RESULT, t.phase)
     }
 

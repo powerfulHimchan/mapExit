@@ -24,7 +24,8 @@ class ObstaclePresentationTest {
                     }
                     if (phase == TrapPhase.ACTIVE)
                         assertEquals(
-                            listOf("왼쪽 동작", "오른쪽 동작"),
+                            if (t.physicalAction) listOf("점프", "몸 숙이기")
+                            else listOf("왼쪽 동작", "오른쪽 동작"),
                             e.controls.buttons().map { it.label },
                         )
                 }

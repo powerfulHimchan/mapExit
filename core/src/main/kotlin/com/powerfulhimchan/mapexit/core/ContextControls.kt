@@ -119,7 +119,10 @@ class ContextControls(private val engine: GameEngine) {
                     )
                 else
                     (0..1).map { i ->
-                        val label = if (i == 0) "왼쪽 동작" else "오른쪽 동작"
+                        val label =
+                            if (t?.physicalAction == true) {
+                                if (i == 0) "점프" else "몸 숙이기"
+                            } else if (i == 0) "왼쪽 동작" else "오른쪽 동작"
                         ContextButton(label, enabled = t?.phase == TrapPhase.ACTIVE)
                     }
             }

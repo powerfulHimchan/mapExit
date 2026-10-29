@@ -1332,6 +1332,103 @@ class LaunchTest {
         }
     }
 
+    @Test
+    fun bladeAndBeamUseFixedActionsAndShowTheActualAvoidancePose() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            fun show(type: Int, time: Long) {
+                scenario.onActivity {
+                    val e = GameEngine()
+                    e.enterFloor(1)
+                    e.state.mode = Mode.TRAP
+                    e.state.trap =
+                        Traps.create(e.state, type)
+                            .copy(
+                                phase = TrapPhase.ACTIVE,
+                                elapsedMs = time,
+                                pattern = listOf(if (type == 1) 1 else 0),
+                            )
+                    it.game.active = false
+                    it.game.engine = e
+                    it.game.refresh()
+                }
+                bounds("A 점프")
+                bounds("B 몸 숙이기")
+            }
+            show(1, 100)
+            capture("blades-raised")
+            scenario.onActivity {
+                repeat(4) { _ -> it.game.engine.tick(225) }
+                assertTrue(it.game.engine.state.trap!!.bladesRetracted())
+                it.game.refresh()
+            }
+            capture("blades-retracted")
+            tap("A 점프")
+            scenario.onActivity {
+                assertTrue(it.game.engine.state.trap!!.success)
+                assertEquals(360.0, it.game.engine.state.hp, .001)
+                repeat(2) { _ -> it.game.engine.tick(225) }
+                it.game.refresh()
+            }
+            bounds("회피 성공")
+            capture("blades-jump")
+            scenario.onActivity {
+                repeat(2) { _ -> it.game.engine.tick(225) }
+                it.game.engine.tick(1)
+                assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
+            }
+            show(4, 0)
+            scenario.onActivity {
+                val before = it.game.engine.state.trap!!.beamDescent()
+                it.game.engine.tick(250)
+                assertTrue(it.game.engine.state.trap!!.beamDescent() > before)
+                it.game.engine.state.trap!!.elapsedMs = 1400
+                it.game.refresh()
+            }
+            capture("beam-descending")
+            tap("B 몸 숙이기")
+            scenario.onActivity {
+                assertTrue(it.game.engine.state.trap!!.success)
+                assertEquals(1, it.game.engine.state.trap!!.action)
+                assertEquals(360.0, it.game.engine.state.hp, .001)
+                repeat(2) { _ -> it.game.engine.tick(250) }
+                it.game.engine.tick(150)
+                it.game.refresh()
+            }
+            bounds("회피 성공")
+            capture("beam-crouch")
+        }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun physicalAvoidancePosesFitTheCompactSceneWithoutChangingState() {
+        val image = androidx.compose.ui.graphics.ImageBitmap(480, 400)
+        val scope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+        for (type in listOf(1, 4)) {
+            val e = GameEngine()
+            e.enterFloor(1)
+            e.state.mode = Mode.TRAP
+            val t = Traps.create(e.state, type).copy(phase = TrapPhase.ACTIVE, elapsedMs = 1000)
+            e.state.trap = t
+            e.press(if (type == 1) 0 else 1)
+            t.elapsedMs = if (type == 1) 450 else 650
+            val saved = SaveCodec.encode(e.state)
+            scope.draw(
+                androidx.compose.ui.unit.Density(1f),
+                androidx.compose.ui.unit.LayoutDirection.Ltr,
+                androidx.compose.ui.graphics.Canvas(image),
+                androidx.compose.ui.geometry.Size(480f, 400f),
+            ) {
+                drawScene(e.state, 0L)
+            }
+            assertEquals(saved, SaveCodec.encode(e.state))
+            exportBitmap(
+                if (type == 1) "blades-compact" else "beam-compact",
+                image.asAndroidBitmap(),
+            )
+        }
+    }
+
     private fun exportBitmap(name: String, bitmap: android.graphics.Bitmap) {
         val resolver = instrumentation.targetContext.contentResolver
         val values =

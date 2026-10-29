@@ -22,6 +22,10 @@ internal fun DrawScope.drawObstacle(s: State, clock: Long) {
     val w = size.width
     val h = size.height
     arena(clock)
+    if (t.physicalAction) {
+        drawPhysicalChallenge(s, t)
+        return
+    }
     val time = t.elapsedMs.toFloat()
     val danger =
         when (t.phase) {
@@ -36,7 +40,7 @@ internal fun DrawScope.drawObstacle(s: State, clock: Long) {
         1 -> floorBlades(t)
         2 -> closingWalls(t, danger)
         3 -> memoryStones(t)
-        4 -> fallingBeam(t, danger)
+        4 -> fallingBeam(t)
     }
     // The two stones occupy the same left/right positions as the actual touch buttons.
     for (i in 0..1) {
@@ -44,8 +48,6 @@ internal fun DrawScope.drawObstacle(s: State, clock: Long) {
         val lit = side == i
         val color =
             when {
-                t.type == 4 && t.signal() && lit -> mint
-                t.type == 1 && abs(t.position() - t.target) <= t.targetWidth / 2 && lit -> mint
                 lit -> amber
                 else -> line
             }
@@ -139,39 +141,99 @@ private fun DrawScope.cauldron(t: TrapState, danger: Float, side: Int?) {
         }
 }
 
+private fun DrawScope.drawPhysicalChallenge(s: State, t: TrapState) {
+    val w = size.width
+    val h = size.height
+    val floor = h * .85f
+    // A single continuous lane replaces the unrelated left/right answer stones.
+    pixelRect(Color(0xff151f27), w * .06f, floor, w * .88f, h * .08f)
+    pixelRect(iron, w * .06f, floor, w * .88f, 4f)
+    for (i in 0..5) {
+        val x = w * (.78f + i * .025f)
+        pixelRect(mint.copy(alpha = .65f), x, floor + h * .025f, w * .012f, 3f)
+    }
+    if (t.type == 1) floorBlades(t) else fallingBeam(t)
+    val result = t.phase == TrapPhase.RESULT
+    val motion = (t.elapsedMs / Traps.RESULT_MS.toFloat()).coerceIn(0f, 1f)
+    val jumping = result && t.action == 0
+    val ducking = result && t.action == 1
+    val heroX = if (t.type == 1) w * (.12f + if (jumping) .65f * motion else 0f) else w * .42f
+    val jumpY = if (jumping) sin(motion * PI.toFloat()) * h * .27f else 0f
+    val heroWidth = min(w * .23f, h * .28f)
+    val tint = if (result && !t.success) red else null
+    if (ducking) crouchingAdventurer(heroX, floor, heroWidth, tint)
+    else adventurer(s, heroX, floor - jumpY, heroWidth, armed = false, hitTint = tint)
+    if (jumping) {
+        contactShadow(w * (.12f + .65f * motion), floor + 4, heroWidth)
+        for (i in 0..2) pixelRect(
+            edge.copy(alpha = .5f),
+            heroX - 6 - i * 6,
+            floor - jumpY - h * .08f + i * 6,
+            4f,
+            3f,
+        )
+    }
+    if (result && t.success && t.type == 4) {
+        for (i in 0..2) pixelRect(mint, heroX - 7, floor - h * .13f + i * 5, 4f, 2f)
+    }
+    if (t.phase == TrapPhase.ACTIVE) {
+        pixelRect(line, w * .12f, h * .97f, w * .76f, 4f)
+        pixelRect(
+            amber,
+            w * .12f,
+            h * .97f,
+            w * .76f * (1 - t.elapsedMs.toFloat() / t.limitMs).coerceIn(0f, 1f),
+            3f,
+        )
+    }
+}
+
+/** Bent knees, lowered head and a horizontal torso leave visible clearance under the beam. */
+private fun DrawScope.crouchingAdventurer(x: Float, floor: Float, width: Float, tint: Color?) {
+    val u = spriteUnit(width)
+    val coat = tint ?: Color(0xff365d47)
+    val hair = tint ?: Color(0xffeac685)
+    contactShadow(x, floor + 3, width)
+    pixelRect(Color(0xff3a302c), x + 4 * u, floor - 6 * u, 8 * u, 6 * u)
+    pixelRect(Color(0xff3a302c), x + 20 * u, floor - 5 * u, 10 * u, 5 * u)
+    pixelRect(coat, x + 8 * u, floor - 13 * u, 19 * u, 10 * u)
+    pixelRect(coat, x + 4 * u, floor - 18 * u, 20 * u, 9 * u)
+    pixelRect(Color(0xff91a381), x + 6 * u, floor - 17 * u, 14 * u, 2 * u)
+    pixelRect(hair, x + 19 * u, floor - 25 * u, 11 * u, 12 * u)
+    pixelRect(Color(0xfff4db9a), x + 22 * u, floor - 25 * u, 7 * u, 3 * u)
+    pixelRect(Color(0xffd0aa7c), x + 25 * u, floor - 15 * u, 6 * u, 6 * u)
+    pixelRect(coat, x + 27 * u, floor - 10 * u, 4 * u, 6 * u)
+}
+
 private fun DrawScope.floorBlades(t: TrapState) {
     val w = size.width
     val h = size.height
-    val extent =
-        when (t.phase) {
-            TrapPhase.PREPARE,
-            TrapPhase.REVEAL -> .10f
-            TrapPhase.ACTIVE -> .12f + t.position().toFloat() * .65f
-            TrapPhase.RESULT -> if (t.success) .02f else .82f
+    val floor = h * .85f
+    val extension = if (t.phase == TrapPhase.PREPARE) 1f else t.bladeExtension()
+    val safe = t.phase != TrapPhase.PREPARE && t.bladesRetracted()
+    pixelRect(Color(0xff080f16), w * .39f, floor, w * .35f, h * .055f)
+    for (i in 0..4) {
+        val x = w * (.41f + i * .063f)
+        val top = floor - h * .30f * extension
+        pixelRect(iron, x - 2, floor, w * .052f, h * .035f)
+        if (extension > 0f) {
+            val blade =
+                Path().apply {
+                    moveTo(x, floor)
+                    lineTo(x + w * .023f, top)
+                    lineTo(x + w * .046f, floor)
+                    close()
+                }
+            drawPath(blade, edge)
+            drawLine(iron, Offset(x + w * .023f, top + 3), Offset(x + w * .023f, floor), 2f)
         }
-    pixelRect(Color(0xff080f16), w * .08f, h * .75f, w * .84f, h * .09f)
-    for (i in 0..6) {
-        val x = w * (.11f + i * .115f)
-        pixelRect(iron, x, h * .72f, w * .075f, h * .04f)
-        val top = h * (.76f - extent * .65f)
-        val blade =
-            Path().apply {
-                moveTo(x, h * .76f)
-                lineTo(x + w * .035f, top)
-                lineTo(x + w * .07f, h * .76f)
-                close()
-            }
-        drawPath(blade, edge)
-        drawLine(iron, Offset(x + w * .035f, top + 8), Offset(x + w * .035f, h * .75f), 3f)
+        pixelRect(if (safe) mint else red, x, floor + h * .045f, w * .046f, 3f)
     }
-    val safe = t.phase == TrapPhase.ACTIVE && abs(t.position() - t.target) <= t.targetWidth / 2
-    for (i in 0..5) pixelRect(
-        if (safe) mint else red.copy(alpha = .6f),
-        w * (.14f + i * .13f),
-        h * .79f,
-        12f,
-        4f,
-    )
+    // The crossing itself lights up only when every blade is physically inside the floor.
+    if (safe) {
+        pixelRect(mint.copy(alpha = .16f), w * .38f, floor - h * .025f, w * .37f, h * .025f)
+        for (i in 0..4) pixelRect(mint, w * (.40f + i * .07f), floor - 3, w * .04f, 2f)
+    }
 }
 
 private fun DrawScope.closingWalls(t: TrapState, danger: Float) {
@@ -242,24 +304,38 @@ private fun DrawScope.memoryStones(t: TrapState) {
     )
 }
 
-private fun DrawScope.fallingBeam(t: TrapState, danger: Float) {
+private fun DrawScope.fallingBeam(t: TrapState) {
     val w = size.width
     val h = size.height
-    val fall =
-        if (t.holdStarted >= 0 && t.phase == TrapPhase.ACTIVE)
-            ((t.elapsedMs - t.holdStarted).toFloat() / t.signalMs).coerceIn(0f, 1.2f)
-        else danger
-    val y = h * (.14f + fall * .38f)
+    val fall = if (t.phase == TrapPhase.PREPARE) 0f else t.beamDescent()
+    val heroHeight = 48 * spriteUnit(min(w * .23f, h * .28f))
+    val thickness = heroHeight * .38f
+    val bottom = h * .85f - heroHeight * .65f
+    val targetY = bottom - thickness
+    val y = h * .14f + (targetY - h * .14f) * fall
+    // Rails and head-height marks make the collision plane visible throughout the descent.
+    for (x in listOf(.17f, .80f)) {
+        pixelRect(iron.copy(alpha = .7f), w * x, h * .13f, w * .018f, h * .58f)
+        for (i in 0..3) pixelRect(amber, w * x, h * (.56f + i * .025f), w * .018f, 3f)
+    }
     chain(w * .19f, y)
     chain(w * .81f, y)
-    pixelRect(Color(0xff33291f), w * .09f, y + 5, w * .82f, h * .14f)
-    pixelRect(wood, w * .09f, y, w * .82f, h * .12f)
+    pixelRect(Color(0xff33291f), w * .09f, y + 5, w * .82f, thickness)
+    pixelRect(wood, w * .09f, y, w * .82f, thickness)
     for (i in 0..7) pixelRect(Color(0xffaa7c50), w * (.12f + i * .10f), y + h * .025f, w * .07f, 3f)
     for (x in listOf(.17f, .76f)) {
-        pixelRect(iron, w * x, y - 2, w * .045f, h * .13f)
-        pixelRect(edge, w * x + 2, y + 2, 2f, h * .10f)
+        pixelRect(iron, w * x, y - 2, w * .045f, thickness + 3)
+        pixelRect(edge, w * x + 2, y + 2, 2f, thickness - 3)
     }
-    val signal = t.phase == TrapPhase.ACTIVE && t.signal()
-    drawCircle(if (signal) mint else amber, w * .035f, Offset(w * .50f, h * .09f))
-    if (signal) for (i in 0..3) pixelRect(mint, w * (.40f + i * .055f), h * .73f, 10f, 3f)
+    // The open space under the beam is the route the crouched body fits through.
+    pixelRect(mint.copy(alpha = .10f), w * .35f, h * .74f, w * .32f, h * .10f)
+    for (i in 0..4) pixelRect(mint, w * (.36f + i * .065f), h * .83f, w * .03f, 3f)
+    if (t.phase == TrapPhase.ACTIVE) {
+        for (x in listOf(.30f, .67f)) {
+            val cy = y + h * .18f
+            drawLine(amber, Offset(w * x, cy - 10), Offset(w * x, cy + 7), 3f)
+            drawLine(amber, Offset(w * x - 6, cy), Offset(w * x, cy + 7), 3f)
+            drawLine(amber, Offset(w * x + 6, cy), Offset(w * x, cy + 7), 3f)
+        }
+    }
 }
