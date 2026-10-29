@@ -21,9 +21,44 @@ object BattleAnimation {
 
     private fun blend(a: Float, b: Float, t: Float) = a + (b - a) * ease(t)
 
+    data class DefensePose(val retreat: Float, val crouch: Float, val lean: Float, val guard: Float)
+
+    fun defense(action: String, elapsed: Long): DefensePose {
+        if (elapsed !in 0 until DURATION_MS) return DefensePose(0f, 0f, 0f, 0f)
+        val envelope =
+            if (elapsed < 180) ease(elapsed / 180f)
+            else if (elapsed < 420) 1f else 1f - ease((elapsed - 420) / 340f)
+        return if (action == "dodge") DefensePose(envelope, envelope, -28f * envelope, 0f)
+        else if (action == "guard")
+            DefensePose(.05f * envelope, .15f * envelope, -5f * envelope, envelope)
+        else DefensePose(0f, 0f, 0f, 0f)
+    }
+
     fun pose(kind: Kind?, elapsed: Long, strong: Boolean = false): AttackPose {
         if (elapsed !in 0 until DURATION_MS) return AttackPose(0f, 0f, 0f, 25f, 0f, 0f)
         val t = elapsed.toFloat() / DURATION_MS
+        if (strong) {
+            val drawBack =
+                if (elapsed < 210) ease(elapsed / 210f) else 1f - ease((elapsed - 210) / 110f)
+            val strike =
+                when {
+                    elapsed < 210 -> 0f
+                    elapsed < HIT_MS -> ease((elapsed - 210) / 110f)
+                    elapsed < 450 -> 1f
+                    else -> 1f - ease((elapsed - 450) / 310f)
+                }
+            val normal = pose(kind, elapsed, false)
+            val contact = pose(kind, HIT_MS, false)
+            return normal.copy(
+                advance = strike * 1.15f - drawBack * .22f,
+                lift = if (kind == Kind.HAMMER) drawBack * .16f else strike * .035f,
+                lean = -drawBack * 16f + strike * 22f,
+                angle =
+                    25f - drawBack * (if (kind == Kind.SPEAR) 18f else 125f) +
+                        strike * (contact.angle - 25f),
+                reach = strike * (if (kind == Kind.SPEAR) 1.65f else 1.2f) - drawBack * .15f,
+            )
+        }
         val advance =
             when {
                 t < .18f -> blend(0f, -.08f, t / .18f)

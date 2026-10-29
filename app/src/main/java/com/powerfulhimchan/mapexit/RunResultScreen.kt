@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -57,11 +56,8 @@ internal fun RunResultScreen(vm: GameModel, modifier: Modifier) {
                 lineHeight = 20.sp,
             )
         }
-        Button(
-            onClick = { vm.choose(Choice("준비 화면으로", "runContinue")) },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).heightIn(min = 54.dp),
-        ) {
-            Text("준비 화면으로", fontWeight = FontWeight.Bold)
+        ExpeditionButton("준비 화면으로", "다음 탐험 준비", "return", Modifier.padding(vertical = 8.dp)) {
+            vm.choose(Choice("준비 화면으로", "runContinue"))
         }
     }
 }

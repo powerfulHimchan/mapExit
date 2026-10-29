@@ -65,10 +65,15 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
     val h = size.height
     arena(clock)
     val heroRecoil = if (playerDamage) monsterPose.impact else 0f
-    val dodge = if (defending && motion!!.action == "dodge") monsterPose.advance else 0f
+    val defense = BattleAnimation.defense(if (defending) motion!!.action else "", elapsed)
+    val dodge = defense.retreat
     val heroX =
-        w * .18f + (if (attacking) pose.advance * w * .17f else 0f) - heroRecoil * 15 - dodge * 25
-    val heroBase = h * .90f - (if (attacking) pose.advance * h * .11f + pose.lift * h else 0f)
+        w * .18f + (if (attacking) pose.advance * w * .17f else 0f) -
+            heroRecoil * 15 -
+            dodge * w * .17f
+    val heroBase =
+        h * .90f - (if (attacking) pose.advance * h * .11f + pose.lift * h else 0f) +
+            defense.crouch * h * .045f
     val heroWidth = min(w * .34f, h * .32f)
     var hero = HeroPose(heroX, heroBase, spriteUnit(heroWidth))
     val flash =
@@ -76,7 +81,7 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
         else null
     withTransform({
         rotate(
-            if (attacking) pose.lean else -heroRecoil * 10,
+            if (attacking) pose.lean else defense.lean - heroRecoil * 10,
             Offset(heroX + heroWidth / 2, heroBase),
         )
     }) {
@@ -100,8 +105,10 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
                 Offset(
                     hero.unit *
                         (4 +
-                            if (attacking) pose.reach * (if (kind == Kind.SPEAR) 3 else 7) else 0f),
-                    hero.unit * (10 - (if (attacking) pose.advance * 5 else 0f) - overhead),
+                            if (attacking) pose.reach * (if (kind == Kind.SPEAR) 3 else 7)
+                            else defense.guard * 8),
+                    hero.unit *
+                        (10 - (if (attacking) pose.advance * 5 else defense.guard * 17) - overhead),
                 )
         arm(shoulder, hand, hero.unit)
         if (kind != null) {
@@ -123,10 +130,16 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
                     previous = end
                 }
                 pixelRect(Color(0xff8b6041), hand.x - 3, hand.y - 2, 8f, 14f)
-            } else heldWeapon(kind, hand, hero.unit, if (attacking) pose.angle else 25f)
+            } else
+                heldWeapon(
+                    kind,
+                    hand,
+                    hero.unit,
+                    if (attacking) pose.angle else 25f + defense.guard * 65f,
+                )
         }
         if (Equipment.equipped(scene).any { it.kind == Kind.SHIELD }) {
-            val guard = if (defending && motion!!.action == "guard") monsterPose.advance else 0f
+            val guard = defense.guard
             sprite(
                 "shield",
                 hero.x - hero.unit * 4 + guard * hero.unit * 17,
@@ -134,6 +147,22 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
                 hero.unit * 24,
             )
         }
+    }
+    if (defending && motion!!.action == "dodge") {
+        for (i in 1..3) drawLine(
+            mint.copy(alpha = .22f * defense.retreat),
+            Offset(heroX + heroWidth + i * 8, heroBase - heroWidth * .5f + i * 9),
+            Offset(heroX + heroWidth + 25 + i * 8, heroBase - heroWidth * .5f + i * 9),
+            2f,
+        )
+    }
+    if (attacking && motion!!.action == "strong") {
+        drawCircle(
+            amber.copy(alpha = .35f * pose.impact),
+            heroWidth * .7f,
+            Offset(heroX + heroWidth * .7f, heroBase - heroWidth * .6f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(4f),
+        )
     }
     val type =
         when {
