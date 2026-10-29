@@ -918,6 +918,100 @@ class LaunchTest {
         }
     }
 
+    @Test
+    fun shopComparisonRecordsAndNavigationUseActualEquipment() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var oldName = ""
+            scenario.onActivity {
+                val e = GameEngine(State(gold = 10000))
+                val old = ItemFactory.create(e.state, Kind.HEAD)
+                oldName = old.name
+                e.state.inventory.add(old)
+                Equipment.equip(e.state, old.id, Slot.HEAD)
+                e.state.shop = mutableListOf(ItemFactory.create(e.state, Kind.HEAD))
+                e.choose(Choice("상점", "shop"))
+                it.game.active = false
+                it.game.engine = e
+                it.game.refresh()
+            }
+            bounds("현재: $oldName")
+            capture("shop-comparison")
+            scenario.onActivity {
+                val e = it.game.engine
+                e.navigateBack()
+                e.state.log.add("표시하면 안 되는 행동 로그")
+                e.choose(Choice("기록", "help"))
+                it.game.refresh()
+            }
+            bounds("누적 탐험")
+            bounds("진행 중인 의뢰")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "표시하면 안 되는 행동 로그"))
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "가방 / 장비"))
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "장착 현황 / 상세 능력치"))
+            capture("records-clean")
+            tap("돌아가기")
+            bounds("던전 진입")
+            capture("entry-redesign")
+            tap("던전 진입")
+            scenario.onActivity {
+                val e = it.game.engine
+                e.startBattle(false)
+                e.state.mode = Mode.COMBAT_DEFEND
+                it.game.refresh()
+            }
+            bounds("A 방어")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "A  ·  바로 실행"))
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "B  ·  바로 실행"))
+            capture("defense-controls")
+        }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun fourCombatActionsRenderDifferentFramesWithoutChangingGame() {
+        val bitmap = androidx.compose.ui.graphics.ImageBitmap(480, 640)
+        val scope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+        val e = GameEngine()
+        e.enterFloor(1)
+        e.startBattle(false)
+        val saved = SaveCodec.encode(e.state)
+        val contactFrames = mutableListOf<IntArray>()
+        for (action in listOf("attack", "strong", "guard", "dodge")) {
+            val visual =
+                BattleVisual(
+                    e.state.battleSnapshot(),
+                    action,
+                    1000,
+                    BattleImpact(
+                        1,
+                        if (action in listOf("attack", "strong")) ImpactTarget.ENEMY
+                        else ImpactTarget.PLAYER,
+                        10,
+                        if (action == "dodge") ImpactOutcome.DODGE else ImpactOutcome.DAMAGE,
+                    ),
+                )
+            for ((index, elapsed) in listOf(180L, 320L, 650L).withIndex()) {
+                scope.draw(
+                    androidx.compose.ui.unit.Density(1f),
+                    androidx.compose.ui.unit.LayoutDirection.Ltr,
+                    androidx.compose.ui.graphics.Canvas(bitmap),
+                    androidx.compose.ui.geometry.Size(480f, 640f),
+                ) {
+                    drawScene(e.state, 1000 + elapsed, battle = visual)
+                }
+                val frame = bitmap.asAndroidBitmap()
+                if (index == 1) {
+                    val pixels = IntArray(480 * 640)
+                    frame.getPixels(pixels, 0, 480, 0, 0, 480, 640)
+                    assertTrue(contactFrames.none { it.contentEquals(pixels) })
+                    contactFrames.add(pixels)
+                }
+                exportBitmap("action-$action-$index", frame)
+            }
+        }
+        assertEquals(saved, SaveCodec.encode(e.state))
+    }
+
     private fun exportBitmap(name: String, bitmap: android.graphics.Bitmap) {
         val resolver = instrumentation.targetContext.contentResolver
         val values =

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
@@ -224,6 +225,7 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                     if (menu == "sell" && gear.id in worn.values)
                         Text("장착 중 · 판매 시 해제", color = mint, fontSize = 11.sp)
                     Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 16.sp)
+                    if (menu == "shop" && gear.kind != Kind.POTION) ShopComparison(s, gear)
                     Spacer(Modifier.weight(1f))
                     Text("${price}G", color = amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Text(
@@ -239,6 +241,61 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                 }
             }
             if (row.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun ShopComparison(state: State, gear: Gear) {
+    Equipment.compare(state, gear).forEach { comparison ->
+        Column(
+            Modifier.fillMaxWidth().background(ink, RoundedCornerShape(4.dp)).padding(7.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                "${comparison.slot.label} 교체 비교",
+                color = amber,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "현재: ${comparison.current?.name ?: "비어 있음"}",
+                color = pale,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+            )
+            comparison.current?.let {
+                Text(it.summary(), color = muted, fontSize = 10.sp, lineHeight = 14.sp)
+            }
+            val other = comparison.removed.filter { it.id != comparison.current?.id }
+            if (other.isNotEmpty())
+                Text(
+                    "함께 해제: ${other.joinToString { it.name }}",
+                    color = amber,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                )
+            val changes =
+                Stat.entries.filter {
+                    kotlin.math.abs(comparison.after.value(it) - comparison.before.value(it)) >
+                        .0001
+                }
+            if (changes.isEmpty()) Text("능력치 변화 없음", color = muted, fontSize = 10.sp)
+            changes.forEach { stat ->
+                val before = comparison.before.value(stat)
+                val after = comparison.after.value(stat)
+                val delta = after - before
+                val difference =
+                    if (stat in listOf(Stat.CRIT, Stat.CRIT_DAMAGE))
+                        String.format(Locale.ROOT, "%+.1f%%p", delta * 100)
+                    else String.format(Locale.ROOT, "%+.1f", delta).removeSuffix(".0")
+                Text(
+                    "${stat.label} ${statValue(stat, before)} → ${statValue(stat, after)} ($difference)",
+                    color = if (delta > 0) mint else red,
+                    fontSize = 10.sp,
+                    lineHeight = 15.sp,
+                )
+            }
         }
     }
 }

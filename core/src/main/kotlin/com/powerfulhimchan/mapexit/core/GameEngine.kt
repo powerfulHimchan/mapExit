@@ -256,16 +256,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                             )
                         }
                 }
-                "help" ->
-                    listOf(
-                        c("장착 현황 / 상세 능력치", "equipment"),
-                        c("성장 배분 (${s.points}P)", "growth"),
-                        c("가방 / 장비", "inventory"),
-                        c(
-                            "${s.quest?.let { "미션 ${it.progress}/${it.target}: ${it.title}" } ?: "진행 중인 미션 없음"}",
-                            "questInfo",
-                        ),
-                    )
+                "help" -> emptyList()
                 "debug" ->
                     buildList {
                         repeat(5) { add(c("함정 ${it+1} 바로 테스트", "testTrap", it.toLong())) }
@@ -740,7 +731,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.lastImpact = null
         s.mode = Mode.COMBAT_ATTACK
         s.selection = 0
-        s.note("${s.enemy!!.name} 조우 · 3인칭 전투 시작")
+        s.note("${s.enemy!!.name} 조우")
     }
 
     fun attack(strong: Boolean) {

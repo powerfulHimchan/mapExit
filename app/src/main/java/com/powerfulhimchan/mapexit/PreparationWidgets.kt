@@ -19,6 +19,28 @@ import com.powerfulhimchan.mapexit.core.*
 internal fun MenuArt(action: String, modifier: Modifier = Modifier) {
     val rows =
         when (action) {
+            "enter" ->
+                listOf(
+                    "########",
+                    "##....##",
+                    "##.##.##",
+                    "##.##.##",
+                    "##.##.##",
+                    "##....##",
+                    "##....##",
+                    "########",
+                )
+            "return" ->
+                listOf(
+                    "...##...",
+                    "..####..",
+                    ".######.",
+                    "########",
+                    ".#....#.",
+                    ".#.##.#.",
+                    ".#.##.#.",
+                    ".######.",
+                )
             "equipment",
             "item" ->
                 listOf(
@@ -207,5 +229,62 @@ internal fun StatusSummary(e: GameEngine) {
             MenuArt("growth", Modifier.size(22.dp))
             Text("${s.points}P", color = mint, fontSize = 11.sp)
         }
+    }
+}
+
+@Composable
+internal fun ExpeditionButton(
+    title: String,
+    subtitle: String,
+    icon: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .background(panel, RoundedCornerShape(8.dp))
+            .border(1.dp, mint, RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) { contentDescription = title }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        MenuArt(icon, Modifier.size(32.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, color = mint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = muted, fontSize = 11.sp)
+        }
+        Text("›", color = mint, fontSize = 28.sp)
+    }
+}
+
+@Composable
+internal fun ExplorationRecord(s: State) {
+    Column(
+        Modifier.fillMaxWidth().background(panel).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("누적 탐험", color = amber, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "${s.cycle}회차 · 최대 지하 ${s.highest}층 · 클리어 ${s.clears}회",
+            color = pale,
+            fontSize = 13.sp,
+        )
+        Text(
+            "발견한 이동 장치: ${s.devices.sorted().joinToString { "${it}층" }.ifEmpty { "없음" }}",
+            color = muted,
+            fontSize = 12.sp,
+        )
+        Text("진행 중인 의뢰", color = amber, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(
+            s.quest?.let {
+                "${it.title} · ${it.progress}/${it.target}${if (it.complete) " · 달성" else ""}"
+            } ?: "진행 중인 의뢰가 없습니다",
+            color = pale,
+            fontSize = 13.sp,
+        )
     }
 }

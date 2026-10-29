@@ -369,12 +369,9 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
-        Text(
-            "${if (index == 0) "A" else "B"}${b.holdLabel?.let { "  ·  길게: $it" } ?: if (b.enabled) "  ·  바로 실행" else "  ·  대기"}",
-            fontSize = 10.sp,
-            lineHeight = 14.sp,
-            color = if (b.enabled) mint else muted,
-        )
+        b.holdLabel?.let { hint ->
+            Text("길게: $hint", fontSize = 10.sp, lineHeight = 14.sp, color = mint)
+        }
     }
 }
 
@@ -442,7 +439,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         EquipmentOverview(vm)
                     }
                 }
-            if (menu !in listOf("growth", "shop", "sell", "quantity")) item { Summary(e) }
+            if (menu !in listOf("growth", "shop", "sell", "quantity", "help")) item { Summary(e) }
             if (surface || s.mode == Mode.INHERIT)
                 item {
                     Text(
@@ -456,15 +453,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             if (surface) {
                 item { EquipmentOverview(vm) }
                 items(e.choices().filter { it.action == "enter" && it.argument != 1L }) { c ->
-                    Button(
-                        onClick = { vm.choose(c) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    ) {
-                        Text(
-                            if (c.argument == 1L) "던전 진입 · 지하 1층" else c.label,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
+                    ExpeditionButton(c.label, "이동 장치로 출발", "enter") { vm.choose(c) }
                 }
                 if (BuildConfig.DEBUG)
                     item {
@@ -480,18 +469,11 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 if (menu == "growth") growthCards(vm)
                 if (menu in listOf("shop", "sell", "quantity")) tradeCards(vm, menu!!)
                 if (menu == "item") item { ItemComparison(e) }
-                if (menu == "help")
-                    item {
-                        Text(
-                            s.log.takeLast(12).reversed().joinToString("\n\n"),
-                            color = muted,
-                            fontSize = 12.sp,
-                            lineHeight = 19.sp,
-                        )
-                    }
+                if (menu == "help") item { ExplorationRecord(s) }
                 items(
                     menuChoices.filterNot {
-                        (menu == "equipment" && it.action == "slotItem") ||
+                        (menu == "help") ||
+                            (menu == "equipment" && it.action == "slotItem") ||
                             (menu == "growth" && it.action == "stat") ||
                             (menu in listOf("growth", "shop", "sell", "quantity") &&
                                 it.action == "back") ||
@@ -569,19 +551,15 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             }
         }
         if (surface) {
-            Button(
-                onClick = {
-                    e.choices()
-                        .firstOrNull { it.action == "enter" && it.argument == 1L }
-                        ?.let(vm::choose)
-                },
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 4.dp)
-                        .heightIn(min = 54.dp)
-                        .semantics { contentDescription = "던전 진입" },
+            ExpeditionButton(
+                "던전 진입",
+                "지하 1층부터 탐험",
+                "enter",
+                Modifier.padding(top = 8.dp, bottom = 4.dp),
             ) {
-                Text("던전 진입 · 지하 1층", fontWeight = FontWeight.Bold)
+                e.choices()
+                    .firstOrNull { it.action == "enter" && it.argument == 1L }
+                    ?.let(vm::choose)
             }
         }
     }

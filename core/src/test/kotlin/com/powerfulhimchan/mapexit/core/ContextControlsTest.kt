@@ -158,7 +158,7 @@ class ContextControlsTest {
     }
 
     @Test
-    fun inventoryEquipmentAndGrowthAreReachableFromDungeon() {
+    fun inventoryAndCleanRecordsAreReachableFromDungeon() {
         val e = GameEngine()
         e.enterFloor(1)
         e.state.dungeon!!.here().resolved = true
@@ -168,9 +168,7 @@ class ContextControlsTest {
         assertEquals(Mode.EXPLORE, e.state.mode)
         e.hold(1)
         assertEquals("help", e.state.menu!!.type)
-        choose(e, "growth")
-        assertEquals("growth", e.state.menu!!.type)
-        e.navigateBack()
+        assertEquals(listOf("back"), e.choices().map { it.action })
         e.navigateBack()
         assertEquals(Mode.EXPLORE, e.state.mode)
     }

@@ -54,6 +54,33 @@ object Equipment {
             else -> emptyList()
         }
 
+    data class Comparison(
+        val slot: Slot,
+        val current: Gear?,
+        val removed: List<Gear>,
+        val before: Stats,
+        val after: Stats,
+    )
+
+    /** Preview a shop item with the exact same replacement rules as a real equip. */
+    fun compare(state: State, item: Gear): List<Comparison> =
+        allowedSlots(item).map { slot ->
+            val preview =
+                state.copy(
+                    inventory = state.inventory.toMutableList(),
+                    equipment = state.equipment.toMutableMap(),
+                )
+            if (preview.inventory.none { it.id == item.id }) preview.inventory.add(item)
+            equip(preview, item.id, slot)
+            Comparison(
+                slot,
+                state.inventory.find { it.id == state.equipment[slot] },
+                equipped(state).filter { it.id !in preview.equipment.values },
+                stats(state),
+                stats(preview),
+            )
+        }
+
     fun equip(state: State, id: Long, slot: Slot): Boolean {
         val item = state.inventory.find { it.id == id } ?: return false
         if (slot !in allowedSlots(item)) return false
