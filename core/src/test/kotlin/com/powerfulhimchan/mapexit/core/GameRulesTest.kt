@@ -26,7 +26,7 @@ class GameRulesTest {
     }
 
     @Test
-    fun generatedMapsAreConnectedAndHaveAllEvents() {
+    fun generatedMapsAreConnectedAndHaveRequiredEventsAndScheduledVisitors() {
         for (seed in 1L..50L) {
             val s = state().copy(rng = seed)
             val m = MapGenerator.generate(s, seed.toInt())
@@ -36,15 +36,14 @@ class GameRulesTest {
             }
             assertEquals(1, m.cells.count { it.event == Event.EXIT })
             assertTrue(m.here().event == Event.NONE)
-            for (event in
-                listOf(
-                    Event.MONSTER,
-                    Event.CHEST,
-                    Event.HEAL,
-                    Event.MERCHANT,
-                    Event.NPC,
-                    Event.TRAP,
-                )) assertTrue(m.cells.any { it.event == event })
+            for (event in listOf(Event.MONSTER, Event.CHEST, Event.HEAL, Event.TRAP)) assertTrue(
+                m.cells.any { it.event == event }
+            )
+            assertEquals(2, m.cells.count { it.event == Event.CHEST })
+            for (visitor in listOf(Event.NPC, Event.MERCHANT)) assertEquals(
+                if (seed.toInt() in VisitorSchedule.floors(s.visitorSeed!!, visitor)) 1 else 0,
+                m.cells.count { it.event == visitor },
+            )
         }
     }
 

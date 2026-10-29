@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "status": "prototype_not_final_game_rules",
   "weapons": {
     "sword": {
@@ -23,7 +23,7 @@
     "hammer": {
       "label": "해머",
       "hands": 2,
-      "attack": 54,
+      "attack": 55,
       "defense": -12,
       "agility": -10,
       "crit_chance": -0.08,
@@ -32,7 +32,7 @@
     "claw": {
       "label": "클로",
       "hands": 1,
-      "attack": 13,
+      "attack": 17,
       "defense": 0,
       "agility": 13,
       "crit_chance": 0,
@@ -111,7 +111,11 @@
     "crit_damage_min": 1.0,
     "crit_damage_max": 4.0,
     "defense_constant": 100,
-    "max_turns": 100
+    "max_turns": 100,
+    "luck_proc_per_point": 0.002,
+    "luck_proc_max": 0.35,
+    "luck_attack_bonus": 0.2,
+    "luck_crit_bonus": 0.1
   },
   "builds": {
     "balanced": {

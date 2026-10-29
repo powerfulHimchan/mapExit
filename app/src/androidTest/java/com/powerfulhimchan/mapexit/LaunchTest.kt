@@ -1517,6 +1517,88 @@ class LaunchTest {
         }
     }
 
+    @Test
+    fun luckShowsOnlyActivatedBonusesAndDoesNotChangePersistentAttackOrCriticalStats() {
+        for (seed in listOf(11L, 0L)) {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                var attack = 0.0
+                var crit = 0.0
+                var label = ""
+                scenario.onActivity {
+                    val e = GameEngine(State(base = Stats(luck = 100.0)))
+                    e.enterFloor(1)
+                    e.startBattle(false)
+                    e.state.enemy = e.state.enemy!!.copy(maxHp = 100000.0, hp = 100000.0)
+                    e.state.impactSequence = it.game.engine.state.impactSequence + 100
+                    e.state.rng = seed
+                    attack = e.stats().attack
+                    crit = e.stats().crit
+                    it.game.engine = e
+                    it.game.active = false
+                    it.game.refresh()
+                }
+                tap("A 일반 공격")
+                scenario.onActivity {
+                    val e = it.game.engine
+                    assertEquals(attack, e.stats().attack, .0001)
+                    assertEquals(crit, e.stats().crit, .0001)
+                    assertEquals(seed == 11L, e.state.lastImpact!!.luckyAttack)
+                    assertEquals(seed == 11L, e.state.lastImpact!!.luckyCritical)
+                    label = "적 피해 ${e.state.lastImpact!!.label()}"
+                }
+                bounds(label)
+                capture(if (seed == 11L) "luck-active" else "luck-inactive")
+            }
+        }
+    }
+
+    @Test
+    fun savedVisitorSchedulePlacesNpcAndMerchantOnTheirOwnThreeOrFourFloorIntervals() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(1)
+                assertEquals(2, e.state.dungeon!!.cells.count { c -> c.event == Event.CHEST })
+                assertFalse(
+                    e.state.dungeon!!.cells.any { c ->
+                        c.event in listOf(Event.NPC, Event.MERCHANT)
+                    }
+                )
+                it.game.engine = e
+                it.game.active = false
+                it.game.save(blocking = true)
+                val cold = GameModel(it.application)
+                assertEquals(e.state.visitorSeed, cold.engine.state.visitorSeed)
+                assertEquals(e.state.dungeon, cold.engine.state.dungeon)
+                val floor = VisitorSchedule.floors(e.state.visitorSeed!!, Event.NPC).first()
+                e.enterFloor(floor)
+                val m = e.state.dungeon!!
+                val cell = m.cells.indexOfFirst { c -> c.event == Event.NPC }
+                assertTrue(cell >= 0)
+                m.x = cell % m.width
+                m.y = cell / m.width
+                e.choose(Choice("NPC", "encounter", Event.NPC.ordinal.toLong()))
+                it.game.refresh()
+            }
+            bounds("여행자를 만났습니다")
+            capture("scheduled-npc")
+            scenario.onActivity {
+                val e = it.game.engine
+                val floor = VisitorSchedule.floors(e.state.visitorSeed!!, Event.MERCHANT).first()
+                e.enterFloor(floor)
+                val m = e.state.dungeon!!
+                val cell = m.cells.indexOfFirst { c -> c.event == Event.MERCHANT }
+                assertTrue(cell >= 0)
+                m.x = cell % m.width
+                m.y = cell / m.width
+                e.choose(Choice("상인", "encounter", Event.MERCHANT.ordinal.toLong()))
+                it.game.refresh()
+            }
+            bounds("A 거래하기")
+            capture("scheduled-merchant")
+        }
+    }
+
     private fun exportBitmap(name: String, bitmap: android.graphics.Bitmap) {
         val resolver = instrumentation.targetContext.contentResolver
         val values =

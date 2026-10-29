@@ -861,14 +861,18 @@ class GameEngine(
         val enemy = s.enemy ?: return
         val p = stats()
         var damage = 0.0
-        val critical = s.random() < p.crit
-        if (
+        val criticalRoll = s.random()
+        val hit =
             s.random() <
                 (if (strong) GameBalance.model("strong_hit") else GameBalance.model("normal_hit"))
-        )
+        val lucky = if (hit) Luck.roll(s, p) else AttackLuck()
+        val critical = criticalRoll < Luck.criticalChance(p.crit, lucky)
+        if (hit)
             damage =
-                p.attack * (if (strong) GameBalance.model("strong_damage") else 1.0) * 100 /
-                    (100 + enemy.defense) * (if (critical) p.critDamage else 1.0)
+                p.attack *
+                    Luck.attackMultiplier(lucky) *
+                    (if (strong) GameBalance.model("strong_damage") else 1.0) *
+                    100 / (100 + enemy.defense) * (if (critical) p.critDamage else 1.0)
         val previousHp = enemy.hp
         enemy.hp = max(0.0, enemy.hp - damage)
         impact(
@@ -876,10 +880,13 @@ class GameEngine(
             previousHp - enemy.hp,
             if (damage == 0.0) ImpactOutcome.MISS else ImpactOutcome.DAMAGE,
             critical && damage > 0,
+            lucky.attackBoost,
+            lucky.criticalBoost,
         )
         s.note(
             if (damage == 0.0) "공격이 빗나갔습니다"
-            else "${if(critical)"치명타! " else ""}${damage.roundToInt()} 피해"
+            else
+                "${if(lucky.attackBoost) "행운 공격 강화 · " else ""}${if(lucky.criticalBoost) "행운 치명 확률 강화 · " else ""}${if(critical)"치명타! " else ""}${damage.roundToInt()} 피해"
         )
         if (enemy.hp <= 0) {
             victory()
@@ -900,7 +907,7 @@ class GameEngine(
                 .coerceIn(GameBalance.model("dodge_min"), GameBalance.model("dodge_max"))
         val shield = Equipment.equipped(s).any { it.kind == Kind.SHIELD }
         val critical = s.random() < .10
-        var damage = e.attack * 100 / (100 + p.defense) * (if (critical) 1.5 else 1.0)
+        var damage = Defense.damageAfterArmor(e.attack, p.defense) * (if (critical) 1.5 else 1.0)
         if (dodge) {
             if (s.random() < chance) damage = 0.0
         } else
@@ -908,7 +915,7 @@ class GameEngine(
                 1.0 -
                     GameBalance.model("guard_reduction") -
                     (if (shield) GameBalance.shield("guard_bonus") else 0.0)
-        val fullGuard = !dodge && s.random() < Defense.zeroDamageChance(p)
+        val fullGuard = !dodge && s.random() < Defense.zeroDamageChance(p, e.attack)
         if (fullGuard) damage = 0.0
         val previousHp = s.hp
         s.hp = max(0.0, s.hp - damage)
@@ -938,6 +945,8 @@ class GameEngine(
         damage: Double,
         outcome: ImpactOutcome,
         critical: Boolean = false,
+        luckyAttack: Boolean = false,
+        luckyCritical: Boolean = false,
     ) {
         val s = state
         s.impactSequence++
@@ -948,6 +957,8 @@ class GameEngine(
                 if (damage > 0) damage.roundToInt().coerceAtLeast(1) else 0,
                 outcome,
                 critical,
+                luckyAttack,
+                luckyCritical,
             )
     }
 
@@ -1156,6 +1167,7 @@ class GameEngine(
         s.inventory.removeAll { !it.inherited }
         s.equipment.clear()
         s.cycle++
+        s.visitorSeed = null
         s.clears++
         s.level = 1
         s.chestLoot = null

@@ -264,15 +264,25 @@ data class BattleImpact(
     val amount: Int,
     val outcome: ImpactOutcome,
     val critical: Boolean = false,
+    val luckyAttack: Boolean = false,
+    val luckyCritical: Boolean = false,
 ) {
-  fun label(): String =
-      when (outcome) {
-        ImpactOutcome.MISS -> "빗나감"
-        ImpactOutcome.DODGE -> "회피"
-        ImpactOutcome.BLOCK -> "완전 방어 · 0 피해"
-        ImpactOutcome.GUARD -> "${if(critical) "치명타 · " else ""}방어 -$amount"
-        else -> "${if(critical) "치명타 " else ""}-$amount"
-      }
+  fun label(): String {
+    val base =
+        when (outcome) {
+          ImpactOutcome.MISS -> "빗나감"
+          ImpactOutcome.DODGE -> "회피"
+          ImpactOutcome.BLOCK -> "완전 방어 · 0 피해"
+          ImpactOutcome.GUARD -> "${if(critical) "치명타 · " else ""}방어 -$amount"
+          else -> "${if(critical) "치명타 " else ""}-$amount"
+        }
+    val effects =
+        listOfNotNull(
+            if (luckyAttack) "행운 공격 강화" else null,
+            if (luckyCritical) "행운 치명 확률 강화" else null,
+        )
+    return if (effects.isEmpty()) base else "$base · ${effects.joinToString(" · ")}"
+  }
 }
 
 @Serializable
@@ -323,6 +333,7 @@ data class Choice(val label: String, val action: String, val argument: Long = 0L
 data class State(
     val version: Int = 1,
     var rng: Long = 20261028L,
+    var visitorSeed: Long? = null,
     var nextId: Long = 1L,
     var cycle: Int = 1,
     var clears: Int = 0,

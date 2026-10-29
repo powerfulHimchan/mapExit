@@ -75,14 +75,18 @@ class TrapProgressionTest {
     @Test
     fun eventAllocationMatchesTheDocumentedCountsAndDoesNotOverlapStartOrExit() {
         for (floor in listOf(1, 14, 15, 29, 30, 44, 45, 50)) {
-            val d = MapGenerator.generate(State(bootstrapped = true, rng = floor.toLong()), floor)
+            val s = State(bootstrapped = true, rng = floor.toLong())
+            val d = MapGenerator.generate(s, floor)
             assertEquals(97, d.cells.count { !it.wall })
             assertEquals(7 + floor / 15, d.cells.count { it.event == Event.MONSTER })
             for ((event, count) in
                 listOf(
-                    Event.CHEST to 4,
-                    Event.MERCHANT to 1,
-                    Event.NPC to 1,
+                    Event.CHEST to 2,
+                    Event.MERCHANT to
+                        if (floor in VisitorSchedule.floors(s.visitorSeed!!, Event.MERCHANT)) 1
+                        else 0,
+                    Event.NPC to
+                        if (floor in VisitorSchedule.floors(s.visitorSeed!!, Event.NPC)) 1 else 0,
                     Event.HEAL to 2,
                     Event.TRAP to 3,
                     Event.EXIT to 1,

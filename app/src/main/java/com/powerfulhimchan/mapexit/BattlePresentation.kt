@@ -293,6 +293,10 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Black,
                                 )
+                            if (impact.luckyAttack)
+                                Text("행운 · 공격 강화", color = mint, fontSize = 10.sp)
+                            if (impact.luckyCritical)
+                                Text("행운 · 치명 확률 강화", color = mint, fontSize = 10.sp)
                             Text(
                                 if (impact.outcome == ImpactOutcome.BLOCK) "0"
                                 else if (avoided) impact.label() else "-${impact.amount}",
