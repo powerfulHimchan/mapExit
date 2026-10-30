@@ -63,6 +63,10 @@ object MapGenerator {
         )
         place(Event.NPC, if (floor in VisitorSchedule.floors(visitorSeed, Event.NPC)) 1 else 0)
         place(Event.TRAP, 3)
+        val species = MonsterCatalog.forFloor(floor)
+        map.cells.forEachIndexed { index, cell ->
+            if (cell.event == Event.MONSTER) cell.monsterId = species[(index + floor) % species.size].id
+        }
         map.reveal()
         return map
     }

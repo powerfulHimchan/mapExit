@@ -183,6 +183,7 @@ class GameEngine(
                     add(c("골드 보관소", "bank"))
                     add(c("지상 상점", "shop"))
                     add(c("기록 / 도움말", "help"))
+                    add(c("몬스터 도감", "bestiary"))
                     add(c("테스트 메뉴", "training"))
                     if (debugTools) add(c("개발용 테스트", "debug"))
                 }
@@ -212,6 +213,7 @@ class GameEngine(
                     add(c("성장 배분 (${s.points})", "growth"))
                     add(c("장착 현황", "equipment"))
                     add(c("미션 / 기록", "help"))
+                    add(c("몬스터 도감", "bestiary"))
                     if (s.debug) add(c("개발용 테스트", "debug"))
                 }
             Mode.MOVING -> listOf(c("이동 중 · 멈추기", "stop"), c("지상으로 · 탐험 포기", "retreat"))
@@ -305,7 +307,7 @@ class GameEngine(
                 "growth" ->
                     Stat.entries.map {
                         c("${it.label} 올리기 (${s.points}P)", "stat", it.ordinal.toLong())
-                    }
+                    } + c("체력 모두 회복 · 1P", "growthHeal")
                 "equipment" ->
                     Slot.entries.map { slot ->
                         val item = s.inventory.find { it.id == s.equipment[slot] }
@@ -336,7 +338,8 @@ class GameEngine(
                     if (item == null) listOf(c("취소", "back"))
                     else listOf(c("구매", "purchase", item.id), c("취소", "back"))
                 }
-                "help" -> emptyList()
+                "help" -> listOf(c("몬스터 도감", "bestiary"))
+                "bestiary" -> emptyList()
                 "training" ->
                     listOf(
                         c("장애물 피하기", "trainingTraps"),
@@ -436,7 +439,7 @@ class GameEngine(
     /** Header shortcuts stop automatic walking before opening a real menu. */
     fun openDungeonPanel(type: String): Boolean {
         if (
-            type !in listOf("equipment", "growth", "inventory", "help") ||
+            type !in listOf("equipment", "growth", "inventory", "help", "bestiary") ||
                 state.dungeon == null ||
                 state.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)
         )
@@ -564,6 +567,7 @@ class GameEngine(
             "growth",
             "equipment",
             "bank",
+            "bestiary",
             "help" -> {
                 if (c.action == "growth") s.levelUpNotice = null
                 open(c.action)
@@ -599,6 +603,7 @@ class GameEngine(
                 closeMenu()
             }
             "stat" -> spendPoint(Stat.entries[c.argument.toInt()])
+            "growthHeal" -> restoreWithGrowthPoint()
             "deposit" -> {
                 s.bank += s.gold
                 s.gold = 0
@@ -871,9 +876,15 @@ class GameEngine(
         val s = state
         val floor = max(1, s.floor)
         val hp = (300 + floor * 26.0) * (if (boss) 1.7 else if (elite) 1.4 else 1.0)
+        val species = when {
+            boss || elite -> MonsterCatalog.special(floor, boss)
+            else -> MonsterCatalog.find(s.dungeon?.here()?.takeIf { it.event == Event.MONSTER }?.monsterId)
+                ?.takeIf { it.band == MonsterCatalog.band(floor) }
+                ?: MonsterCatalog.forFloor(floor)[s.nextInt(6)]
+        }
         s.enemy =
             Enemy(
-                if (boss) "${floor}층의 수문장" else if (elite) "${floor}층의 정예 기사" else listOf("동굴 슬라임", "녹슨 기사", "심연 박쥐")[s.nextInt(3)],
+                if (elite) "${floor}층의 정예 기사" else species.name,
                 hp,
                 hp,
                 (65 + floor * 4.0) * (if (boss) 1.2 else if (elite) 1.1 else 1.0),
@@ -881,7 +892,9 @@ class GameEngine(
                 10.0 + floor * .3,
                 boss,
                 elite = elite,
+                speciesId = species.id,
             )
+        MonsterCatalog.record(s, s.enemy!!, encounter = 1)
         s.enemy!!.let { it.intent = CombatTactics.pattern(it).first() }
         s.encounter = null
         s.quickEquipIds = emptyList()
@@ -921,7 +934,7 @@ class GameEngine(
             when {
                 guardBreak -> "방패 파괴"
                 hit && (opening || enemy.intent == EnemyIntent.RECOVER) -> "빈틈 공격"
-                hit && enemy.intent == EnemyIntent.GUARD -> "적 방패에 경감"
+                hit && enemy.intent == EnemyIntent.GUARD -> "몬스터 방패에 경감"
                 else -> ""
             }
         val previousHp = enemy.hp
@@ -950,7 +963,7 @@ class GameEngine(
             s.mode = Mode.COMBAT_ATTACK
             s.note(
                 if (guardBreak) "방패 파괴! 다음 공격 강화"
-                else if (hit) "빈틈 공격! ${damage.roundToInt()} 피해 · 반격 없음" else "공격이 빗나갔습니다 · 적은 휴식 중"
+                else if (hit) "빈틈 공격! ${damage.roundToInt()} 피해 · 반격 없음" else "공격이 빗나갔습니다 · 몬스터는 휴식 중"
             )
         } else s.mode = Mode.COMBAT_DEFEND
         s.selection = 0
@@ -965,7 +978,7 @@ class GameEngine(
             CombatTactics.advance(e)
             s.mode = Mode.COMBAT_ATTACK
             s.selection = 0
-            s.note("적은 숨을 고릅니다 · 공격 기회")
+            s.note("몬스터는 숨을 고릅니다 · 공격 기회")
             return
         }
         val chance =
@@ -1052,6 +1065,7 @@ class GameEngine(
     private fun victory() {
         val s = state
         val enemy = s.enemy ?: return
+        MonsterCatalog.record(s, enemy, defeat = 1)
         val gold = ((20 + s.floor * 4) * (if (enemy.elite) 1.5 else 1.0)).toInt()
         val experience = ((25 + s.floor * 5) * (if (enemy.elite) 1.5 else 1.0)).toInt()
         val items = mutableListOf<String>()
@@ -1146,6 +1160,15 @@ class GameEngine(
         s.note("${stat.label} 성장 · 남은 포인트 ${s.points}")
     }
 
+    fun restoreWithGrowthPoint(): Boolean {
+        val s = state
+        if (s.mode != Mode.MENU || s.menu?.type != "growth" || s.points <= 0 || s.hp <= 0 || s.hp >= stats().hp) return false
+        s.points--
+        s.hp = stats().hp
+        s.note("체력 모두 회복 · 성장 포인트 1P 사용 · 남은 ${s.points}P")
+        return true
+    }
+
     private fun usePotion(id: Long? = null): Boolean {
         val s = state
         val item = s.inventory.find { it.kind == Kind.POTION && (id == null || it.id == id) }
@@ -1184,6 +1207,8 @@ class GameEngine(
     }
 
     fun die() {
+        if (state.mode == Mode.RUN_RESULT) return
+        state.enemy?.let { MonsterCatalog.record(state, it, death = 1) }
         state.chestLoot = null
         endRun(retreated = false)
     }

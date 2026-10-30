@@ -110,7 +110,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     )
                 }
                 val health =
-                    "적 HP ${ceil(enemy.hp.coerceAtLeast(0.0)).toInt()} / ${ceil(enemy.maxHp).toInt()}"
+                    "몬스터 HP ${ceil(enemy.hp.coerceAtLeast(0.0)).toInt()} / ${ceil(enemy.maxHp).toInt()}"
                 Text(
                     health,
                     color = amber,
@@ -120,14 +120,14 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 )
                 val plan = motion?.scene?.enemy ?: enemy
                 Text(
-                    "적이 ${CombatTactics.cue(plan)}.",
+                    "몬스터가 ${CombatTactics.cue(plan)}.",
                     color = amber,
                     fontSize = if (compactBattle) 10.sp else 12.sp,
                     lineHeight = if (compactBattle) 12.sp else 16.sp,
                     fontWeight = FontWeight.Bold,
                     modifier =
                         Modifier.semantics {
-                            contentDescription = "적 행동 예고 ${CombatTactics.cue(plan)}"
+                            contentDescription = "몬스터 행동 예고 ${CombatTactics.cue(plan)}"
                         },
                 )
                 Text(
@@ -220,7 +220,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                             lineHeight = 18.sp,
                         )
                         Text(
-                            "적 HP 0 / ${ceil(result.enemy.maxHp).toInt()}",
+                            "몬스터 HP 0 / ${ceil(result.enemy.maxHp).toInt()}",
                             color = muted,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
@@ -344,7 +344,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                     )
                                     .semantics(mergeDescendants = true) {
                                         contentDescription =
-                                            "${if(enemyHit) "적" else "플레이어"} 피해 ${impact.label()}"
+                                            "${if(enemyHit) "몬스터" else "플레이어"} 피해 ${impact.label()}"
                                     },
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
@@ -430,7 +430,7 @@ private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifi
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                ItemArt(gear.kind, Modifier.size(42.dp))
+                ItemArt(gear, Modifier.size(42.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
                         gear.name,

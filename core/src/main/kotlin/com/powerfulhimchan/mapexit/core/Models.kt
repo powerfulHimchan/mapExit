@@ -206,6 +206,7 @@ data class Cell(
     var trapType: Int = 0,
     var questOffer: Quest? = null,
     var offerChecked: Boolean = false,
+    var monsterId: String? = null,
 )
 
 @Serializable
@@ -255,6 +256,7 @@ data class Enemy(
     var round: Int = 0,
     var opening: Boolean = false,
     val elite: Boolean = false,
+    val speciesId: String? = null,
 )
 
 @Serializable
@@ -396,6 +398,7 @@ data class State(
     var debug: Boolean = false,
     var training: Boolean = false,
     var bootstrapped: Boolean = false,
+    var bestiary: MutableMap<String, MonsterRecord> = mutableMapOf(),
 ) {
   val experienceRequired: Int get() = level * 80
   val experienceRemaining: Int get() = (experienceRequired - experience).coerceAtLeast(0)

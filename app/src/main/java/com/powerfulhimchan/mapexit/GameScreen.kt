@@ -421,6 +421,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "growth" -> "능력치 성장"
                 "bank" -> "골드 보관소"
                 "help" -> "탐험 기록"
+                "bestiary" -> "몬스터 도감"
                 "training" -> "테스트 메뉴"
                 "trainingTraps" -> "장애물 선택"
                 "item" -> "장비 / 아이템 상세"
@@ -476,6 +477,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         "sell",
                         "quantity",
                         "help",
+                        "bestiary",
                         "training",
                         "trainingTraps",
                     )
@@ -503,13 +505,17 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 if (menu == "slotInventory" && menuChoices.none { it.action=="item" }) item {
                     Text("이 부위에 장착할 수 있는 장비가 없습니다.",color=muted,fontSize=13.sp)
                 }
-                if (menu == "help") item { ExplorationRecord(s) }
+                if (menu == "help") {
+                    item { ExplorationRecord(s) }
+                    item { OutlinedButton(onClick = { vm.choose(Choice("몬스터 도감", "bestiary")) }, modifier = Modifier.fillMaxWidth()) { Text("몬스터 도감", color = mint) } }
+                }
+                if (menu == "bestiary") bestiaryCards(s)
                 items(
                     menuChoices.filterNot {
                         (menu in listOf("help", "shopItem")) ||
                             (menu in listOf("training", "trainingTraps") && it.action == "back") ||
                             (menu == "equipment" && it.action == "slotItem") ||
-                            (menu == "growth" && it.action == "stat") ||
+                            (menu == "growth" && it.action in listOf("stat", "growthHeal")) ||
                             (menu in listOf("growth", "shop", "sell", "quantity") &&
                                 it.action == "back") ||
                             (menu in listOf("shop", "sell", "quantity") &&
@@ -518,7 +524,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     key = { "${it.action}:${it.argument}" },
                 ) { c ->
                     val gear =
-                        when (menu) {
+                        if (c.action !in listOf("item", "slotItem", "inherit", "buy", "sell", "buyQuantity")) null else when (menu) {
                             "shop" -> shopItems.find { it.id == c.argument }
                             "slotInventory",
                             "inventory",
@@ -554,7 +560,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        gear?.let { ItemArt(it.kind, Modifier.size(48.dp)) }
+                        gear?.let { ItemArt(it, Modifier.size(48.dp)) }
                         Column(Modifier.weight(1f)) {
                             Text(
                                 c.label,
@@ -616,7 +622,7 @@ private fun ItemComparison(e: GameEngine) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ItemArt(gear.kind, Modifier.size(60.dp))
+            ItemArt(gear, Modifier.size(60.dp))
             Text(gear.name, color = if(Equipment.isUpgrade(s,gear)) Color(0xff86df87) else amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Text(gear.summary(), color = pale, fontSize = 12.sp)

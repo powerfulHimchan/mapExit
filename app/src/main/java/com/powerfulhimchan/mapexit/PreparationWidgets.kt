@@ -99,7 +99,7 @@ internal fun MenuArt(action: String, modifier: Modifier = Modifier) {
                     ".#.#.#..",
                     "########",
                 )
-            "help" ->
+            "help", "bestiary" ->
                 listOf(
                     ".######.",
                     ".#....#.",
@@ -146,6 +146,7 @@ internal fun PreparationMenuGrid(vm: GameModel) {
             "성장" to "growth",
             "보관소" to "bank",
             "기록" to "help",
+            "도감" to "bestiary",
         )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         menus.chunked(3).forEach { row ->
@@ -165,6 +166,7 @@ internal fun PreparationMenuGrid(vm: GameModel) {
                         Text(label, color = pale, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
