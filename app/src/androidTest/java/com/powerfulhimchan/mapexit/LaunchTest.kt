@@ -101,7 +101,7 @@ class LaunchTest {
     private fun assertVictoryClearsDamage(scenario: ActivityScenario<MainActivity>) {
         var popupLabel = ""
         scenario.onActivity { popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
-        bounds("B로 결과 확인 후 계속")
+        bounds("전투 종료 · 보상을 확인하고 계속하세요")
         assertNull(
             "Finished combat must not retain the final damage popup",
             find(instrumentation.uiAutomation.rootInActiveWindow, popupLabel),
@@ -191,7 +191,6 @@ class LaunchTest {
                         .label
             }
             tap(helmetChoice, allowScroll = true)
-            tap("머리에 장착", allowScroll = true)
             bounds("장비 장착")
             scenario.onActivity {
                 assertEquals(helmetId, it.game.engine.state.equipment[Slot.HEAD])
