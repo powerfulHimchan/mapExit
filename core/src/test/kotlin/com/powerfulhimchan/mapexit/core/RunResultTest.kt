@@ -159,7 +159,7 @@ class RunResultTest {
     }
 
     @Test
-    fun emptyEquipmentSlotOpensBagAndTwoHandedOccupiesBothHands() {
+    fun emptyEquipmentSlotFiltersItemsAndTwoHandedOccupiesBothHands() {
         val e = GameEngine()
         choose(e, "equipment")
         e.choose(
@@ -167,7 +167,8 @@ class RunResultTest {
                 it.action == "slotItem" && it.argument == Slot.HEAD.ordinal.toLong()
             }
         )
-        assertEquals("inventory", e.state.menu!!.type)
+        assertEquals("slotInventory", e.state.menu!!.type)
+        assertTrue(e.choices().none { it.action=="item" })
         e.navigateBack()
         assertEquals("equipment", e.state.menu!!.type)
         val spear = ItemFactory.create(e.state, Kind.SPEAR)

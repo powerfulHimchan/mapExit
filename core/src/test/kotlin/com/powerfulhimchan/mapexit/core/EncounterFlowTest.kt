@@ -126,12 +126,12 @@ class EncounterFlowTest {
         assertEquals(Mode.ENCOUNTER, e.state.menu!!.returnMode)
         choose(e, "sellMenu")
         val row = e.choices().first { it.action == "sell" && it.argument == sword.id }
-        assertTrue(row.label.contains("장착 중: 오른손"))
+        assertTrue(row.label.contains("[착용중] · 오른손"))
         assertFalse(
             e.choices()
                 .first { it.action == "sell" && it.argument == duplicate.id }
                 .label
-                .contains("장착 중")
+                .contains("[착용중]")
         )
         val gold = e.state.gold
         e.choose(row)

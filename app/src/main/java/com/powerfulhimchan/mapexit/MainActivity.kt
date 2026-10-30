@@ -200,12 +200,12 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         )
             return
         val valid =
-            engine.choices().any { it.action == choice.action && it.argument == choice.argument }
-        if (valid && choice.action in listOf("buy", "buyQuantity")) {
+            (engine.choices()+engine.lootChoices()).any { it.action == choice.action && it.argument == choice.argument }
+        if (valid && choice.action == "purchase") {
             val item =
                 engine.state.shop.find {
                     it.id ==
-                        if (choice.action == "buy") choice.argument else engine.state.menu?.argument
+                        choice.argument
                 }
             val count = if (choice.action == "buyQuantity") choice.argument.toInt() else 1
             if (
@@ -223,6 +223,22 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         animateBattle(choice.action, before, android.os.SystemClock.uptimeMillis())
         save()
         refresh()
+    }
+
+    fun purchase(itemId: Long, count: Int) {
+        if (loadError != null || battleBusy()) return
+        val item=engine.state.shop.find { it.id==itemId } ?: return
+        if(engine.state.gold < Equipment.buyPrice(engine.state,item)*count) {
+            goldNoticeSerial++; goldNoticeVisible=true
+            return
+        }
+        engine.purchase(itemId,count)
+        save(); refresh()
+    }
+
+    fun openLevelUpGrowth() {
+        if (loadError != null || battleBusy()) return
+        if(engine.openLevelUpGrowth()) { save(); refresh() }
     }
 
     fun openDungeonPanel(type: String) {

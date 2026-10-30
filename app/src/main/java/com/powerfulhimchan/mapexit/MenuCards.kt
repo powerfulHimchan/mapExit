@@ -43,7 +43,7 @@ internal fun LazyListScope.growthCards(vm: GameModel) {
     val current = vm.engine.stats()
     item(key = "growth-points") {
         Text(
-            "남은 성장 포인트 ${points}P · 카드당 1P",
+            "남은 성장 포인트 ${points}P",
             color = mint,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
@@ -111,64 +111,11 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
     val gold = s.gold
     val items = (if (menu == "sell") s.inventory else s.shop).toList()
     val worn = s.equipment.toMap()
-    if (menu == "quantity") {
-        item(key = "quantity-wallet") {
-            Text("소지 ${gold}G", color = amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    if(menu=="shop") {
+        items(vm.engine.lootChoices(),key={ "purchase-equip:${it.argument}" }) { choice ->
+            val gear=s.inventory.find { it.id==choice.argument }
+            if(gear!=null) LootEquipButton(vm,gear)
         }
-        val potion = s.shop.find { it.id == s.menu?.argument }
-        if (potion != null) {
-            item(key = "potion-intro") {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    ItemArt(Kind.POTION, Modifier.size(56.dp))
-                    Column {
-                        Text("회복약", color = pale, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text(potion.summary(), color = muted, fontSize = 12.sp)
-                    }
-                }
-            }
-            item(key = "potion-quantities") {
-                Row(
-                    Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    choices
-                        .filter { it.action == "buyQuantity" }
-                        .forEach { choice ->
-                            val price = Equipment.buyPrice(s, potion) * choice.argument.toInt()
-                            Column(
-                                Modifier.weight(1f).fillMaxHeight().card(true, choice.label) {
-                                    vm.choose(choice)
-                                },
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                ItemArt(Kind.POTION, Modifier.size(40.dp))
-                                Text(
-                                    "${choice.argument}개",
-                                    color = if (gold < price) red else pale,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Text(
-                                    "${price}G",
-                                    color = amber,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Text(
-                                    "구매",
-                                    color = if (gold >= price) mint else red,
-                                    fontSize = 11.sp,
-                                )
-                            }
-                        }
-                }
-            }
-        }
-        return
     }
     item(key = "trade-balance") {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -180,10 +127,10 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                 modifier = Modifier.weight(1f),
             )
             if (menu == "shop")
-                OutlinedButton(
-                    onClick = { choices.firstOrNull { it.action == "sellMenu" }?.let(vm::choose) }
-                ) {
-                    Text("아이템 판매")
+                Row(Modifier.card(true,"아이템 판매") {
+                    choices.firstOrNull { it.action=="sellMenu" }?.let(vm::choose)
+                },verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    MenuArt("shop",Modifier.size(22.dp));Text("아이템 판매",color=mint,fontSize=12.sp)
                 }
         }
     }
@@ -212,29 +159,13 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                     },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    ItemArt(gear.kind, Modifier.size(60.dp))
-                    Text(
-                        gear.name,
-                        color = if (affordable) pale else red,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 18.sp,
-                    )
-                    if (menu == "sell" && gear.id in worn.values)
-                        Text("장착 중 · 판매 시 해제", color = mint, fontSize = 11.sp)
-                    Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 16.sp)
-                    if (menu == "shop" && gear.kind != Kind.POTION) ShopComparison(s, gear)
-                    Spacer(Modifier.weight(1f))
-                    Text("${price}G", color = amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        when {
-                            menu == "sell" -> "판매하기"
-                            gear.kind == Kind.POTION -> "수량 선택"
-                            else -> "구매하기"
-                        },
-                        color = if (affordable) mint else muted,
-                        fontSize = 12.sp,
-                    )
+                    ItemArt(gear.kind, Modifier.size(if(menu=="shop")36.dp else 48.dp))
+                    Text(gear.name,color=if(menu=="shop" || affordable)pale else red,fontSize=14.sp,fontWeight=FontWeight.Bold,lineHeight=18.sp)
+                    if(menu=="sell") {
+                        if(gear.id in worn.values) Text("[착용중] · 판매 시 해제",color=mint,fontSize=11.sp)
+                        Text(gear.summary(),color=muted,fontSize=11.sp,lineHeight=16.sp)
+                        Text("${price}G · 판매하기",color=amber,fontSize=14.sp)
+                    }
                 }
             }
             if (row.size == 1) Spacer(Modifier.weight(1f))
@@ -243,7 +174,7 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
 }
 
 @Composable
-private fun ShopComparison(state: State, gear: Gear) {
+internal fun ShopComparison(state: State, gear: Gear) {
     Equipment.compare(state, gear).forEach { comparison ->
         Column(
             Modifier.fillMaxWidth().background(ink, RoundedCornerShape(4.dp)).padding(7.dp),

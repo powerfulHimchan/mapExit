@@ -119,8 +119,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 )
                 val plan = motion?.scene?.enemy ?: enemy
                 Text(
-                    if (compactBattle) CombatTactics.cue(plan)
-                    else "다음 행동 · ${CombatTactics.cue(plan)}",
+                    "적이 ${CombatTactics.cue(plan)}.",
                     color = amber,
                     fontSize = if (compactBattle) 10.sp else 12.sp,
                     lineHeight = if (compactBattle) 12.sp else 16.sp,
@@ -226,12 +225,14 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                             lineHeight = 17.sp,
                         )
                         Text(
-                            "+${result.gold} G  ·  경험치 +${result.experience}",
+                            "+${result.gold} G  ·  획득 경험치 +${result.experience}",
                             color = mint,
                             fontSize = 15.sp,
                             lineHeight = 21.sp,
                             fontWeight = FontWeight.Bold,
                         )
+                        Text("경험치 ${s.experience} / ${s.experienceRequired} · 다음 레벨까지 ${s.experienceRemaining}",color=amber,fontSize=11.sp)
+                        result.rewards.filter { it.kind != Kind.POTION }.forEach { LootEquipButton(vm,it) }
                         if (result.items.isNotEmpty())
                             Text(
                                 "획득: ${result.items.joinToString(", ")}",
@@ -269,7 +270,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                 fontSize = 12.sp,
                                 lineHeight = 17.sp,
                             )
-                        Text("B로 결과 확인 후 계속", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                        Text("결과 확인 후 계속", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                 }
             }
@@ -301,7 +302,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     val popupColor =
                         if (avoided) mint
                         else if (!enemyHit) red else if (impact.critical) amber else pale
-                    if (visible)
+                    if (visible && rise.value < 1f)
                         Column(
                             modifier =
                                 Modifier.onSizeChanged {
@@ -319,6 +320,12 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                                     )
                                                 ),
                                     )
+                                    .graphicsLayer {
+                                        alpha=if(rise.value<.72f)1f else ((1-rise.value)/.28f).coerceIn(0f,1f)
+                                        val punch=kotlin.math.sin(rise.value.coerceIn(0f,1f)*kotlin.math.PI).toFloat()
+                                        scaleX=.84f+.16f*BattleAnimation.smooth(rise.value/.12f)+if(impact.critical)punch*.1f else 0f
+                                        scaleY=scaleX
+                                    }
                                     .widthIn(max = maxWidth * .50f)
                                     .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
                                     .border(
@@ -428,6 +435,7 @@ private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifi
                         fontWeight = FontWeight.Bold,
                     )
                     Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 15.sp)
+                    if(gear.kind != Kind.POTION) LootEquipButton(vm,gear)
                 }
             }
         }

@@ -99,12 +99,13 @@ private fun DungeonShortcut(
 }
 
 @Composable
-internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onDismiss: () -> Unit) {
+internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
             .padding(bottom = 6.dp)
             .background(panel, RoundedCornerShape(6.dp))
             .border(2.dp, amber, RoundedCornerShape(6.dp))
+            .clickable(role=Role.Button,onClick=onOpen)
             .padding(start = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -123,10 +124,10 @@ internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onDismiss: () -> 
             Text("성장 포인트 +${notice.gainedPoints}P · 보유 ${points}P", color = pale, fontSize = 11.sp)
         }
         TextButton(
-            onClick = onDismiss,
-            modifier = Modifier.semantics { contentDescription = "레벨업 알림 닫기" },
+            onClick = onOpen,
+            modifier = Modifier.semantics { contentDescription = "성장 배분 열기" },
         ) {
-            Text("닫기", color = muted, fontSize = 11.sp)
+            Text("능력치 배분 ›", color = mint, fontSize = 11.sp)
         }
     }
 }

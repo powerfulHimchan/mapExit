@@ -34,6 +34,10 @@ class GameEngine(
             state.menu = null
             state.menuStack.clear()
         }
+        if(state.quickEquipIds.isEmpty() && state.mode in listOf(Mode.EXPLORE,Mode.VICTORY)) {
+            state.quickEquipIds=(state.chestLoot?.items ?: state.battleResult?.rewards ?: emptyList())
+                .filter { it.kind!=Kind.POTION && itemOwned(it.id) }.map { it.id }
+        }
         if (state.mode == Mode.TRAP_GUIDE) state.mode = Mode.TRAP
         // Saves from before expedition records can still report their current depth.
         if (state.dungeon != null) state.runDeepestFloor = max(state.runDeepestFloor, state.floor)
@@ -43,6 +47,8 @@ class GameEngine(
             beginEncounter(Event.NPC)
         }
     }
+
+    private fun itemOwned(id:Long)=state.inventory.any { it.id==id }
 
     fun stats() = Equipment.stats(state)
 
@@ -157,6 +163,12 @@ class GameEngine(
         if (s.training) trainingMenu()
     }
 
+    fun lootChoices(): List<Choice> = state.quickEquipIds.mapNotNull { id ->
+        state.inventory.find { it.id == id && it.kind != Kind.POTION }?.let { item ->
+            Choice(if (id in state.equipment.values) "[착용중]" else "바로 장착 · ${item.name}", "equipLoot", id)
+        }
+    }
+
     fun choices(): List<Choice> {
         val s = state
         fun c(label: String, action: String, arg: Long = 0) = Choice(label, action, arg)
@@ -176,6 +188,7 @@ class GameEngine(
                 }
             Mode.EXPLORE ->
                 buildList {
+                    addAll(lootChoices())
                     val m = s.dungeon ?: return@buildList
                     add(c("지상으로 · 탐험 포기", "retreat"))
                     val cell = m.here()
@@ -201,7 +214,7 @@ class GameEngine(
                     add(c("미션 / 기록", "help"))
                     if (s.debug) add(c("개발용 테스트", "debug"))
                 }
-            Mode.MOVING -> listOf(c("이동 중 · B로 멈추기", "stop"), c("지상으로 · 탐험 포기", "retreat"))
+            Mode.MOVING -> listOf(c("이동 중 · 멈추기", "stop"), c("지상으로 · 탐험 포기", "retreat"))
             Mode.RUN_RESULT -> listOf(c("준비 화면으로", "runContinue"))
             Mode.COMBAT_ATTACK ->
                 listOf(
@@ -265,10 +278,14 @@ class GameEngine(
         fun c(label: String, action: String, arg: Long = 0) = Choice(label, action, arg)
         val items =
             when (menu.type) {
+                "slotInventory" ->
+                    s.inventory.filter { Slot.entries[menu.argument.toInt()] in Equipment.allowedSlots(it) }.map {
+                        c("${it.name}${if(it.id in s.equipment.values) " [착용중]" else ""}", "item", it.id)
+                    }
                 "inventory" ->
                     s.inventory.map { item ->
                         c(
-                            "${if(item.inherited)"◆ " else ""}${item.name}${if(item.id in s.equipment.values)" [착용]" else ""}",
+                            "${if(item.inherited)"◆ " else ""}${item.name}${if(item.id in s.equipment.values)" [착용중]" else ""}",
                             "item",
                             item.id,
                         )
@@ -304,7 +321,7 @@ class GameEngine(
                         c("보관 ${s.bank}G 전부 인출", "withdraw"),
                     )
                 "shop" ->
-                    s.shop.map { c("${it.name} · ${Equipment.buyPrice(s,it)}G", "buy", it.id) } +
+                    s.shop.map { c(it.name, "buy", it.id) } +
                         c("아이템 판매", "sellMenu")
                 "sell" ->
                     s.inventory.map {
@@ -314,17 +331,10 @@ class GameEngine(
                             it.id,
                         )
                     }
-                "quantity" -> {
-                    val potion = s.shop.find { it.id == menu.argument && it.kind == Kind.POTION }
-                    if (potion == null) emptyList()
-                    else
-                        listOf(1, 3, 5).map {
-                            c(
-                                "회복약 ${it}개 구매 · ${Equipment.buyPrice(s,potion)*it}G",
-                                "buyQuantity",
-                                it.toLong(),
-                            )
-                        }
+                "shopItem" -> {
+                    val item = s.shop.find { it.id == menu.argument }
+                    if (item == null) listOf(c("취소", "back"))
+                    else listOf(c("구매", "purchase", item.id), c("취소", "back"))
                 }
                 "help" -> emptyList()
                 "training" ->
@@ -354,7 +364,7 @@ class GameEngine(
                     }
                 else -> emptyList()
             }
-        return items + c("돌아가기", "back")
+        return if (menu.type == "shopItem") items else items + c("돌아가기", "back")
     }
 
     fun press(button: Int) {
@@ -368,7 +378,7 @@ class GameEngine(
 
     /** Touch menus and tests invoke current choices directly, without selection cycling. */
     fun choose(choice: Choice) {
-        choices()
+        (choices() + if (state.mode in listOf(Mode.EXPLORE, Mode.VICTORY) || state.menu?.type == "shop") lootChoices() else emptyList())
             .firstOrNull { it.action == choice.action && it.argument == choice.argument }
             ?.let(::execute)
     }
@@ -428,7 +438,7 @@ class GameEngine(
         if (
             type !in listOf("equipment", "growth", "inventory", "help") ||
                 state.dungeon == null ||
-                state.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR)
+                state.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)
         )
             return false
         if (state.mode == Mode.MOVING) {
@@ -438,6 +448,21 @@ class GameEngine(
         if (type == "growth") state.levelUpNotice = null
         open(type)
         return true
+    }
+
+    fun openLevelUpGrowth(): Boolean {
+        if (state.levelUpNotice == null || state.mode !in listOf(Mode.SURFACE, Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)) return false
+        if (state.mode == Mode.MOVING) { state.mode = Mode.EXPLORE; state.movementMs = 0 }
+        state.levelUpNotice = null
+        open("growth")
+        return true
+    }
+
+    fun turnBack() {
+        val map = state.dungeon ?: return
+        if (state.mode != Mode.EXPLORE) return
+        map.direction = (map.direction + 2) % 4
+        controls.skipCurrentEvent()
     }
 
     private fun open(type: String, arg: Long = 0L) {
@@ -499,6 +524,7 @@ class GameEngine(
             "battleContinue" -> {
                 val result = s.battleResult ?: return
                 s.battleResult = null
+                s.quickEquipIds = emptyList()
                 s.lastImpact = null
                 s.mode = result.returnMode
                 s.selection = 0
@@ -517,7 +543,7 @@ class GameEngine(
             "return" -> surface(false)
             "move" -> {
                 s.chestLoot = null
-                if (s.message == "갈림길: 방향을 선택하세요") s.message = "통로를 탐험하고 있습니다"
+                s.quickEquipIds = emptyList()
                 val dungeon = s.dungeon ?: return
                 val facing = dungeon.direction
                 val backward = c.argument.toInt() == (facing + 2) % 4
@@ -542,10 +568,21 @@ class GameEngine(
                 if (c.action == "growth") s.levelUpNotice = null
                 open(c.action)
             }
-            "item" -> open("item", c.argument)
+            "equipLoot" -> {
+                val item = s.inventory.find { it.id == c.argument && it.id in s.quickEquipIds && it.kind != Kind.POTION && it.id !in s.equipment.values } ?: return
+                val slot = Equipment.quickSlot(s, item) ?: return
+                if (Equipment.equip(s, item.id, slot)) s.note("${item.name} 장착")
+            }
+            "item" -> {
+                val slot = s.menu?.takeIf { it.type == "slotInventory" }?.argument?.toInt()?.let { Slot.entries[it] }
+                if (slot != null && s.equipment[slot] == null) {
+                    if (Equipment.equip(s, c.argument, slot)) s.note("장비를 변경했습니다")
+                    returnToGearSelection()
+                } else open("item", c.argument)
+            }
             "slotItem" -> {
                 val id = s.equipment[Slot.entries[c.argument.toInt()]]
-                if (id != null) open("item", id) else open("inventory")
+                if (id != null) open("item", id) else open("slotInventory", c.argument)
             }
             "equip" -> {
                 val id = s.menu?.argument ?: return
@@ -572,36 +609,9 @@ class GameEngine(
                 s.bank = 0
                 s.note("보관 골드를 인출했습니다")
             }
-            "shop" -> open("shop")
-            "buy" -> {
-                val item = s.shop.find { it.id == c.argument } ?: return
-                if (item.kind == Kind.POTION) {
-                    open("quantity", item.id)
-                    return
-                }
-                val price = Equipment.buyPrice(s, item)
-                if (s.gold >= price) {
-                    s.gold -= price
-                    s.shop.remove(item)
-                    s.inventory.add(item)
-                    s.note("${item.name} 구매")
-                    s.selection = s.selection.coerceAtMost(choices().lastIndex)
-                } else s.note("골드가 부족합니다")
-            }
-            "buyQuantity" -> {
-                val potion =
-                    s.shop.find { it.id == s.menu?.argument && it.kind == Kind.POTION } ?: return
-                val count = c.argument.toInt()
-                if (count !in listOf(1, 3, 5)) return
-                val price = Equipment.buyPrice(s, potion) * count
-                if (s.gold < price) {
-                    s.note("골드가 부족합니다")
-                    return
-                }
-                s.gold -= price
-                repeat(count) { s.inventory.add(potion.copy(id = s.nextId++)) }
-                s.note("회복약 ${count}개 구매 · ${price}G")
-            }
+            "shop" -> { s.quickEquipIds = emptyList(); open("shop") }
+            "buy" -> open("shopItem", c.argument)
+            "purchase" -> purchase(c.argument, 1)
             "sellMenu" -> open("sell")
             "sell" -> {
                 val item = s.inventory.find { it.id == c.argument } ?: return
@@ -705,6 +715,23 @@ class GameEngine(
         }
     }
 
+    fun purchase(itemId: Long, count: Int): Boolean {
+        val s = state
+        if (s.mode != Mode.MENU || s.menu?.type != "shopItem" || s.menu?.argument != itemId) return false
+        val item = s.shop.find { it.id == itemId } ?: return false
+        if (count !in listOf(1, 3, 5) || item.kind != Kind.POTION && count != 1) return false
+        val price = Equipment.buyPrice(s, item) * count
+        if (s.gold < price) { s.note("골드가 부족합니다"); return false }
+        s.gold -= price
+        if (item.kind == Kind.POTION) {
+            repeat(count) { s.inventory.add(item.copy(id = s.nextId++)) }
+            s.quickEquipIds = emptyList()
+        } else { s.shop.remove(item); s.inventory.add(item); s.quickEquipIds = listOf(item.id) }
+        s.note("${item.name}${if(count > 1) " ${count}개" else ""} 구매 · ${price}G")
+        back()
+        return true
+    }
+
     fun enterFloor(floor: Int) {
         require(floor in 1..50)
         val s = state
@@ -716,6 +743,7 @@ class GameEngine(
             s.runDeepestFloor = 0
         }
         s.runResult = null
+        s.quickEquipIds = emptyList()
         s.chestLoot = null
         s.runDeepestFloor = max(s.runDeepestFloor, floor)
         s.floor = floor
@@ -751,14 +779,16 @@ class GameEngine(
         m.x = xx
         m.y = yy
         m.reveal()
-        // This positional hint must never survive arrival at a different tile.
-        if (s.message == "막다른 길입니다" || s.message == "갈림길: 방향을 선택하세요") s.message = "통로를 탐험하고 있습니다"
+        s.chestLoot = null
+        s.quickEquipIds = emptyList()
+        s.message = "통로를 탐험하고 있습니다"
         val cell = m.here()
         if (!cell.resolved && cell.event != Event.NONE) {
             s.mode = Mode.EXPLORE
             s.selection = 0
             when (cell.event) {
                 Event.MONSTER -> startBattle(false)
+                Event.ELITE -> startBattle(false, elite = true)
                 Event.TRAP -> {
                     s.trap = Traps.create(s, cell.trapType)
                     s.mode = Mode.TRAP
@@ -792,6 +822,10 @@ class GameEngine(
     private fun exitFloor() {
         val s = state
         val m = s.dungeon ?: return
+        if (s.floor % 5 == 0 && !m.eliteCleared && m.cells.none { it.event == Event.ELITE }) {
+            startBattle(false, elite = true)
+            return
+        }
         if (s.floor % 10 == 0 && !m.bossCleared) {
             startBattle(true)
             return
@@ -828,26 +862,29 @@ class GameEngine(
         }
         val gold = 15 + s.floor * 3 + s.nextInt(15)
         s.gold += gold
+        s.quickEquipIds = rewards.filter { it.kind != Kind.POTION }.map { it.id }
         s.chestLoot = ChestLootNotice(rewards, gold)
         s.note("${gear.name} · ${gold}G${if(extra)" · 추가 아이템!" else ""}")
     }
 
-    fun startBattle(boss: Boolean) {
+    fun startBattle(boss: Boolean, elite: Boolean = false) {
         val s = state
         val floor = max(1, s.floor)
-        val hp = (300 + floor * 26.0) * (if (boss) 1.7 else 1.0)
+        val hp = (300 + floor * 26.0) * (if (boss) 1.7 else if (elite) 1.4 else 1.0)
         s.enemy =
             Enemy(
-                if (boss) "${floor}층의 수문장" else listOf("동굴 슬라임", "녹슨 기사", "심연 박쥐")[s.nextInt(3)],
+                if (boss) "${floor}층의 수문장" else if (elite) "${floor}층의 정예 기사" else listOf("동굴 슬라임", "녹슨 기사", "심연 박쥐")[s.nextInt(3)],
                 hp,
                 hp,
-                (65 + floor * 4.0) * (if (boss) 1.2 else 1.0),
-                20 + floor * 1.8,
+                (65 + floor * 4.0) * (if (boss) 1.2 else if (elite) 1.1 else 1.0),
+                (20 + floor * 1.8) * (if (elite) 1.1 else 1.0),
                 10.0 + floor * .3,
                 boss,
+                elite = elite,
             )
         s.enemy!!.let { it.intent = CombatTactics.pattern(it).first() }
         s.encounter = null
+        s.quickEquipIds = emptyList()
         s.battleId++
         s.battleResult = null
         s.lastImpact = null
@@ -1015,8 +1052,8 @@ class GameEngine(
     private fun victory() {
         val s = state
         val enemy = s.enemy ?: return
-        val gold = 20 + s.floor * 4
-        val experience = 25 + s.floor * 5
+        val gold = ((20 + s.floor * 4) * (if (enemy.elite) 1.5 else 1.0)).toInt()
+        val experience = ((25 + s.floor * 5) * (if (enemy.elite) 1.5 else 1.0)).toInt()
         val items = mutableListOf<String>()
         val rewards = mutableListOf<Gear>()
         s.runKills++
@@ -1031,17 +1068,19 @@ class GameEngine(
             items.add(reward.name)
             rewards.add(reward)
         } else {
-            s.dungeon?.here()?.resolved = true
-            if (s.random() < (.25 + stats().luck * .003).coerceAtMost(.65)) {
-                val reward = ItemFactory.create(s)
+            if (enemy.elite) s.dungeon?.eliteCleared = true
+            s.dungeon?.here()?.let { if (it.event != Event.EXIT) it.resolved = true }
+            if (enemy.elite || s.random() < (.25 + stats().luck * .003).coerceAtMost(.65)) {
+                val reward = if (enemy.elite) ItemFactory.create(s, Kind.entries.filter { it != Kind.POTION }[s.nextInt(Kind.entries.size - 1)]) else ItemFactory.create(s)
                 s.inventory.add(reward)
                 items.add(reward.name)
                 rewards.add(reward)
             }
         }
         val returnMode =
-            if (enemy.boss) Mode.FLOOR_CLEAR
+            if (enemy.boss || enemy.elite && s.dungeon?.here()?.event == Event.EXIT && s.floor % 10 != 0) Mode.FLOOR_CLEAR
             else if (s.dungeon == null) Mode.SURFACE else Mode.EXPLORE
+        s.quickEquipIds = rewards.filter { it.kind != Kind.POTION }.map { it.id }
         s.battleResult =
             BattleResult(enemy.copy(hp = 0.0), gold, experience, items, returnMode, rewards)
         s.enemy = null
@@ -1078,8 +1117,8 @@ class GameEngine(
         val s = state
         val before = s.level
         s.experience += amount
-        while (s.experience >= s.level * 80) {
-            s.experience -= s.level * 80
+        while (s.experience >= s.experienceRequired) {
+            s.experience -= s.experienceRequired
             s.level++
             s.points += 3
         }

@@ -20,7 +20,6 @@ class MenuMotionTest {
         assertTrue(e.state.menuStack.isEmpty())
         choose(e, "slotItem", Slot.HEAD.ordinal.toLong())
         choose(e, "item", helmet.id)
-        choose(e, "equip", Slot.HEAD.ordinal.toLong())
         assertEquals("equipment", e.state.menu!!.type)
         assertEquals(helmet.id, e.state.equipment[Slot.HEAD])
         choose(e, "slotItem", Slot.HEAD.ordinal.toLong())

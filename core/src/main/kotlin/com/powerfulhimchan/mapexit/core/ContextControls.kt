@@ -88,12 +88,15 @@ class ContextControls(private val engine: GameEngine) {
                                     ContextButton("막힌 길", enabled = false),
                                     ContextButton("막힌 길", enabled = false),
                                 )
-                            moves.size == 1 ->
-                                listOf(
-                                    moveButton(moves[0]),
-                                    ContextButton("다른 길 없음", enabled = false),
-                                )
-                            moves.size == 2 -> moves.map(::moveButton)
+                            moves.size == 1 -> {
+                                val relative=(moves[0].argument.toInt()-(m?.direction ?: 0)+4)%4
+                                val turn=b("뒤로 돌기", "_turnBack")
+                                if(relative in listOf(1,2)) listOf(turn,moveButton(moves[0]))
+                                else listOf(moveButton(moves[0]),turn)
+                            }
+                            moves.size == 2 -> moves.sortedBy {
+                                listOf(3,0,2,1).indexOf((it.argument.toInt()-(m?.direction ?: 0)+4)%4)
+                            }.map(::moveButton)
                             moves.size == 4 ->
                                 listOf(b("앞 / 뒤 방향", "_pair", 0), b("좌 / 우 방향", "_pair", 1))
                             else -> listOf(moveButton(moves.first()), b("다른 방향 ›", "_routes"))
@@ -149,6 +152,7 @@ class ContextControls(private val engine: GameEngine) {
         if (!b.enabled) return
         val c = b.choice ?: return
         when (c.action) {
+            "_turnBack" -> { engine.turnBack(); routes=null }
             "_skip" -> eventSkipped = true
             "_pair" -> {
                 val all =

@@ -88,7 +88,9 @@ class ContextControlsTest {
         assertFalse(d.here().resolved)
         assertTrue(e.controls.buttons()[0].label.contains("앞으로"))
         e.press(0)
-        e.press(0) // at the dead end, the sole legal direction is backward
+        e.press(0) // turn around in place
+        assertEquals(3,d.y)
+        e.press(0) // then walk forward toward the chest
         assertEquals(4, d.y)
         assertEquals(Mode.ENCOUNTER, e.state.mode)
         assertEquals("열기", e.controls.buttons()[0].label)
@@ -141,17 +143,18 @@ class ContextControlsTest {
         choose(e, "shop")
         val potion = e.state.shop.first { it.kind == Kind.POTION }
         choose(e, "buy", potion.id)
-        assertEquals("quantity", e.state.menu!!.type)
+        assertEquals("shopItem", e.state.menu!!.type)
         val count = e.state.inventory.size
         val price = Equipment.buyPrice(e.state, potion)
-        choose(e, "buyQuantity", 3)
+        assertTrue(e.purchase(potion.id, 3))
         assertEquals(count + 3, e.state.inventory.size)
         assertEquals(300 - price * 3, e.state.gold)
         val restored = SaveCodec.decode(SaveCodec.encode(e.state))
         assertEquals(restored.inventory.size, restored.inventory.map { it.id }.distinct().size)
         val gold = e.state.gold
         e.state.gold = 0
-        choose(e, "buyQuantity", 5)
+        choose(e, "buy", potion.id)
+        assertFalse(e.purchase(potion.id, 5))
         assertEquals(count + 3, e.state.inventory.size)
         assertEquals(0, e.state.gold)
         e.state.gold = gold

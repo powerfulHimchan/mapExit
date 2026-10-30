@@ -33,6 +33,7 @@ enum class Event {
   NPC,
   EXIT,
   TRAP,
+  ELITE,
 }
 
 @Serializable
@@ -217,6 +218,7 @@ data class Dungeon(
     var direction: Int = 1,
     var bossCleared: Boolean = false,
     var arrivalDirection: Int = -1,
+    var eliteCleared: Boolean = false,
 ) {
   fun cell(x: Int, y: Int): Cell =
       if (x in 0 until width && y in 0 until height) cells[y * width + x] else Cell()
@@ -252,6 +254,7 @@ data class Enemy(
     var intent: EnemyIntent = EnemyIntent.STRIKE,
     var round: Int = 0,
     var opening: Boolean = false,
+    val elite: Boolean = false,
 )
 
 @Serializable
@@ -355,6 +358,7 @@ data class State(
     var experience: Int = 0,
     var levelUpNotice: LevelUpNotice? = null,
     var chestLoot: ChestLootNotice? = null,
+    var quickEquipIds: List<Long> = emptyList(),
     var points: Int = 0,
     var base: Stats = Stats(),
     var hp: Double = 360.0,
@@ -393,6 +397,9 @@ data class State(
     var training: Boolean = false,
     var bootstrapped: Boolean = false,
 ) {
+  val experienceRequired: Int get() = level * 80
+  val experienceRemaining: Int get() = (experienceRequired - experience).coerceAtLeast(0)
+
   fun random(): Double {
     rng = rng * 6364136223846793005L + 1442695040888963407L
     return (rng ushr 11).toDouble() / 9007199254740992.0

@@ -66,7 +66,7 @@ class LaunchTest {
         SystemClock.sleep(if (held) 700 else 60)
         event(MotionEvent.ACTION_UP, SystemClock.uptimeMillis())
         instrumentation.waitForIdleSync()
-        if (label in listOf("A 일반 공격", "B 강공격", "A 방어", "B 회피")) SystemClock.sleep(800)
+        if (label in listOf("일반 공격", "강공격", "방어", "회피")) SystemClock.sleep(800)
     }
 
     private fun capture(name: String) {
@@ -137,15 +137,9 @@ class LaunchTest {
                         .label
             }
             tap(potionLabel, allowScroll = true)
-            var buyLabel = ""
-            scenario.onActivity { activity ->
-                buyLabel =
-                    activity.game.engine
-                        .choices()
-                        .first { it.action == "buyQuantity" && it.argument == 3L }
-                        .label
-            }
-            tap(buyLabel)
+            bounds("아이템 상세")
+            tap("구매 수량 3개")
+            tap("구매")
             capture("shop")
             scenario.onActivity {
                 assertEquals(
@@ -260,9 +254,9 @@ class LaunchTest {
                 it.game.active = false
                 it.game.refresh()
             }
-            tap("A 일반 공격")
+            tap("일반 공격")
             scenario.onActivity { assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode) }
-            tap("B 회피")
+            tap("회피")
             scenario.onActivity { assertEquals(Mode.COMBAT_ATTACK, it.game.engine.state.mode) }
             tap("회복약 사용")
             scenario.onActivity {
@@ -309,12 +303,12 @@ class LaunchTest {
             bounds("적 HP 2000 / 2000")
             SystemClock.sleep(500)
             capture("third-person")
-            tap("A 일반 공격")
+            tap("일반 공격")
             var popup = ""
             scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
             bounds(popup)
             capture("enemy-damage")
-            tap("A 방어")
+            tap("방어")
             scenario.onActivity {
                 assertEquals(ImpactTarget.PLAYER, it.game.engine.state.lastImpact!!.target)
                 popup = "플레이어 피해 ${it.game.engine.state.lastImpact!!.label()}"
@@ -326,7 +320,7 @@ class LaunchTest {
                 it.game.engine.state.rng = 0L
                 it.game.refresh()
             }
-            tap("B 강공격")
+            tap("강공격")
             bounds("전투 승리")
             assertVictoryClearsDamage(scenario)
             capture("victory")
@@ -342,7 +336,7 @@ class LaunchTest {
                 assertNotNull(cold.engine.state.battleResult)
                 assertNull(cold.currentImpact)
             }
-            tap("B 결과 확인 · 계속")
+            tap("결과 확인 · 계속")
             scenario.onActivity {
                 assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
                 assertEquals(gold, it.game.engine.state.gold)
@@ -396,8 +390,8 @@ class LaunchTest {
                     it.game.engine.state.enemy!!.intent = EnemyIntent.STRIKE
                     it.game.refresh()
                 }
-                val a = bounds("A 일반 공격")
-                val b = bounds("B 강공격")
+                val a = bounds("일반 공격")
+                val b = bounds("강공격")
                 val main = bounds("메인 장면")
                 val screenshot = instrumentation.uiAutomation.takeScreenshot()!!
                 assertTrue(a.bottom <= screenshot.height && b.bottom <= screenshot.height)
@@ -407,9 +401,9 @@ class LaunchTest {
                     main.height() > (a.bottom - main.top) / 2,
                 )
                 screenshot.recycle()
-                tap("B 강공격")
+                tap("강공격")
                 scenario.onActivity { assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode) }
-                tap("A 방어")
+                tap("방어")
                 scenario.onActivity { assertEquals(Mode.COMBAT_ATTACK, it.game.engine.state.mode) }
                 capture("compact")
                 scenario.onActivity {
@@ -417,11 +411,11 @@ class LaunchTest {
                     it.game.engine.state.rng = 0L
                     it.game.refresh()
                 }
-                tap("A 일반 공격")
+                tap("일반 공격")
                 bounds("전투 승리")
                 assertVictoryClearsDamage(scenario)
                 capture("compact-victory")
-                tap("B 결과 확인 · 계속")
+                tap("결과 확인 · 계속")
                 scenario.onActivity {
                     val s = it.game.engine.state
                     s.trap = Traps.create(s, 4)
@@ -452,7 +446,7 @@ class LaunchTest {
                     e.choose(e.choices().first { c -> c.action == "growth" })
                     it.game.refresh()
                 }
-                bounds("남은 성장 포인트 1P · 카드당 1P")
+                bounds("남은 성장 포인트 1P")
                 capture("compact-growth")
                 scenario.onActivity {
                     val e = it.game.engine
@@ -501,33 +495,33 @@ class LaunchTest {
                 it.game.engine = encounterEngine(Event.NPC)
                 it.game.refresh()
             }
-            tap("A ↑ 앞으로 이동")
+            tap("↑ 앞으로 이동")
             bounds("여행자의 의뢰")
-            bounds("A 수락")
-            bounds("B 거절")
+            bounds("수락")
+            bounds("거절")
             capture("npc-encounter")
-            tap("B 거절")
+            tap("거절")
             scenario.onActivity { assertNull(it.game.engine.state.quest) }
             // Reset only transient controls; the persisted NPC offer remains the same.
             scenario.onActivity {
                 it.game.engine.controls.reset()
                 it.game.refresh()
             }
-            tap("A NPC 만나기")
-            tap("A 수락")
+            tap("NPC 만나기")
+            tap("수락")
             scenario.onActivity {
                 assertNotNull(it.game.engine.state.quest)
                 assertEquals(Mode.EXPLORE, it.game.engine.state.mode)
                 it.game.engine = encounterEngine(Event.CHEST)
                 it.game.refresh()
             }
-            tap("A ↑ 앞으로 이동")
+            tap("↑ 앞으로 이동")
             bounds("상자 발견")
-            bounds("A 열기")
-            bounds("B 지나가기")
+            bounds("열기")
+            bounds("지나가기")
             capture("chest-encounter")
             scenario.onActivity { it.game.engine.state.rng = 0L }
-            tap("A 열기")
+            tap("열기")
             bounds("3인칭 전투")
             scenario.onActivity { assertTrue(it.game.engine.state.enemy!!.name.startsWith("상자 속")) }
             capture("chest-ambush")
@@ -538,10 +532,10 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
-            tap("A ↑ 앞으로 이동")
+            tap("↑ 앞으로 이동")
             bounds("떠돌이 상인")
             capture("merchant-encounter")
-            tap("A 거래하기")
+            tap("거래하기")
             tap("아이템 판매", allowScroll = true)
             var wornLabel = ""
             var duplicateLabel = ""
@@ -558,8 +552,8 @@ class LaunchTest {
                     e.choices().first { c -> c.action == "sell" && c.argument == twin.id }.label
                 gold = e.state.gold
                 price = Equipment.sellPrice(e.state.inventory.first { gear -> gear.id == wornId })
-                assertTrue(wornLabel.contains("장착 중"))
-                assertFalse(duplicateLabel.contains("장착 중"))
+                assertTrue(wornLabel.contains("[착용중]"))
+                assertFalse(duplicateLabel.contains("[착용중]"))
             }
             bounds(wornLabel, allowScroll = true)
             capture("sell-equipped")
@@ -582,7 +576,7 @@ class LaunchTest {
                 it.game.back()
             }
             bounds("떠돌이 상인")
-            tap("B 지나가기")
+            tap("지나가기")
             scenario.onActivity { assertEquals(Mode.EXPLORE, it.game.engine.state.mode) }
         }
     }
@@ -664,7 +658,7 @@ class LaunchTest {
                 val s = it.game.engine.state
                 s.rng = (0L..1000L).first { seed -> s.copy(rng = seed).random() < .1 }
             }
-            tap("A 방어")
+            tap("방어")
             scenario.onActivity {
                 val hit = it.game.engine.state.lastImpact!!
                 assertTrue(hit.critical)
@@ -803,7 +797,7 @@ class LaunchTest {
             bounds("최대 체력 성장 후 385")
             capture("growth-grid")
             tap(hpChoice)
-            bounds("남은 성장 포인트 0P · 카드당 1P")
+            bounds("남은 성장 포인트 0P")
             var noPoints = ""
             scenario.onActivity {
                 assertEquals(385.0, it.game.engine.stats().hp, .001)
@@ -836,6 +830,17 @@ class LaunchTest {
             assertTrue(sword.centerX() < shield.centerX())
             capture("shop-grid")
             tap(swordLabel)
+            bounds("아이템 상세")
+            bounds("취소")
+            scenario.onActivity {
+                assertTrue(it.game.engine.state.shop.any { gear -> gear.id == swordId })
+                assertFalse(it.game.engine.state.inventory.any { gear -> gear.id == swordId })
+            }
+            capture("shop-detail")
+            tap("취소")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "아이템 상세"))
+            tap(swordLabel)
+            tap("구매")
             scenario.onActivity {
                 assertFalse(it.game.engine.state.shop.any { gear -> gear.id == swordId })
                 assertTrue(it.game.engine.state.inventory.any { gear -> gear.id == swordId })
@@ -850,14 +855,7 @@ class LaunchTest {
                     e.choices().first { c -> c.action == "buy" && c.argument == potion.id }.label
             }
             tap(potionLabel, allowScroll = true)
-            var quantities = listOf<String>()
-            scenario.onActivity {
-                quantities =
-                    it.game.engine
-                        .choices()
-                        .filter { c -> c.action == "buyQuantity" }
-                        .map { c -> c.label }
-            }
+            val quantities = listOf("구매 수량 1개", "구매 수량 3개", "구매 수량 5개")
             val one = bounds(quantities[0])
             val three = bounds(quantities[1])
             val five = bounds(quantities[2])
@@ -865,13 +863,13 @@ class LaunchTest {
             assertEquals(one.top, five.top)
             capture("quantity-grid")
             tap(quantities[1])
+            tap("구매")
             scenario.onActivity {
                 assertEquals(
                     5,
                     it.game.engine.state.inventory.count { gear -> gear.kind == Kind.POTION },
                 )
             }
-            scenario.onActivity { it.game.back() }
             tap("아이템 판매")
             capture("sell-grid")
         }
@@ -937,8 +935,13 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
+            var candidate = ""
+            scenario.onActivity { candidate = it.game.engine.state.shop.single().name }
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "현재: $oldName"))
+            tap(candidate)
             bounds("현재: $oldName")
             capture("shop-comparison")
+            tap("취소")
             scenario.onActivity {
                 val e = it.game.engine
                 e.navigateBack()
@@ -962,9 +965,9 @@ class LaunchTest {
                 e.state.mode = Mode.COMBAT_DEFEND
                 it.game.refresh()
             }
-            bounds("A 방어")
-            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "A  ·  바로 실행"))
-            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "B  ·  바로 실행"))
+            bounds("방어")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, " ·  바로 실행"))
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, " ·  바로 실행"))
             capture("defense-controls")
         }
     }
@@ -1046,14 +1049,14 @@ class LaunchTest {
             }
             var turn = bounds("전투 차례")
             var caption = bounds("현재 상황")
-            var action = bounds("A 일반 공격")
+            var action = bounds("일반 공격")
             assertTrue(turn.top > caption.bottom && turn.bottom <= action.top)
             bounds("공격 차례")
             capture("turn-attack")
-            tap("A 일반 공격")
+            tap("일반 공격")
             turn = bounds("전투 차례")
             caption = bounds("현재 상황")
-            action = bounds("A 방어")
+            action = bounds("방어")
             assertTrue(turn.top > caption.bottom && turn.bottom <= action.top)
             bounds("방어 차례")
             capture("turn-defense")
@@ -1104,7 +1107,7 @@ class LaunchTest {
             }
             bounds("막다른 길입니다")
             capture("dead-end")
-            tap("A ↓ 뒤로 이동")
+            tap("↓ 뒤로 이동")
             bounds("통로를 탐험하고 있습니다")
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "막다른 길입니다"))
             capture("dead-end-cleared")
@@ -1131,6 +1134,9 @@ class LaunchTest {
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "골드 부족"))
             capture("shop-red-name")
             tap(buy)
+            bounds("아이템 상세")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "골드부족"))
+            tap("구매")
             bounds("골드부족")
             scenario.onActivity {
                 assertEquals(0, it.game.engine.state.gold)
@@ -1236,7 +1242,7 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
-            tap("A 일반 공격", held = true)
+            tap("일반 공격", held = true)
             scenario.onActivity {
                 assertEquals(
                     2,
@@ -1254,6 +1260,7 @@ class LaunchTest {
                 it.game.refresh()
             }
             tap(label)
+            tap("구매")
             val message = bounds("골드부족")
             val image = instrumentation.uiAutomation.takeScreenshot()!!
             assertTrue(kotlin.math.abs(message.centerY() - image.height / 2) < image.height * .12)
@@ -1291,7 +1298,7 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
-            tap("A 방어")
+            tap("방어")
             bounds("플레이어 피해 완전 방어 · 0 피해")
             scenario.onActivity {
                 assertEquals(ImpactOutcome.BLOCK, it.game.engine.state.lastImpact!!.outcome)
@@ -1312,11 +1319,11 @@ class LaunchTest {
             for (label in listOf("장애물 피하기", "전투", "상인", "미션 NPC 대화")) bounds(label)
             capture("training-menu")
             tap("전투")
-            bounds("A 일반 공격")
+            bounds("일반 공격")
             capture("training-battle")
             tap("테스트 목록")
             tap("상인")
-            bounds("A 거래하기")
+            bounds("거래하기")
             capture("training-merchant")
             tap("테스트 목록")
             tap("미션 NPC 대화")
@@ -1355,8 +1362,8 @@ class LaunchTest {
                     it.game.engine = e
                     it.game.refresh()
                 }
-                bounds("A 점프")
-                bounds("B 몸 숙이기")
+                bounds("점프")
+                bounds("몸 숙이기")
             }
             show(1, 100)
             capture("blades-raised")
@@ -1366,7 +1373,7 @@ class LaunchTest {
                 it.game.refresh()
             }
             capture("blades-retracted")
-            tap("A 점프")
+            tap("점프")
             scenario.onActivity {
                 assertTrue(it.game.engine.state.trap!!.success)
                 assertEquals(360.0, it.game.engine.state.hp, .001)
@@ -1389,7 +1396,7 @@ class LaunchTest {
                 it.game.refresh()
             }
             capture("beam-descending")
-            tap("B 몸 숙이기")
+            tap("몸 숙이기")
             scenario.onActivity {
                 assertTrue(it.game.engine.state.trap!!.success)
                 assertEquals(1, it.game.engine.state.trap!!.action)
@@ -1496,8 +1503,8 @@ class LaunchTest {
                 it.game.active = false
                 it.game.refresh()
             }
-            bounds("A 왼쪽 동작")
-            bounds("B 오른쪽 동작")
+            bounds("왼쪽 동작")
+            bounds("오른쪽 동작")
             capture("deep-wall")
             scenario.onActivity {
                 val e = it.game.engine
@@ -1543,8 +1550,9 @@ class LaunchTest {
                 it.game.refresh()
             }
             bounds("적 행동 예고 방패를 세웁니다")
+            bounds("적이 방패를 세웁니다.")
             capture("tactic-guard")
-            tap("B 강공격")
+            tap("강공격")
             scenario.onActivity {
                 assertEquals(Mode.COMBAT_ATTACK, it.game.engine.state.mode)
                 assertEquals(EnemyIntent.HEAVY, it.game.engine.state.enemy!!.intent)
@@ -1557,14 +1565,14 @@ class LaunchTest {
             bounds("적 행동 예고 검을 높이 들어 올립니다")
             bounds("빈틈 공격 기회")
             capture("tactic-break")
-            tap("A 일반 공격")
+            tap("일반 공격")
             scenario.onActivity {
                 assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode)
                 assertFalse(it.game.engine.state.enemy!!.opening)
                 assertEquals("빈틈 공격", it.game.engine.state.lastImpact!!.tactic)
                 it.game.engine.state.rng = 0
             }
-            tap("B 회피")
+            tap("회피")
             bounds("빈틈 공격 기회")
             bounds("적 행동 예고 짧은 연속 공격을 준비합니다")
             capture("tactic-opening")
@@ -1596,7 +1604,7 @@ class LaunchTest {
                     }
                     val tell = bounds(cue)
                     val scene = bounds("메인 장면")
-                    val actions = bounds("A 일반 공격")
+                    val actions = bounds("일반 공격")
                     assertTrue(scene.contains(tell))
                     assertTrue(tell.bottom < actions.top)
                     capture("tactic-$id-compact")
@@ -1619,7 +1627,7 @@ class LaunchTest {
                     it.game.refresh()
                 }
                 bounds("적 행동 예고 방패를 세웁니다")
-                tap("B 강공격")
+                tap("강공격")
                 var popup = ""
                 scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
                 val damage = bounds(popup)
@@ -1686,7 +1694,7 @@ class LaunchTest {
                     it.game.active = false
                     it.game.refresh()
                 }
-                tap("A 일반 공격")
+                tap("일반 공격")
                 scenario.onActivity {
                     val e = it.game.engine
                     assertEquals(attack, e.stats().attack, .0001)
@@ -1743,7 +1751,7 @@ class LaunchTest {
                 e.choose(Choice("상인", "encounter", Event.MERCHANT.ordinal.toLong()))
                 it.game.refresh()
             }
-            bounds("A 거래하기")
+            bounds("거래하기")
             capture("scheduled-merchant")
         }
     }
@@ -1896,7 +1904,7 @@ class LaunchTest {
                 }
                 awaitGame(scenario) { it.trap?.phase == TrapPhase.ACTIVE }
                 if (type == 0) {
-                    for (b in pattern) tap(if (b == 0) "A 왼쪽 동작" else "B 오른쪽 동작")
+                    for (b in pattern) tap(if (b == 0) "왼쪽 동작" else "오른쪽 동작")
                 }
                 awaitGame(scenario) { it.trap?.phase == TrapPhase.RESULT }
                 scenario.onActivity { assertEquals(type == 0, it.game.engine.state.trap!!.success) }
@@ -2049,4 +2057,48 @@ class LaunchTest {
         assertArrayEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10), png.copyOfRange(0, 8))
         atlas.recycle()
     }
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun tenFloorRegionsChangeCachedCorridorAndAllDungeonSceneMaterials() {
+        val e = GameEngine()
+        e.enterFloor(1)
+        val map = e.state.dungeon!!
+        val pose = DungeonViewPose(map.x + .5f, map.y + .5f, (-Math.PI / 2).toFloat())
+        val raster = DungeonRaster(480, 640)
+        val frames = mutableListOf<IntArray>()
+        val scope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+        val image = androidx.compose.ui.graphics.ImageBitmap(480, 640)
+        for (floor in listOf(1, 11, 21, 31, 41)) {
+            val theme = DungeonTheme.forFloor(floor)
+            val bitmap = raster.render(map, pose, theme).asAndroidBitmap()
+            val pixels = IntArray(480 * 640)
+            bitmap.getPixels(pixels, 0, 480, 0, 0, 480, 640)
+            assertTrue(frames.none { it.contentEquals(pixels) })
+            assertTrue(pixels.all { android.graphics.Color.alpha(it) == 255 })
+            frames.add(pixels)
+            exportBitmap("theme-$floor-explore", bitmap)
+            assertTrue(raster.render(map, pose, theme).asAndroidBitmap().sameAs(bitmap))
+            for (scene in listOf("battle", "trap", "encounter")) {
+                e.state.floor = floor
+                e.state.enemy = null
+                when (scene) {
+                    "battle" -> { e.startBattle(false); e.state.mode = Mode.COMBAT_ATTACK }
+                    "trap" -> { e.state.mode = Mode.TRAP; e.state.trap = Traps.create(e.state, 1) }
+                    else -> { e.state.mode = Mode.ENCOUNTER; e.state.encounter = Event.MERCHANT }
+                }
+                val saved = SaveCodec.encode(e.state)
+                scope.draw(androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr,
+                    androidx.compose.ui.graphics.Canvas(image), androidx.compose.ui.geometry.Size(480f, 640f)) {
+                    drawScene(e.state, 1000)
+                }
+                assertEquals(saved, SaveCodec.encode(e.state))
+                exportBitmap("theme-$floor-$scene", image.asAndroidBitmap())
+            }
+        }
+        val original = raster.render(map, pose, DungeonTheme.MOSS).asAndroidBitmap()
+        val pixels = IntArray(480 * 640)
+        original.getPixels(pixels, 0, 480, 0, 0, 480, 640)
+        assertArrayEquals(frames.first(), pixels)
+    }
+
 }

@@ -35,9 +35,15 @@ object MapGenerator {
         val distance = distances(map, 1, 1)
         val exit = distance.indices.maxBy { distance[it] }
         map.cells[exit].event = Event.EXIT
+        val elite = if (floor % 5 == 0) {
+            val x = exit % n; val y = exit / n
+            (0..3).map { d -> (y + dy[d]) * n + x + dx[d] }
+                .first { it in map.cells.indices && !map.cells[it].wall && distance[it] == distance[exit] - 1 }
+                .also { map.cells[it].event = Event.ELITE }
+        } else -1
         val spaces =
             map.cells.indices
-                .filter { !map.cells[it].wall && it != n + 1 && it != exit }
+                .filter { !map.cells[it].wall && it != n + 1 && it != exit && it != elite }
                 .toMutableList()
         fun place(event: Event, count: Int) {
             repeat(count) {

@@ -102,9 +102,6 @@ data class TrapState(
 
     fun instruction(): String = "장면의 움직임과 빛을 살피세요"
 
-    companion object {
-        fun button(n: Int) = if (n == 0) "A" else "B"
-    }
 }
 
 object Traps {

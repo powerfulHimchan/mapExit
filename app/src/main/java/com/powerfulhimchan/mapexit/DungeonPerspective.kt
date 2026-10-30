@@ -25,26 +25,6 @@ internal fun DrawScope.drawDungeonPerspective(
     }
     val pose =
         camera ?: DungeonViewPose(m.x + .5f, m.y + .5f, (-PI / 2 + m.direction * PI / 2).toFloat())
-    drawImage(dungeonRaster!!.render(m, pose), filterQuality = FilterQuality.None)
-    val cell = m.here()
-    if (!cell.resolved) {
-        val type =
-            when (cell.event) {
-                Event.CHEST -> "chest"
-                Event.HEAL -> "heal"
-                Event.MERCHANT -> "merchant"
-                Event.NPC -> "npc"
-                Event.EXIT -> "door"
-                else -> null
-            }
-        if (type != null)
-            sprite(
-                type,
-                w * .34f,
-                h * .89f - spriteHeight(type, minOf(w * .26f, h * .22f)),
-                minOf(w * .26f, h * .22f),
-                if (cell.event == Event.HEAL) mint else amber,
-            )
-    }
-    pixelRect(amber, w * .48f, h * .94f, w * .04f, 2f)
+    val view = DungeonFixtures.camera(m, pose)
+    drawImage(dungeonRaster!!.render(m, view, DungeonTheme.forFloor(s.floor)), filterQuality = FilterQuality.None)
 }

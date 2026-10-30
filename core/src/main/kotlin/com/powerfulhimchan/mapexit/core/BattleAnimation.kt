@@ -10,6 +10,8 @@ data class AttackPose(
     val angle: Float,
     val reach: Float,
     val impact: Float,
+    val armLift: Float = 0f,
+    val stride: Float = 0f,
 )
 
 /** Shared strike timing for the actor, held weapon, victim reaction and damage popup. */
@@ -17,9 +19,18 @@ object BattleAnimation {
     const val DURATION_MS = 760L
     const val HIT_MS = 320L
 
-    private fun ease(t: Float) = t.coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
-
-    private fun blend(a: Float, b: Float, t: Float) = a + (b - a) * ease(t)
+    fun smooth(t: Float): Float = t.coerceIn(0f,1f).let { (it*it*it*(it*(it*6-15)+10)).coerceIn(0f,1f) }
+    private fun ease(t: Float) = smooth(t)
+    fun motionTime(elapsed: Long, connected: Boolean): Long {
+        if(!connected || elapsed < HIT_MS) return elapsed
+        if(elapsed < HIT_MS+32) return HIT_MS
+        return HIT_MS+((elapsed-HIT_MS-32)*(DURATION_MS-HIT_MS)/(DURATION_MS-HIT_MS-32))
+    }
+    fun reaction(elapsed: Long): Float {
+        val age=elapsed-HIT_MS
+        if(age<0 || age>=300) return 0f
+        return sin(age/300f*PI).toFloat()*(1-age/300f)
+    }
 
     data class DefensePose(val retreat: Float, val crouch: Float, val lean: Float, val guard: Float)
 
@@ -56,70 +67,25 @@ object BattleAnimation {
     }
 
     fun pose(kind: Kind?, elapsed: Long, strong: Boolean = false): AttackPose {
-        if (elapsed !in 0 until DURATION_MS) return AttackPose(0f, 0f, 0f, 25f, 0f, 0f)
-        val t = elapsed.toFloat() / DURATION_MS
-        if (strong) {
-            val drawBack =
-                if (elapsed < 210) ease(elapsed / 210f) else 1f - ease((elapsed - 210) / 110f)
-            val strike =
-                when {
-                    elapsed < 210 -> 0f
-                    elapsed < HIT_MS -> ease((elapsed - 210) / 110f)
-                    elapsed < 450 -> 1f
-                    else -> 1f - ease((elapsed - 450) / 310f)
-                }
-            val normal = pose(kind, elapsed, false)
-            val contact = pose(kind, HIT_MS, false)
-            return normal.copy(
-                advance = strike * 1.15f - drawBack * .22f,
-                lift = if (kind == Kind.HAMMER) drawBack * .16f else strike * .035f,
-                lean = -drawBack * 16f + strike * 22f,
-                angle =
-                    25f - drawBack * (if (kind == Kind.SPEAR) 18f else 125f) +
-                        strike * (contact.angle - 25f),
-                reach = strike * (if (kind == Kind.SPEAR) 1.65f else 1.2f) - drawBack * .15f,
-            )
+        val rest=AttackPose(0f,0f,0f,25f,0f,0f)
+        if(elapsed !in 0 until DURATION_MS) return rest
+        val power=if(strong)1.15f else 1f
+        val windEnd=if(strong)210L else 165L
+        val contactAngle=when(kind) { Kind.SPEAR->60f;Kind.HAMMER->135f;Kind.CLAW->110f;Kind.WHIP->100f;else->120f }
+        val windAngle=when(kind) { Kind.HAMMER->-55f;Kind.WHIP->-110f;Kind.SPEAR->5f;Kind.CLAW->-40f;else->-70f }-(if(strong && kind!=Kind.SPEAR)20f else 0f)
+        val wind=AttackPose(if(strong)-.22f else -.08f,if(kind==Kind.HAMMER).10f else .012f,if(strong)-18f else -7f,windAngle,-.10f,0f,if(kind==Kind.HAMMER)17f else if(kind==Kind.WHIP)9f else 4f,-.25f)
+        val contact=AttackPose(power,if(kind==Kind.HAMMER).025f else .008f,(if(kind==Kind.HAMMER)14f else 10f)*power,contactAngle,(if(kind==Kind.SPEAR)1.4f else 1f)*power,0f,if(kind==Kind.HAMMER)-3f else 0f,.7f)
+        val follow=contact.copy(advance=power*.92f,lift=0f,lean=contact.lean*.75f,angle=contactAngle+if(kind==Kind.SPEAR)0f else 12f,armLift=-2f,stride=.45f)
+        val followAt=if(kind==Kind.HAMMER)430L else 405L
+        val (from,to,t)=when {
+            elapsed<windEnd -> Triple(rest,wind,elapsed.toFloat()/windEnd)
+            elapsed<HIT_MS -> Triple(wind,contact,(elapsed-windEnd).toFloat()/(HIT_MS-windEnd))
+            elapsed<followAt -> Triple(contact,follow,(elapsed-HIT_MS).toFloat()/(followAt-HIT_MS))
+            else -> Triple(follow,rest,(elapsed-followAt).toFloat()/(DURATION_MS-followAt))
         }
-        val advance =
-            when {
-                t < .18f -> blend(0f, -.08f, t / .18f)
-                t < .43f -> blend(-.08f, 1f, (t - .18f) / .25f)
-                t < .60f -> 1f
-                else -> blend(1f, 0f, (t - .60f) / .40f)
-            }
-        val windup =
-            when (kind) {
-                Kind.HAMMER -> -45f
-                Kind.WHIP -> -110f
-                Kind.SPEAR -> 5f
-                Kind.CLAW -> -45f
-                else -> -65f
-            }
-        val contact =
-            when (kind) {
-                Kind.SPEAR -> 60f
-                Kind.HAMMER -> 135f
-                Kind.CLAW -> 110f
-                Kind.WHIP -> 100f
-                else -> 120f
-            }
-        val angle =
-            when {
-                t < .20f -> blend(25f, windup, t / .20f)
-                t < .46f -> blend(windup, contact, (t - .20f) / .26f)
-                t < .62f && kind == Kind.CLAW ->
-                    contact - sin((t - .46f) / .16f * PI).toFloat() * 100f
-                t < .62f -> contact
-                else -> blend(contact, 25f, (t - .62f) / .38f)
-            }
-        val impact = (1f - kotlin.math.abs(elapsed - HIT_MS).toFloat() / 170f).coerceIn(0f, 1f)
-        return AttackPose(
-            advance * if (strong) 1.15f else 1f,
-            if (kind == Kind.HAMMER) sin(t * PI).toFloat() * .12f else 0f,
-            advance * if (kind == Kind.HAMMER) 12f else 7f,
-            angle,
-            advance * if (kind == Kind.SPEAR) 1.4f else 1f,
-            impact,
-        )
+        val f=smooth(t)
+        fun mix(a:Float,b:Float)=a+(b-a)*f
+        val impact=if(elapsed<HIT_MS)0f else (1f-(elapsed-HIT_MS)/190f).coerceIn(0f,1f)
+        return AttackPose(mix(from.advance,to.advance),mix(from.lift,to.lift),mix(from.lean,to.lean),mix(from.angle,to.angle),mix(from.reach,to.reach),impact,mix(from.armLift,to.armLift),mix(from.stride,to.stride))
     }
 }

@@ -57,7 +57,9 @@ fun MapExitScreen(vm: GameModel) {
                     if (vm.active) {
                         vm.tick(((now - previous) / 1_000_000).coerceAtMost(100))
                     }
-                    val uptime = SystemClock.uptimeMillis()
+                    previous = now
+                } else if (previous == 0L) previous = now
+                val uptime = SystemClock.uptimeMillis()
                     if (
                         vm.active ||
                             vm.battleVisual?.let {
@@ -65,8 +67,6 @@ fun MapExitScreen(vm: GameModel) {
                             } == true
                     )
                         clock = uptime
-                    previous = now
-                } else if (previous == 0L) previous = now
             }
         }
     }
@@ -119,6 +119,7 @@ fun MapExitScreen(vm: GameModel) {
                         )
                     }
                 }
+                ExperienceMeter(s)
                 if (s.training)
                     Row(
                         Modifier.fillMaxWidth().height(34.dp),
@@ -140,7 +141,7 @@ fun MapExitScreen(vm: GameModel) {
                         confirmRetreat = true
                     }
                 if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode != Mode.MENU)
-                    LevelUpBanner(s.levelUpNotice!!, s.points, vm::dismissLevelUp)
+                    LevelUpBanner(s.levelUpNotice!!, s.points, vm::openLevelUpGrowth)
                 if (vm.loadError != null) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                         Text(vm.loadError!!, color = red)
@@ -178,6 +179,7 @@ fun MapExitScreen(vm: GameModel) {
                     )
                 }
         }
+        if (s.mode == Mode.MENU && s.menu?.type == "shopItem") ShopDetail(vm)
         if (confirmRetreat && canRetreat)
             AlertDialog(
                 onDismissRequest = { confirmRetreat = false },
@@ -354,7 +356,7 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
             )
             .semantics {
                 role = Role.Button
-                contentDescription = "${if (index == 0) "A" else "B"} ${b.label}"
+                contentDescription = b.label
                 if (!b.enabled) disabled()
                 if (b.enabled)
                     onClick {
@@ -411,6 +413,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             when (menu) {
                 "equipment" -> "장비 장착"
                 "inventory" -> "가방"
+                "slotInventory" -> "${Slot.entries[s.menu!!.argument.toInt()].label} 장비 선택"
+                "shopItem" -> "상점"
                 "shop" -> "상점"
                 "sell" -> "아이템 판매"
                 "quantity" -> "소모품 구매 수량"
@@ -460,7 +464,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             if (menu == "equipment")
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("장비를 누르면 상세 정보, 빈 부위를 누르면 가방이 열립니다.", color = muted, fontSize = 12.sp)
+                        Text("빈 부위를 누르면 해당 장비만 표시하며, 선택하면 바로 장착합니다.", color = muted, fontSize = 12.sp)
                         EquipmentOverview(vm)
                     }
                 }
@@ -494,12 +498,15 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 }
             } else {
                 if (menu == "growth") growthCards(vm)
-                if (menu in listOf("shop", "sell", "quantity")) tradeCards(vm, menu!!)
+                if (menu in listOf("shop", "sell")) tradeCards(vm, menu!!)
                 if (menu == "item") item { ItemComparison(e) }
+                if (menu == "slotInventory" && menuChoices.none { it.action=="item" }) item {
+                    Text("이 부위에 장착할 수 있는 장비가 없습니다.",color=muted,fontSize=13.sp)
+                }
                 if (menu == "help") item { ExplorationRecord(s) }
                 items(
                     menuChoices.filterNot {
-                        (menu == "help") ||
+                        (menu in listOf("help", "shopItem")) ||
                             (menu in listOf("training", "trainingTraps") && it.action == "back") ||
                             (menu == "equipment" && it.action == "slotItem") ||
                             (menu == "growth" && it.action == "stat") ||
@@ -513,6 +520,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     val gear =
                         when (menu) {
                             "shop" -> shopItems.find { it.id == c.argument }
+                            "slotInventory",
                             "inventory",
                             "sell" -> ownedItems.find { it.id == c.argument }
                             "equipment" ->
@@ -550,7 +558,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         Column(Modifier.weight(1f)) {
                             Text(
                                 c.label,
-                                color = if (enabled) pale else muted,
+                                color = if (!enabled) muted else if (gear != null && Equipment.isUpgrade(s,gear,if(menu == "slotInventory") Slot.entries[s.menu!!.argument.toInt()] else null)) Color(0xff86df87) else pale,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                             )
@@ -609,7 +617,7 @@ private fun ItemComparison(e: GameEngine) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ItemArt(gear.kind, Modifier.size(60.dp))
-            Text(gear.name, color = amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(gear.name, color = if(Equipment.isUpgrade(s,gear)) Color(0xff86df87) else amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Text(gear.summary(), color = pale, fontSize = 12.sp)
         Equipment.allowedSlots(gear).forEach { slot ->

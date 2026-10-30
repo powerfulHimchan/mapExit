@@ -21,7 +21,7 @@ internal fun DrawScope.drawObstacle(s: State, clock: Long) {
     val t = s.trap ?: return
     val w = size.width
     val h = size.height
-    arena(clock)
+    arena(clock, floor = s.floor)
     if (t.physicalAction) {
         drawPhysicalChallenge(s, t)
         return
@@ -64,10 +64,10 @@ internal fun DrawScope.drawObstacle(s: State, clock: Long) {
         if (t.type in listOf(0, 3) && t.progress > 0) t.pattern.getOrNull(t.progress - 1) else null
     val heroX =
         when {
-            t.phase == TrapPhase.RESULT && t.success -> w * .72f
+            t.phase == TrapPhase.RESULT -> (w - spriteUnit(heroWidth) * 32f) / 2f
             lastStep == 0 -> w * .16f
             lastStep == 1 -> w * .64f
-            else -> w * .40f
+            else -> (w - spriteUnit(heroWidth) * 32f) / 2f
         }
     adventurer(
         s,
@@ -154,17 +154,18 @@ private fun DrawScope.drawPhysicalChallenge(s: State, t: TrapState) {
     }
     if (t.type == 1) floorBlades(t) else fallingBeam(t)
     val result = t.phase == TrapPhase.RESULT
-    val motion = (t.elapsedMs / Traps.RESULT_MS.toFloat()).coerceIn(0f, 1f)
+    val stage = ObstacleLayout.blade(w,h,t)
+    val motion = BattleAnimation.smooth(t.elapsedMs / 650f)
     val jumping = result && t.action == 0
     val ducking = result && t.action == 1
-    val heroX = if (t.type == 1) w * (.12f + if (jumping) .65f * motion else 0f) else w * .42f
-    val jumpY = if (jumping) sin(motion * PI.toFloat()) * h * .27f else 0f
     val heroWidth = min(w * .23f, h * .28f)
+    val heroX = if(t.type==1) stage.heroX else (w-spriteUnit(heroWidth)*32)/2f
+    val jumpY = if(t.type==1) stage.jump else if(jumping) sin(motion*PI.toFloat()).coerceAtLeast(0f)*h*.27f else 0f
     val tint = if (result && !t.success) red else null
     if (ducking) crouchingAdventurer(heroX, floor, heroWidth, tint)
     else adventurer(s, heroX, floor - jumpY, heroWidth, armed = false, hitTint = tint)
     if (jumping) {
-        contactShadow(w * (.12f + .65f * motion), floor + 4, heroWidth)
+        contactShadow(heroX, floor + 4, spriteUnit(heroWidth)*32)
         for (i in 0..2) pixelRect(
             edge.copy(alpha = .5f),
             heroX - 6 - i * 6,
@@ -211,29 +212,22 @@ private fun DrawScope.floorBlades(t: TrapState) {
     val floor = h * .85f
     val extension = if (t.phase == TrapPhase.PREPARE) 1f else t.bladeExtension()
     val safe = t.phase != TrapPhase.PREPARE && t.bladesRetracted()
-    pixelRect(Color(0xff080f16), w * .39f, floor, w * .35f, h * .055f)
-    for (i in 0..4) {
-        val x = w * (.41f + i * .063f)
-        val top = floor - h * .30f * extension
-        pixelRect(iron, x - 2, floor, w * .052f, h * .035f)
-        if (extension > 0f) {
-            val blade =
-                Path().apply {
-                    moveTo(x, floor)
-                    lineTo(x + w * .023f, top)
-                    lineTo(x + w * .046f, floor)
-                    close()
-                }
-            drawPath(blade, edge)
-            drawLine(iron, Offset(x + w * .023f, top + 3), Offset(x + w * .023f, floor), 2f)
+    val stage=ObstacleLayout.blade(w,h,t)
+    val left=stage.bladeLeft; val lane=stage.bladeRight-left
+    pixelRect(Color(0xff080f16),left-3,floor,lane+6,h*.055f)
+    for(i in 0..4) {
+        val x=left+i*lane/5
+        val top=floor-h*.30f*extension
+        pixelRect(iron,x-1,floor,lane*.18f,h*.035f)
+        if(extension>0) {
+            val blade=Path().apply { moveTo(x,floor);lineTo(x+lane*.09f,top);lineTo(x+lane*.18f,floor);close() }
+            drawPath(blade,edge)
+            drawLine(iron,Offset(x+lane*.09f,top+3),Offset(x+lane*.09f,floor),2f)
         }
-        pixelRect(if (safe) mint else red, x, floor + h * .045f, w * .046f, 3f)
+        pixelRect(if(safe)mint else red,x,floor+h*.045f,lane*.18f,3f)
     }
-    // The crossing itself lights up only when every blade is physically inside the floor.
-    if (safe) {
-        pixelRect(mint.copy(alpha = .16f), w * .38f, floor - h * .025f, w * .37f, h * .025f)
-        for (i in 0..4) pixelRect(mint, w * (.40f + i * .07f), floor - 3, w * .04f, 2f)
-    }
+    if(safe) pixelRect(mint.copy(alpha=.16f),left,floor-h*.025f,lane,h*.025f)
+
 }
 
 private fun DrawScope.closingWalls(t: TrapState, danger: Float) {

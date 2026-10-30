@@ -81,6 +81,37 @@ object Equipment {
             )
         }
 
+    fun quickSlot(state: State, item: Gear): Slot? {
+        val slots = when {
+            item.weapon -> listOf(Slot.RIGHT, Slot.LEFT)
+            item.kind == Kind.SHIELD -> listOf(Slot.LEFT, Slot.RIGHT)
+            else -> allowedSlots(item)
+        }
+        return slots.firstOrNull { state.equipment[it] == null } ?: slots.firstOrNull()
+    }
+
+    /** Compare complete raw loadouts, including penalties and displaced two-handed gear. */
+    fun isUpgrade(state: State, item: Gear, targetSlot: Slot? = null): Boolean {
+        if (item.kind == Kind.POTION || item.id in state.equipment.values) return false
+        val slots = targetSlot?.let { listOf(it) } ?: allowedSlots(item)
+        fun raw(s: State, stat: Stat): Double {
+            val gear = equipped(s)
+            return (s.base.value(stat) + gear.sumOf { it.flatValue(stat) }) *
+                (1 + gear.sumOf { it.percent.value(stat) })
+        }
+        return slots.filter { it in allowedSlots(item) }.any { slot ->
+            val worn = state.inventory.find { it.id == state.equipment[slot] }
+            if (worn == null || worn.kind != item.kind || worn.charm != item.charm) false
+            else {
+                val preview = state.copy(inventory = state.inventory.toMutableList(), equipment = state.equipment.toMutableMap())
+                if (preview.inventory.none { it.id == item.id }) preview.inventory.add(item)
+                equip(preview, item.id, slot)
+                val delta = Stat.entries.map { raw(preview, it) - raw(state, it) }
+                delta.all { it >= -1e-7 } && delta.any { it > 1e-7 }
+            }
+        }
+    }
+
     fun equip(state: State, id: Long, slot: Slot): Boolean {
         val item = state.inventory.find { it.id == id } ?: return false
         if (slot !in allowedSlots(item)) return false
@@ -119,7 +150,7 @@ object Equipment {
 
     fun equippedLabel(state: State, id: Long): String {
         val slots = Slot.entries.filter { state.equipment[it] == id }
-        return if (slots.isEmpty()) "" else " [장착 중: ${slots.joinToString("·") { it.label }}]"
+        return if (slots.isEmpty()) "" else " [착용중] · ${slots.joinToString("·") { it.label }}"
     }
 }
 

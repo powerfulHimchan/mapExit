@@ -39,6 +39,7 @@ internal fun DrawScope.sprite(
     color: Color = pale,
     flash: Color? = null,
     articulated: Boolean = false,
+    opacity: Float = 1f,
 ) {
     val art = FineSprites.all[type] ?: FineSprites.all.getValue("npc")
     val unit = spriteUnit(width)
@@ -49,6 +50,7 @@ internal fun DrawScope.sprite(
             dstOffset = IntOffset(x.roundToInt(), y.roundToInt()),
             dstSize = IntSize((art.width * unit).toInt(), (art.height * unit).toInt()),
             filterQuality = FilterQuality.None,
+            alpha = opacity.coerceIn(0f,1f),
             colorFilter =
                 flash?.let {
                     androidx.compose.ui.graphics.ColorFilter.tint(
@@ -100,19 +102,15 @@ internal fun DrawScope.adventurer(
     armed: Boolean = true,
     hitTint: Color? = null,
     articulated: Boolean = false,
+    shadow: Boolean = true,
+    stride: Float = 0f,
 ): HeroPose {
     val unit = spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
-    contactShadow(x, baseline + 3, actual)
-    sprite(
-        if (back) "heroBack" else "hero",
-        x,
-        y,
-        actual,
-        flash = hitTint,
-        articulated = articulated,
-    )
+    if(shadow) contactShadow(x, baseline + 3, actual)
+    combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride)
+
     if (back && armed) {
         val weapon = Equipment.equipped(s).firstOrNull { it.weapon }
         weapon?.let {
@@ -187,21 +185,22 @@ private fun DrawScope.drawCamp(s: State, clock: Long) {
     }
 }
 
-internal fun DrawScope.arena(clock: Long, horizon: Float = .45f) {
+internal fun DrawScope.arena(clock: Long, horizon: Float = .45f, floor: Int = 1) {
+    val theme = DungeonTheme.forFloor(floor)
     val w = size.width
     val h = size.height
-    masonry(0f, 0f, w, h * horizon, Color(0xff30434b))
+    masonry(0f, 0f, w, h * horizon, Color(theme.wall), theme)
     for (x in listOf(.06f, .88f)) {
-        pixelRect(Color(0xff182b35), w * x + 3, h * .08f, w * .05f, h * (horizon - .08f))
-        pixelRect(Color(0xff566b72), w * x, h * .08f, w * .045f, h * (horizon - .08f))
+        pixelRect(Color(theme.grout), w * x + 3, h * .08f, w * .05f, h * (horizon - .08f))
+        pixelRect(Color(theme.wall), w * x, h * .08f, w * .045f, h * (horizon - .08f))
         pixelRect(Color(0xff8a9792), w * x, h * .08f, 2f, h * (horizon - .08f))
         for (row in 0..6) pixelRect(line, w * x, h * (.10f + row * .05f), w * .045f, 2f)
     }
-    stoneFloor(horizon)
+    stoneFloor(horizon, theme)
     pixelRect(Color(0xff101d26), 0f, h * horizon - 3, w, 5f)
     pixelRect(Color(0xff66736d), 0f, h * horizon - 4, w, 1f)
-    torch(w * .15f, h * .29f, clock)
-    torch(w * .82f, h * .29f, clock + 170)
+    torch(w * .15f, h * .29f, clock, Color(theme.light))
+    torch(w * .82f, h * .29f, clock + 170, Color(theme.light))
 }
 
 internal fun DrawScope.drawMap(s: State) {
@@ -230,6 +229,7 @@ internal fun DrawScope.drawMap(s: State) {
             val color =
                 when (c.event) {
                     Event.MONSTER -> red
+                    Event.ELITE -> amber
                     Event.CHEST -> amber
                     Event.HEAL -> mint
                     Event.MERCHANT -> Color(0xFFBA9DDA)
