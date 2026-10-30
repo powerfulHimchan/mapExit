@@ -151,6 +151,12 @@ class NpcInteractionsTest {
             val count=(1L..10000L).count { NpcInteractions.roleFor(it,17)==role }
             assertTrue("$role=$count",count in 2200..2800)
         }
+        for(floor in listOf(3,4,17,31,50)) {
+            val beggars=(1L..10000L).filter { NpcInteractions.roleFor(it,floor)==NpcRole.BEGGAR }
+            val giftsForBeggars=beggars.count { NpcInteractions.giftFor(it,floor) }
+            val rate=giftsForBeggars.toDouble()/beggars.size
+            assertTrue("conditional beggar gift rate at $floor=$rate",rate in .27.. .33)
+        }
     }
     @Test fun legacyCellsDefaultToQuestAndRetainTheirOffer() {
         val e=fixture(NpcRole.QUEST)

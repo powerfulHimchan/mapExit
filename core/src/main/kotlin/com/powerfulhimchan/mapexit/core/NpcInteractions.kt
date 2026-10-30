@@ -20,8 +20,15 @@ object NpcInteractions {
     const val GIFT_CHANCE = .30
 
     /** A per-floor stream keeps NPC identity and the gift stable on map regeneration. */
-    private fun random(seed: Long, floor: Int, salt: Long) =
-        State(bootstrapped = true, rng = seed xor (floor.toLong() * 104729L) xor salt)
+    private fun random(seed: Long, floor: Int, salt: Long): State {
+        // Mix each stream before sampling: merely XORing salts into an LCG seed
+        // correlates the gift with the condition that this NPC is a beggar.
+        var mixed = seed xor (floor.toLong() * 104729L) xor salt
+        mixed = (mixed xor (mixed ushr 30)) * -4658895280553007687L
+        mixed = (mixed xor (mixed ushr 27)) * -7723592293110705685L
+        mixed = mixed xor (mixed ushr 31)
+        return State(bootstrapped = true, rng = mixed)
+    }
 
     fun roleFor(seed: Long, floor: Int): NpcRole =
         NpcRole.entries[random(seed, floor, 0x4E50435F524F4C45L).nextInt(NpcRole.entries.size)]
