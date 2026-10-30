@@ -38,6 +38,9 @@ class GameEngine(
             state.quickEquipIds=(state.chestLoot?.items ?: state.battleResult?.rewards ?: emptyList())
                 .filter { it.kind!=Kind.POTION && itemOwned(it.id) }.map { it.id }
         }
+        if (state.shop.none { it.kind == Kind.POTION && it.potionGrade == PotionGrade.GREATER })
+            state.shop.add(ItemFactory.potion(state, PotionGrade.GREATER))
+        Achievements.initialize(state)
         if (state.mode == Mode.TRAP_GUIDE) state.mode = Mode.TRAP
         // Saves from before expedition records can still report their current depth.
         if (state.dungeon != null) state.runDeepestFloor = max(state.runDeepestFloor, state.floor)
@@ -229,6 +232,7 @@ class GameEngine(
                     c("일반 공격 · 명중 ${(GameBalance.model("normal_hit")*100).toInt()}%", "attack"),
                     c("강공격 · 명중 ${(GameBalance.model("strong_hit")*100).toInt()}%", "strong"),
                     c("회복약 사용", "potion"),
+                    c("상급 회복약 사용", "strongPotion"),
                     c("도주 시도", "flee"),
                 )
             Mode.COMBAT_DEFEND -> listOf(c("방어 · 피해 감소", "guard"), c("회피 · 성공 시 무피해", "dodge"))
@@ -348,7 +352,16 @@ class GameEngine(
                     if (item == null) listOf(c("취소", "back"))
                     else listOf(c("구매", "purchase", item.id), c("취소", "back"))
                 }
-                "help" -> listOf(c("몬스터 도감", "bestiary"))
+                "help" -> listOf(c("몬스터 도감", "bestiary"), c("업적", "achievements"))
+                "achievements" -> buildList {
+                    Achievements.all.forEachIndexed { index, a ->
+                        if (a.id in s.achievements.unlocked && a.id !in s.achievements.claimed)
+                            add(c("보상 받기 · ${a.name}", "claimAchievement", index.toLong()))
+                        if (a.title != null && a.id in s.achievements.claimed)
+                            add(c("칭호 선택 · ${a.title}", "selectTitle", index.toLong()))
+                    }
+                    add(c("칭호 해제", "selectTitle", -1))
+                }
                 "bestiary" -> emptyList()
                 "training" ->
                     listOf(
@@ -394,7 +407,7 @@ class GameEngine(
 
     /** Touch menus and tests invoke current choices directly, without selection cycling. */
     fun choose(choice: Choice) {
-        (choices() + if (state.mode in listOf(Mode.EXPLORE, Mode.VICTORY) || state.menu?.type == "shop") lootChoices() else emptyList())
+        (choices() + if (state.mode in listOf(Mode.EXPLORE, Mode.VICTORY) || state.menu?.type in listOf("shop", "achievements")) lootChoices() else emptyList())
             .firstOrNull { it.action == choice.action && it.argument == choice.argument }
             ?.let(::execute)
     }
@@ -551,7 +564,10 @@ class GameEngine(
             "encounterLeave" -> leaveEncounter("탐험을 계속합니다")
             "npcDonate", "npcHeal", "npcPotion" -> {
                 val result = NpcInteractions.use(s, c.action)
-                if (result.success) leaveEncounter(result.message) else s.note(result.message)
+                if (result.success) {
+                    if (c.action == "npcDonate") Achievements.event(s, "donations")
+                    leaveEncounter(result.message)
+                } else s.note(result.message)
             }
             "questAccept" -> {
                 if (s.quest != null) return
@@ -585,10 +601,13 @@ class GameEngine(
             "equipment",
             "bank",
             "bestiary",
+            "achievements",
             "help" -> {
                 if (c.action == "growth") s.levelUpNotice = null
                 open(c.action)
             }
+            "claimAchievement" -> Achievements.claim(s, c.argument.toInt())
+            "selectTitle" -> Achievements.selectTitle(s, c.argument.toInt())
             "equipLoot" -> {
                 val item = s.inventory.find { it.id == c.argument && it.id in s.quickEquipIds && it.kind != Kind.POTION && it.id !in s.equipment.values } ?: return
                 val slot = Equipment.quickSlot(s, item) ?: return
@@ -659,6 +678,7 @@ class GameEngine(
                         (q.reward * (if (Equipment.charm(s) == Charm.QUEST) 1.25 else 1.0)).toInt()
                     s.gold += reward
                     s.quest = null
+                    Achievements.event(s, "quests")
                     s.note("미션 보상 ${reward}G 획득")
                     s.dungeon?.here()?.let { if (it.event == Event.NPC) it.resolved = true }
                     leaveEncounter()
@@ -674,8 +694,8 @@ class GameEngine(
             "strong" -> attack(true)
             "guard" -> defend(false)
             "dodge" -> defend(true)
-            "potion" -> {
-                if (usePotion()) {
+            "potion", "strongPotion" -> {
+                if (usePotion(grade = if (c.action == "strongPotion") PotionGrade.GREATER else PotionGrade.BASIC)) {
                     s.mode = Mode.COMBAT_DEFEND
                     s.selection = 0
                 }
@@ -786,6 +806,7 @@ class GameEngine(
         s.movementMs = 0
         s.shop = MutableList(5) { ItemFactory.create(s) }
         s.shop.add(ItemFactory.create(s, Kind.POTION))
+        s.shop.add(ItemFactory.potion(s, PotionGrade.GREATER))
         s.quest?.takeIf { it.kind == "floor" }?.let { it.progress = max(it.progress, floor) }
         s.note("지하 ${floor}층 · 갈림길에서 방향을 선택하세요")
     }
@@ -866,6 +887,7 @@ class GameEngine(
         if (cell.resolved) return
         cell.resolved = true
         s.runChests++
+        Achievements.event(s, "chests")
         s.chestLoot = null
         s.quest?.takeIf { it.kind == "chest" }?.let { it.progress++ }
         s.encounter = null
@@ -915,6 +937,7 @@ class GameEngine(
                 speciesId = species.id,
             )
         MonsterCatalog.record(s, s.enemy!!, encounter = 1)
+        Achievements.evaluate(s)
         s.enemy!!.let { it.intent = CombatTactics.pattern(it).first() }
         s.encounter = null
         s.quickEquipIds = emptyList()
@@ -1086,6 +1109,7 @@ class GameEngine(
         val s = state
         val enemy = s.enemy ?: return
         MonsterCatalog.record(s, enemy, defeat = 1)
+        Achievements.victory(s, enemy)
         val gold = ((20 + s.floor * 4) * (if (enemy.elite) 1.5 else 1.0)).toInt()
         val experience = ((25 + s.floor * 5) * (if (enemy.elite) 1.5 else 1.0)).toInt()
         val items = mutableListOf<String>()
@@ -1189,16 +1213,22 @@ class GameEngine(
         return true
     }
 
-    private fun usePotion(id: Long? = null): Boolean {
+    private fun usePotion(id: Long? = null, grade: PotionGrade? = null): Boolean {
         val s = state
-        val item = s.inventory.find { it.kind == Kind.POTION && (id == null || it.id == id) }
+        val item = s.inventory.find { it.kind == Kind.POTION && (id == null || it.id == id) &&
+            (grade == null || it.potionGrade == grade) }
         if (item == null) {
-            s.note("회복약이 없습니다")
+            s.note("${grade?.label ?: "회복약"}이 없습니다")
+            return false
+        }
+        val maximum = stats().hp
+        if (s.hp <= 0) {
+            s.note("지금은 회복약을 사용할 수 없습니다")
             return false
         }
         s.inventory.remove(item)
-        s.hp = min(stats().hp, s.hp + stats().hp * .35)
-        s.note("회복약: HP 35% 회복")
+        s.hp = min(maximum, s.hp + maximum * item.potionGrade.healRatio)
+        s.note("${item.name}: HP ${(item.potionGrade.healRatio * 100).toInt()}% 회복")
         return true
     }
 
@@ -1207,7 +1237,10 @@ class GameEngine(
         val t = s.trap ?: return
         if (t.phase != TrapPhase.RESULT || t.applied) return
         t.applied = true
-        if (t.success) s.runTraps++
+        if (t.success) {
+            s.runTraps++
+            Achievements.event(s, "traps")
+        }
         s.dungeon?.here()?.let { if (it.event == Event.TRAP) it.resolved = true }
         if (!t.success) {
             val damage = stats().hp * .15 + s.floor * 2
@@ -1279,6 +1312,7 @@ class GameEngine(
         s.selection = 0
         s.shop = MutableList(6) { ItemFactory.create(s, floor = max(1, s.highest)) }
         s.shop.add(ItemFactory.create(s, Kind.POTION, 1))
+        s.shop.add(ItemFactory.potion(s, PotionGrade.GREATER))
         s.note(if (dead) "사망 · 지상 부활. 장비·아이템·소지 골드를 잃었습니다" else "지상 귀환 · 아이템과 골드를 안전하게 가져왔습니다")
     }
 
@@ -1331,6 +1365,9 @@ class GameEngine(
         s.mode = Mode.SURFACE
         s.selection = 0
         s.shop = MutableList(5) { ItemFactory.create(s, floor = 1) }
+        s.shop.add(ItemFactory.potion(s, PotionGrade.BASIC))
+        s.shop.add(ItemFactory.potion(s, PotionGrade.GREATER))
+        Achievements.evaluate(s)
         s.note("${s.cycle}회차 시작 · 계승 장비 ${s.inventory.size}개 · 능력치/돈/장치 초기화")
     }
 }

@@ -120,6 +120,7 @@ fun MapExitScreen(vm: GameModel) {
                     }
                 }
                 ExperienceMeter(s)
+                AchievementNotice(vm)
                 if (s.training)
                     Row(
                         Modifier.fillMaxWidth().height(34.dp),
@@ -424,6 +425,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "bank" -> "골드 보관소"
                 "help" -> "탐험 기록"
                 "bestiary" -> "몬스터 도감"
+                "achievements" -> "업적"
                 "training" -> "테스트 메뉴"
                 "trainingTraps" -> "장애물 선택"
                 "item" -> "장비 / 아이템 상세"
@@ -480,6 +482,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         "quantity",
                         "help",
                         "bestiary",
+                        "achievements",
                         "training",
                         "trainingTraps",
                     )
@@ -510,11 +513,17 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 if (menu == "help") {
                     item { ExplorationRecord(s) }
                     item { OutlinedButton(onClick = { vm.choose(Choice("몬스터 도감", "bestiary")) }, modifier = Modifier.fillMaxWidth()) { Text("몬스터 도감", color = mint) } }
+                    item { OutlinedButton(onClick = { vm.choose(Choice("업적", "achievements")) }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "업적" }) {
+                        val ready = s.achievements.unlocked.size - s.achievements.claimed.size
+                        Text("업적${if (ready > 0) " · 보상 $ready" else ""}", color = mint)
+                    } }
                 }
                 if (menu == "bestiary") bestiaryCards(s)
+                if (menu == "achievements") achievementCards(vm)
                 items(
                     menuChoices.filterNot {
                         (menu in listOf("help", "shopItem")) ||
+                            (menu == "achievements" && it.action != "back") ||
                             (menu in listOf("training", "trainingTraps") && it.action == "back") ||
                             (menu == "equipment" && it.action == "slotItem") ||
                             (menu == "growth" && it.action in listOf("stat", "growthHeal")) ||

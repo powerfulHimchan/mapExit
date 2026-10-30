@@ -99,7 +99,7 @@ internal fun MenuArt(action: String, modifier: Modifier = Modifier) {
                     ".#.#.#..",
                     "########",
                 )
-            "help", "bestiary" ->
+            "help", "bestiary", "achievements" ->
                 listOf(
                     ".######.",
                     ".#....#.",
@@ -191,6 +191,7 @@ internal fun StatusSummary(e: GameEngine) {
             MenuArt("coin", Modifier.size(22.dp))
             Text("${s.gold}G", color = amber, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
+        Achievements.title(s)?.let { Text("칭호 · $it", color = mint, fontSize = 12.sp) }
         Stat.entries.chunked(4).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 row.forEach { stat ->
@@ -268,6 +269,7 @@ internal fun ExplorationRecord(s: State) {
         Modifier.fillMaxWidth().background(panel).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        Achievements.title(s)?.let { Text("칭호 · $it", color = mint, fontSize = 14.sp) }
         Text("누적 탐험", color = amber, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Text(
             "${s.cycle}회차 · 최대 지하 ${s.highest}층 · 클리어 ${s.clears}회",

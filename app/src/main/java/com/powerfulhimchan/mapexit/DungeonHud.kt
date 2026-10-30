@@ -174,7 +174,12 @@ internal fun CombatShortcuts(vm: GameModel) {
     val s = vm.engine.state
     val enabled = s.mode == Mode.COMBAT_ATTACK && !vm.battleBusy()
     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        listOf("회복약 ${s.inventory.count { it.kind == Kind.POTION }}" to "potion", "도주" to "flee")
+        buildList {
+            add("회복약 ${s.inventory.count { it.kind == Kind.POTION && it.potionGrade == PotionGrade.BASIC }}" to "potion")
+            if (s.inventory.any { it.kind == Kind.POTION && it.potionGrade == PotionGrade.GREATER })
+                add("상급 ${s.inventory.count { it.kind == Kind.POTION && it.potionGrade == PotionGrade.GREATER }}" to "strongPotion")
+            add("도주" to "flee")
+        }
             .forEach { (label, action) ->
                 Row(
                     Modifier.height(30.dp)
@@ -184,7 +189,7 @@ internal fun CombatShortcuts(vm: GameModel) {
                             vm.choose(Choice(label, action))
                         }
                         .semantics(mergeDescendants = true) {
-                            contentDescription = if (action == "potion") "회복약 사용" else "도주 시도"
+                            contentDescription = when (action) { "potion" -> "회복약 사용"; "strongPotion" -> "상급 회복약 사용"; else -> "도주 시도" }
                         }
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,

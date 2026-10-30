@@ -2416,4 +2416,137 @@ class LaunchTest {
         }
     }
 
+    @Test fun achievementsAreInsideRecordsAndRealVictoryRewardIsClaimedOnceAtCamp() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var rewardGold = 0
+            scenario.onActivity { a ->
+                val e = GameEngine(); e.enterFloor(1); e.startBattle(false)
+                e.state.enemy!!.hp = .01; e.state.rng = 0; e.attack(false)
+                assertTrue("first-victory" in e.state.achievements.unlocked)
+                e.choose(Choice("continue", "battleContinue")); e.choose(Choice("retreat", "retreat"))
+                e.choose(Choice("continue", "runContinue"))
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            tap("기록"); bounds("업적", allowScroll = true); capture("records-achievements-entry")
+            tap("업적", allowScroll = true)
+            bounds("업적 보상 받기 · 첫 승리", allowScroll = true)
+            capture("achievements-first-reward")
+            tap("업적 보상 받기 · 첫 승리", allowScroll = true)
+            bounds("수령 완료")
+            scenario.onActivity { a ->
+                rewardGold = a.game.engine.state.gold
+                assertEquals(30, rewardGold)
+                assertEquals(setOf("first-victory"), a.game.engine.state.achievements.claimed)
+                a.game.save(blocking = true)
+            }
+            scenario.recreate()
+            scenario.onActivity { a ->
+                a.game.active = false
+                val e = a.game.engine
+                assertEquals(rewardGold, e.state.gold)
+                assertFalse(Achievements.claim(e.state, 0))
+            }
+            tap("돌아가기"); bounds("탐험 기록")
+        }
+    }
+
+    @Test fun achievementTitleCanBeClaimedSelectedAndRestored() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val e = GameEngine(); e.state.achievements.traps = 19; e.enterFloor(1)
+                e.state.mode = Mode.TRAP
+                e.state.trap = Traps.create(e.state, 0).copy(phase = TrapPhase.RESULT, success = true)
+                e.tick(250)
+                e.state.trap = null; e.state.mode = Mode.EXPLORE
+                e.choose(Choice("retreat", "retreat")); e.choose(Choice("continue", "runContinue"))
+                e.choose(Choice("records", "help")); e.choose(Choice("achievements", "achievements"))
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            tap("업적 보상 받기 · 함정 전문가", allowScroll = true)
+            tap("칭호 선택 · 함정 전문가", allowScroll = true)
+            capture("achievement-title-selected")
+            scenario.onActivity { a ->
+                assertEquals("함정 전문가", Achievements.title(a.game.engine.state))
+                assertEquals(1, a.game.engine.state.points)
+                a.game.save(blocking = true)
+            }
+            scenario.recreate()
+            scenario.onActivity { a -> a.game.active = false }
+            bounds("칭호: 함정 전문가")
+            tap("돌아가기"); bounds("칭호 · 함정 전문가")
+        }
+    }
+
+    @Test fun secondFinalBossSpecialRingCanBeClaimedAndEquippedOnCompactScreen() {
+        val resize = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
+        ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { a ->
+                    val e = GameEngine()
+                    repeat(2) {
+                        e.enterFloor(50); e.startBattle(true)
+                        e.state.enemy!!.hp = .01; e.state.rng = 0; e.attack(false)
+                        e.newCycle(e.state.inventory.first { !it.inherited && it.kind != Kind.POTION }.id)
+                    }
+                    e.state.achievements.notices.clear()
+                    e.choose(Choice("records", "help")); e.choose(Choice("achievements", "achievements"))
+                    a.game.engine = e; a.game.active = false; a.game.refresh()
+                }
+                bounds("특별 장비 · 귀환자의 인장", allowScroll = true)
+                capture("achievement-special-ring-compact")
+                tap("업적 보상 받기 · 다시 찾은 출구", allowScroll = true)
+                tap("바로 장착 · 반지 1 · 귀환자의 인장", allowScroll = true)
+                bounds("[착용중] · 귀환자의 인장", allowScroll = true)
+                capture("achievement-special-ring-equipped-compact")
+                scenario.onActivity { a ->
+                    val e = a.game.engine
+                    val ring = e.state.inventory.single { it.variantId == "exit-seal" }
+                    assertTrue(ring.id in e.state.equipment.values)
+                    assertEquals("ring_exit_seal", GearAppearance.base(ring))
+                    a.game.save(blocking = true)
+                }
+                scenario.recreate()
+                scenario.onActivity { a ->
+                    a.game.active = false
+                    assertEquals(1, a.game.engine.state.inventory.count { it.variantId == "exit-seal" })
+                    assertTrue(a.game.engine.state.inventory.single { it.variantId == "exit-seal" }.id in a.game.engine.state.equipment.values)
+                }
+            }
+        } finally {
+            val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
+            ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
+        }
+    }
+
+    @Test fun greaterPotionHasDistinctArtCanBeBoughtInBulkAndUsedFromBattleHeader() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val e = GameEngine(State(gold = 500))
+                val potion = e.state.shop.first { it.potionGrade == PotionGrade.GREATER }
+                e.choose(Choice("shop", "shop")); e.choose(Choice("buy", "buy", potion.id))
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            bounds("상급 회복약"); bounds("최대 HP의 70% 회복"); tap("구매 수량 3개")
+            capture("greater-potion-shop")
+            tap("구매")
+            scenario.onActivity { a ->
+                val e = a.game.engine
+                assertEquals(275, e.state.gold)
+                assertEquals(3, e.state.inventory.count { it.potionGrade == PotionGrade.GREATER })
+                e.enterFloor(1); e.startBattle(false); e.state.hp = 10.0; a.game.refresh()
+            }
+            bounds("회복약 사용"); bounds("상급 회복약 사용"); bounds("도주 시도")
+            capture("greater-potion-combat")
+            tap("상급 회복약 사용")
+            scenario.onActivity { a ->
+                val e = a.game.engine
+                assertEquals(Mode.COMBAT_DEFEND, e.state.mode)
+                assertEquals(10.0 + e.stats().hp * .70, e.state.hp, .0001)
+                assertEquals(2, e.state.inventory.count { it.potionGrade == PotionGrade.GREATER })
+                assertEquals(2, e.state.inventory.count { it.kind == Kind.POTION && it.potionGrade == PotionGrade.BASIC })
+            }
+        }
+    }
+
 }

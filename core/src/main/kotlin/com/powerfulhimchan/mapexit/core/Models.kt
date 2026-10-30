@@ -127,6 +127,12 @@ data class Stats(
 @Serializable data class WeaponAffix(val stat: Stat, val amount: Double)
 
 @Serializable
+enum class PotionGrade(val label: String, val healRatio: Double, val price: Int) {
+  BASIC("회복약", .35, 25),
+  GREATER("상급 회복약", .70, 75),
+}
+
+@Serializable
 data class Gear(
     val id: Long,
     val kind: Kind,
@@ -140,6 +146,7 @@ data class Gear(
     val variantId: String? = null,
     val bossOriginFloor: Int? = null,
     val affixes: List<WeaponAffix> = emptyList(),
+    val potionGrade: PotionGrade = PotionGrade.BASIC,
 ) {
   val twoHanded: Boolean
     get() = kind == Kind.SPEAR || kind == Kind.HAMMER
@@ -169,7 +176,7 @@ data class Gear(
       else "보스 전리품 · ${bossOriginFloor}층\n기본: ${baseSummary()}\n추가 옵션: ${affixSummary()}"
 
   fun baseSummary(): String {
-    if (kind == Kind.POTION) return "최대 HP의 35% 회복"
+    if (kind == Kind.POTION) return "최대 HP의 ${(potionGrade.healRatio * 100).toInt()}% 회복"
     if (kind == Kind.NECKLACE)
         return when (charm) {
           Charm.MAP -> "주변 시설 탐지"
@@ -402,6 +409,7 @@ data class State(
     var bootstrapped: Boolean = false,
     var bestiary: MutableMap<String, MonsterRecord> = mutableMapOf(),
     var npcServicesUsed: MutableSet<Int> = mutableSetOf(),
+    val achievements: AchievementProgress = AchievementProgress(),
 ) {
   val experienceRequired: Int get() = level * 80
   val experienceRemaining: Int get() = (experienceRequired - experience).coerceAtLeast(0)
