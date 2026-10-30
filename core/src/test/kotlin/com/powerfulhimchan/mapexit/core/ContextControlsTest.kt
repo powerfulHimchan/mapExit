@@ -106,6 +106,9 @@ class ContextControlsTest {
             val e = corridor()
             e.startBattle(false)
             e.state.enemy!!.hp = 100000.0
+            // Test ordinary turn switching independently of the randomly selected species.
+            // Guard breaking and recovery intentionally skip a counterattack in tactic tests.
+            e.state.enemy!!.intent = EnemyIntent.STRIKE
             assertEquals(listOf("일반 공격", "강공격"), e.controls.buttons().map { it.label })
             e.press(button)
             assertEquals(Mode.COMBAT_DEFEND, e.state.mode)
@@ -171,7 +174,7 @@ class ContextControlsTest {
         assertEquals(Mode.EXPLORE, e.state.mode)
         assertTrue(e.openDungeonPanel("help"))
         assertEquals("help", e.state.menu!!.type)
-        assertEquals(listOf("back"), e.choices().map { it.action })
+        assertEquals(listOf("bestiary", "back"), e.choices().map { it.action })
         e.navigateBack()
         assertEquals(Mode.EXPLORE, e.state.mode)
     }
