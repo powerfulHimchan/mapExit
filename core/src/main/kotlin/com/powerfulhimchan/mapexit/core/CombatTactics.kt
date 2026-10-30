@@ -45,9 +45,9 @@ object CombatTactics {
     fun hint(enemy: Enemy): String =
         when (enemy.intent) {
             EnemyIntent.STRIKE -> "방어로 피해 감소 · 회피로 피해 없이"
-            EnemyIntent.HEAVY -> "회피하기 쉬운 큰 공격 · 회피 성공 시 빈틈"
-            EnemyIntent.FLURRY -> "방어가 유리한 연속 공격 · 방어하면 빈틈"
-            EnemyIntent.GUARD -> "일반 공격 피해 감소 · 강공격 명중 시 방패 파괴"
+            EnemyIntent.HEAVY -> "큰 공격 · 회피 성공 시 빈틈"
+            EnemyIntent.FLURRY -> "연속 공격 · 방어하면 빈틈"
+            EnemyIntent.GUARD -> "강공격 명중 시 방패 파괴"
             EnemyIntent.RECOVER -> "공격 기회 · 이번에는 반격하지 않습니다"
         }
 

@@ -1601,6 +1601,33 @@ class LaunchTest {
                     assertTrue(tell.bottom < actions.top)
                     capture("tactic-$id-compact")
                 }
+                scenario.onActivity {
+                    val e = GameEngine()
+                    e.enterFloor(1)
+                    e.startBattle(false)
+                    e.state.enemy =
+                        e.state.enemy!!.copy(
+                            name = "녹슨 기사",
+                            hp = 10000.0,
+                            maxHp = 10000.0,
+                            intent = EnemyIntent.GUARD,
+                            round = 0,
+                        )
+                    e.state.rng = 0
+                    e.state.impactSequence += 200
+                    it.game.engine = e
+                    it.game.refresh()
+                }
+                bounds("적 행동 예고 방패를 세웁니다")
+                tap("B 강공격")
+                var popup = ""
+                scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+                val damage = bounds(popup)
+                val tell = bounds("적 행동 예고 검을 높이 들어 올립니다")
+                val opening = bounds("빈틈 공격 기회")
+                assertTrue(damage.top >= tell.bottom)
+                assertTrue(damage.top >= opening.bottom)
+                capture("tactic-break-compact")
             }
             val bitmap = androidx.compose.ui.graphics.ImageBitmap(480, 640)
             val scope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()

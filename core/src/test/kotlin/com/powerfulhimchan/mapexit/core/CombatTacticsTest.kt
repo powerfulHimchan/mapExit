@@ -254,7 +254,7 @@ class CombatTacticsTest {
         assertTrue(poses[EnemyIntent.RECOVER.ordinal].lean > 0)
         assertNotEquals(
             BattleAnimation.tell(EnemyIntent.FLURRY, 100),
-            BattleAnimation.tell(EnemyIntent.FLURRY, 200),
+            BattleAnimation.tell(EnemyIntent.FLURRY, 300),
         )
     }
 }

@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +42,8 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
         else s.enemy ?: s.battleResult?.enemy
     val dungeonPose =
         vm.dungeonCamera.sample(clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis())
+    val density = LocalDensity.current
+    var headerHeight by remember(s.battleId) { mutableStateOf(0.dp) }
     BoxWithConstraints(modifier.fillMaxWidth()) {
         if (inBattle) {
             key(s.battleId) {
@@ -75,6 +79,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
         if (inBattle && enemy != null && s.mode != Mode.VICTORY) {
             Column(
                 Modifier.align(Alignment.TopCenter)
+                    .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
                     .fillMaxWidth()
                     .padding(8.dp)
                     .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
@@ -82,20 +87,25 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     .padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                Text(
-                    "전투",
-                    color = mint,
-                    fontSize = 10.sp,
-                    lineHeight = 13.sp,
-                    modifier = Modifier.semantics { contentDescription = "3인칭 전투" },
-                )
-                Text(
-                    enemy.name,
-                    color = pale,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    lineHeight = 17.sp,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "전투",
+                        color = mint,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        modifier = Modifier.semantics { contentDescription = "3인칭 전투" },
+                    )
+                    Text(
+                        enemy.name,
+                        color = pale,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        lineHeight = 17.sp,
+                    )
+                }
                 val health =
                     "적 HP ${ceil(enemy.hp.coerceAtLeast(0.0)).toInt()} / ${ceil(enemy.maxHp).toInt()}"
                 Text(
@@ -120,7 +130,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 Text(CombatTactics.hint(plan), color = muted, fontSize = 10.sp, lineHeight = 14.sp)
                 if (plan.opening)
                     Text(
-                        "빈틈! 다음 공격 피해 +35% · 강공격 명중률 +20%p",
+                        "빈틈! 피해 +35% · 강공격 명중 +20%p",
                         color = mint,
                         fontSize = 10.sp,
                         lineHeight = 14.sp,
@@ -284,8 +294,9 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                 Modifier.offset(
                                         x = maxWidth * (if (enemyHit) .48f else .05f),
                                         y =
-                                            maxHeight * (if (enemyHit) .34f else .62f) -
-                                                24.dp * rise.value,
+                                            (maxHeight * (if (enemyHit) .34f else .62f) -
+                                                    24.dp * rise.value)
+                                                .coerceAtLeast(headerHeight + 4.dp),
                                     )
                                     .widthIn(max = maxWidth * .50f)
                                     .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
