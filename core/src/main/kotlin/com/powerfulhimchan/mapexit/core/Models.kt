@@ -207,6 +207,8 @@ data class Cell(
     var questOffer: Quest? = null,
     var offerChecked: Boolean = false,
     var monsterId: String? = null,
+    var npcRole: NpcRole = NpcRole.QUEST,
+    var npcGift: Boolean? = null,
 )
 
 @Serializable
@@ -399,6 +401,7 @@ data class State(
     var training: Boolean = false,
     var bootstrapped: Boolean = false,
     var bestiary: MutableMap<String, MonsterRecord> = mutableMapOf(),
+    var npcServicesUsed: MutableSet<Int> = mutableSetOf(),
 ) {
   val experienceRequired: Int get() = level * 80
   val experienceRemaining: Int get() = (experienceRequired - experience).coerceAtLeast(0)

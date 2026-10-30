@@ -27,13 +27,13 @@ internal fun EncounterCaption(vm: GameModel, modifier: Modifier) {
         when (s.encounter) {
             Event.CHEST -> "상자 발견"
             Event.MERCHANT -> "떠돌이 상인"
-            else -> "여행자의 의뢰"
+            else -> NpcInteractions.role(s).title
         }
     val message =
         when (s.encounter) {
             Event.CHEST -> "열어 보시겠습니까? 안에 몬스터가 숨어 있을 수도 있습니다."
             Event.MERCHANT -> "장비와 소모품을 사고, 가지고 있는 장비를 팔 수 있습니다."
-            else ->
+            else -> if (NpcInteractions.role(s) != NpcRole.QUEST) NpcInteractions.description(s) else
                 s.quest?.let {
                     if (it.complete) "${it.title}\n의뢰 완료 · 보상을 받을 수 있습니다."
                     else "진행 중: ${it.title}\n${it.progress} / ${it.target} · 새 의뢰는 제시하지 않습니다."
@@ -79,7 +79,7 @@ internal fun DrawScope.drawEncounter(s: State, clock: Long) {
         sprite("chest", w * .63f, h * .80f - spriteHeight("chest", width), width)
     } else {
         val width = min(w * .22f, h * .18f)
-        val type = if (s.encounter == Event.MERCHANT) "merchant" else "npc"
+        val type = if (s.encounter == Event.MERCHANT) "merchant" else NpcInteractions.role(s).sprite
         val x = w * .65f
         val baseline = h * .79f
         contactShadow(x, baseline + 3, spriteUnit(width) * 32)

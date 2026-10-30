@@ -59,7 +59,8 @@ class ContextControls(private val engine: GameEngine) {
             Mode.ENCOUNTER ->
                 engine
                     .choices()
-                    .map { ContextButton(it.label, it) }
+                    .map { ContextButton(it.label, it,
+                        enabled = it.action !in listOf("npcDonate", "npcHeal", "npcPotion") || NpcInteractions.blockedReason(s) == null) }
                     .let {
                         if (it.size == 1) listOf(ContextButton("대화 중", enabled = false), it[0])
                         else it
@@ -108,7 +109,8 @@ class ContextControls(private val engine: GameEngine) {
                 engine
                     .choices()
                     .filter { it.action in setOf("enter", "return", "ending") }
-                    .map { ContextButton(it.label, it) }
+                    .map { ContextButton(it.label, it,
+                        enabled = it.action !in listOf("npcDonate", "npcHeal", "npcPotion") || NpcInteractions.blockedReason(s) == null) }
                     .let {
                         if (it.size == 1) listOf(ContextButton("층 클리어", enabled = false), it[0])
                         else it

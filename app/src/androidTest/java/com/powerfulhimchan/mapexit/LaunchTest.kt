@@ -1750,6 +1750,7 @@ class LaunchTest {
     @Test
     fun savedVisitorSchedulePlacesNpcAndMerchantOnTheirOwnThreeOrFourFloorIntervals() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var npcTitle = ""
             scenario.onActivity {
                 val e = GameEngine()
                 e.enterFloor(1)
@@ -1773,9 +1774,10 @@ class LaunchTest {
                 m.x = cell % m.width
                 m.y = cell / m.width
                 e.choose(Choice("NPC", "encounter", Event.NPC.ordinal.toLong()))
+                npcTitle = NpcInteractions.role(e.state).title
                 it.game.refresh()
             }
-            bounds("여행자를 만났습니다")
+            bounds(npcTitle)
             capture("scheduled-npc")
             scenario.onActivity {
                 val e = it.game.engine
@@ -2239,6 +2241,85 @@ class LaunchTest {
             IntArray(480*640).also { image.asAndroidBitmap().getPixels(it,0,480,0,0,480,640) }.toList()
         }
         assertEquals(4,frames.distinct().size)
+    }
+    @Test fun supportNpcDialogsApplyTheirOwnEffectsAndReturnToExploration() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for(role in listOf(NpcRole.BEGGAR,NpcRole.HEALER,NpcRole.HERBALIST)) {
+                var beforeItems=0
+                scenario.onActivity { a ->
+                    val e=GameEngine(State(gold=30,hp=100.0));e.enterFloor(4)
+                    val cell=e.state.dungeon!!.here();cell.event=Event.NPC;cell.npcRole=role;cell.npcGift=true
+                    e.state.quest=Quest("진행 중인 의뢰","kill",5,progress=2)
+                    beforeItems=e.state.inventory.count { it.kind==Kind.POTION }
+                    e.choose(Choice("NPC","encounter",Event.NPC.ordinal.toLong()))
+                    a.game.engine=e;a.game.active=false;a.game.refresh()
+                }
+                bounds(role.title);bounds(NpcInteractions.actionLabel(role));bounds("지나가기")
+                capture("npc-${role.name.lowercase()}")
+                tap(NpcInteractions.actionLabel(role))
+                scenario.onActivity { a ->
+                    val s=a.game.engine.state
+                    assertEquals(Mode.EXPLORE,s.mode);assertTrue(s.dungeon!!.here().resolved)
+                    assertEquals(setOf(4),s.npcServicesUsed)
+                    assertEquals(2,s.quest!!.progress)
+                    assertEquals(if(role==NpcRole.BEGGAR)20 else 30,s.gold)
+                    assertEquals(if(role==NpcRole.HEALER)172.0 else 100.0,s.hp,.001)
+                    assertEquals(beforeItems+if(role==NpcRole.HEALER)0 else 1,s.inventory.count { it.kind==Kind.POTION })
+                }
+            }
+        }
+    }
+
+    @Test fun supportNpcUnavailableReasonsAndDisabledButtonsFitCompactScreen() {
+        val resize=instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
+        ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                for(role in listOf(NpcRole.BEGGAR,NpcRole.HEALER)) {
+                    scenario.onActivity { a ->
+                        val e=GameEngine(State(gold=0));e.enterFloor(4)
+                        val cell=e.state.dungeon!!.here();cell.event=Event.NPC;cell.npcRole=role
+                        e.choose(Choice("NPC","encounter",Event.NPC.ordinal.toLong()))
+                        a.game.engine=e;a.game.active=false;a.game.refresh()
+                        assertNotNull(NpcInteractions.blockedReason(e.state))
+                        assertFalse(e.controls.buttons().first().enabled)
+                    }
+                    bounds(role.title);bounds(NpcInteractions.actionLabel(role));bounds("지나가기")
+                    capture("npc-${role.name.lowercase()}-disabled-compact")
+                    tap(NpcInteractions.actionLabel(role))
+                    scenario.onActivity { a ->
+                        assertEquals(0,a.game.engine.state.gold)
+                        assertFalse(a.game.engine.state.dungeon!!.here().resolved)
+                        assertTrue(a.game.engine.state.npcServicesUsed.isEmpty())
+                    }
+                    tap("지나가기")
+                    scenario.onActivity { assertEquals(Mode.EXPLORE,it.game.engine.state.mode) }
+                }
+            }
+        } finally {
+            val reset=instrumentation.uiAutomation.executeShellCommand("wm size reset")
+            ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
+        }
+    }
+
+    @Test fun allNpcRoleArtworkMatchesTheEncounterAndDoesNotMutateSavedState() {
+        assertEquals(4,NpcRole.entries.map { FineSprites.all.getValue(it.sprite).rows }.distinct().size)
+        for(h in listOf(200,640)) {
+            val image=androidx.compose.ui.graphics.ImageBitmap(480,h)
+            val scope=androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+            val frames=NpcRole.entries.map { role ->
+                val e=GameEngine();e.enterFloor(4)
+                val cell=e.state.dungeon!!.here();cell.event=Event.NPC;cell.npcRole=role
+                e.choose(Choice("NPC","encounter",Event.NPC.ordinal.toLong()))
+                val saved=SaveCodec.encode(e.state)
+                scope.draw(androidx.compose.ui.unit.Density(1f),androidx.compose.ui.unit.LayoutDirection.Ltr,
+                    androidx.compose.ui.graphics.Canvas(image),androidx.compose.ui.geometry.Size(480f,h.toFloat())) { drawScene(e.state,1000) }
+                assertEquals(saved,SaveCodec.encode(e.state))
+                exportBitmap("npc-art-${role.name.lowercase()}-$h",image.asAndroidBitmap())
+                IntArray(480*h).also { image.asAndroidBitmap().getPixels(it,0,480,0,0,480,h) }.toList()
+            }
+            assertEquals(4,frames.distinct().size)
+        }
     }
 
 }
