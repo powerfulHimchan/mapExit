@@ -12,12 +12,31 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.powerfulhimchan.mapexit.core.*
 import java.io.File
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class LaunchTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
+
+    @Before
+    fun startEachScenarioFromItsOwnSurfaceSave() {
+        // Each test seeds its own game after launch. Recreate/cold-load assertions
+        // remain inside that same test, without inheriting another test's live trap.
+        val save = File(instrumentation.targetContext.filesDir, "mapexit-save-v1.json")
+        File(save.path + ".bak").delete()
+        File(save.path + ".new").delete()
+        save.writeText(SaveCodec.encode(State()))
+    }
+
+    private fun clickSemantic(node: AccessibilityNodeInfo?, label: String): Boolean {
+        if (node == null) return false
+        if (node.contentDescription?.toString() == label && node.isEnabled &&
+            node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+        for (i in 0 until node.childCount) if (clickSemantic(node.getChild(i), label)) return true
+        return false
+    }
 
     // The game animates continuously. Waiting for global idleness also waits
     // for short-lived damage/notice animations to disappear before inspecting them.
@@ -490,7 +509,12 @@ class LaunchTest {
             if (matched) return
             SystemClock.sleep(40)
         }
-        fail("Timed out waiting for the automatic game transition")
+        var detail = ""
+        scenario.onActivity {
+            val s = it.game.engine.state
+            detail = "mode=${s.mode}, active=${it.game.active}, trap=${s.trap}"
+        }
+        fail("Timed out waiting for the automatic game transition: $detail")
     }
 
     @Test
@@ -1924,7 +1948,15 @@ class LaunchTest {
                     // Keep the 900 ms result visible while slow accessibility taps return.
                     // The timeout case below still runs on the live game clock.
                     scenario.onActivity { it.game.active = false }
-                    for (b in pattern) tap(if (b == 0) "왼쪽 동작" else "오른쪽 동작")
+                    for ((index, b) in pattern.withIndex()) {
+                        val label = if (b == 0) "왼쪽 동작" else "오른쪽 동작"
+                        bounds(label)
+                        assertTrue("Trap action must be delivered: $label",
+                            clickSemantic(instrumentation.uiAutomation.rootInActiveWindow, label))
+                        scenario.onActivity {
+                            assertEquals(index + 1, it.game.engine.state.trap!!.progress)
+                        }
+                    }
                 }
                 awaitGame(scenario) { it.trap?.phase == TrapPhase.RESULT }
                 scenario.onActivity { assertEquals(type == 0, it.game.engine.state.trap!!.success) }
