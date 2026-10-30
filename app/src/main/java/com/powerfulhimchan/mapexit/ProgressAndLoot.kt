@@ -35,7 +35,26 @@ internal fun ExperienceMeter(s: State) {
 }
 
 @Composable
+internal fun LootRewardRow(vm: GameModel, gear: Gear, showSummary: Boolean = true) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(42.dp).semantics { contentDescription = "획득 아이템 아이콘 · ${gear.name}" }) {
+            ItemArt(gear, Modifier.fillMaxSize())
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(gear.name, color = pale, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold)
+            if (showSummary) Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 15.sp)
+            if (gear.kind != Kind.POTION) LootEquipButton(vm, gear)
+        }
+    }
+}
+
+@Composable
 internal fun LootEquipButton(vm: GameModel, gear: Gear) {
+    vm.revision // Refresh eligibility and worn state even when the row retains the same item instance.
     val s=vm.engine.state
     val worn=gear.id in s.equipment.values
     val enabled=gear.id in s.quickEquipIds && s.inventory.any { it.id==gear.id } && !worn

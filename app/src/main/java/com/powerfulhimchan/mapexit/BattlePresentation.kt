@@ -233,8 +233,11 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                             fontWeight = FontWeight.Bold,
                         )
                         Text("경험치 ${s.experience} / ${s.experienceRequired} · 다음 레벨까지 ${s.experienceRemaining}",color=amber,fontSize=11.sp)
-                        result.rewards.filter { it.kind != Kind.POTION }.forEach { LootEquipButton(vm,it) }
-                        if (result.items.isNotEmpty())
+                        result.rewards.forEach { gear ->
+                            LootRewardRow(vm, gear, showSummary = gear.bossOriginFloor == null)
+                        }
+                        // Old saves may retain reward names without structured item identities.
+                        if (result.rewards.isEmpty() && result.items.isNotEmpty())
                             Text(
                                 "획득: ${result.items.joinToString(", ")}",
                                 color = pale,
@@ -425,25 +428,7 @@ private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifi
             lineHeight = 28.sp,
             fontWeight = FontWeight.Black,
         )
-        loot.items.forEach { gear ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                ItemArt(gear, Modifier.size(42.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        gear.name,
-                        color = pale,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 15.sp)
-                    if(gear.kind != Kind.POTION) LootEquipButton(vm,gear)
-                }
-            }
-        }
+        loot.items.forEach { gear -> LootRewardRow(vm, gear) }
         Text(
             "+${loot.gold} G",
             color = mint,
