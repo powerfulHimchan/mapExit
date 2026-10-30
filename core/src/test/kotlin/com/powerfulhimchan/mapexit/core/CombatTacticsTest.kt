@@ -249,7 +249,7 @@ class CombatTacticsTest {
     fun differentTellPosesCommunicateIntentWithoutChangingTheState() {
         val poses = EnemyIntent.entries.map { BattleAnimation.tell(it, 1000) }
         assertEquals(5, poses.distinct().size)
-        assertTrue(poses[EnemyIntent.HEAVY.ordinal].weaponAngle < -90)
+        assertTrue(poses[EnemyIntent.HEAVY.ordinal].armLift >= 12f)
         assertEquals(1f, poses[EnemyIntent.GUARD.ordinal].guard, 0f)
         assertTrue(poses[EnemyIntent.RECOVER.ordinal].lean > 0)
         assertNotEquals(

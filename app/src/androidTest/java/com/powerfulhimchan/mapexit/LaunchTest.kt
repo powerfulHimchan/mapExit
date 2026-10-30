@@ -1627,6 +1627,13 @@ class LaunchTest {
                 val opening = bounds("빈틈 공격 기회")
                 assertTrue(damage.top >= tell.bottom)
                 assertTrue(damage.top >= opening.bottom)
+                val scene = bounds("메인 장면")
+                val header = bounds("전투 정보")
+                assertTrue(scene.contains(damage))
+                assertTrue(
+                    "Compact header must leave the actors visible",
+                    header.height() < scene.height() / 2,
+                )
                 capture("tactic-break-compact")
             }
             val bitmap = androidx.compose.ui.graphics.ImageBitmap(480, 640)

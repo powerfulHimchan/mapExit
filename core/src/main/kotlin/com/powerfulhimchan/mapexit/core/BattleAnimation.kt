@@ -29,12 +29,13 @@ object BattleAnimation {
         val squash: Float,
         val weaponAngle: Float,
         val guard: Float,
+        val armLift: Float = 0f,
     )
 
     fun tell(intent: EnemyIntent, clock: Long): TellPose {
         val breath = sin((clock % 2400) * PI / 1200).toFloat()
         return when (intent) {
-            EnemyIntent.HEAVY -> TellPose(-14f, breath * .015f, .16f, -120f, 0f)
+            EnemyIntent.HEAVY -> TellPose(-14f, breath * .015f, .16f, -35f, 0f, 16f)
             EnemyIntent.FLURRY ->
                 TellPose(-8f, sin((clock % 600) * PI / 300).toFloat() * .025f, .03f, -55f, 0f)
             EnemyIntent.GUARD -> TellPose(5f, breath * .005f, 0f, -10f, 1f)

@@ -45,6 +45,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
     val density = LocalDensity.current
     var headerHeight by remember(s.battleId) { mutableStateOf(0.dp) }
     BoxWithConstraints(modifier.fillMaxWidth()) {
+        val compactBattle = maxHeight < 300.dp
         if (inBattle) {
             key(s.battleId) {
                 val camera = remember { Animatable(0f) }
@@ -81,11 +82,12 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 Modifier.align(Alignment.TopCenter)
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
                     .fillMaxWidth()
-                    .padding(8.dp)
+                    .padding(if (compactBattle) 4.dp else 8.dp)
                     .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
                     .border(1.dp, line, RoundedCornerShape(6.dp))
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                    .padding(if (compactBattle) 4.dp else 8.dp)
+                    .semantics { contentDescription = "전투 정보" },
+                verticalArrangement = Arrangement.spacedBy(if (compactBattle) 1.dp else 3.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -94,16 +96,16 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     Text(
                         "전투",
                         color = mint,
-                        fontSize = 10.sp,
-                        lineHeight = 13.sp,
+                        fontSize = if (compactBattle) 8.sp else 10.sp,
+                        lineHeight = if (compactBattle) 10.sp else 13.sp,
                         modifier = Modifier.semantics { contentDescription = "3인칭 전투" },
                     )
                     Text(
                         enemy.name,
                         color = pale,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
+                        fontSize = if (compactBattle) 10.sp else 13.sp,
+                        lineHeight = if (compactBattle) 12.sp else 17.sp,
                     )
                 }
                 val health =
@@ -111,33 +113,43 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 Text(
                     health,
                     color = amber,
-                    fontSize = 13.sp,
-                    lineHeight = 17.sp,
+                    fontSize = if (compactBattle) 10.sp else 13.sp,
+                    lineHeight = if (compactBattle) 12.sp else 17.sp,
                     modifier = Modifier.semantics { contentDescription = health },
                 )
                 val plan = motion?.scene?.enemy ?: enemy
                 Text(
-                    "다음 행동 · ${CombatTactics.cue(plan)}",
+                    if (compactBattle) CombatTactics.cue(plan)
+                    else "다음 행동 · ${CombatTactics.cue(plan)}",
                     color = amber,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
+                    fontSize = if (compactBattle) 10.sp else 12.sp,
+                    lineHeight = if (compactBattle) 12.sp else 16.sp,
                     fontWeight = FontWeight.Bold,
                     modifier =
                         Modifier.semantics {
                             contentDescription = "적 행동 예고 ${CombatTactics.cue(plan)}"
                         },
                 )
-                Text(CombatTactics.hint(plan), color = muted, fontSize = 10.sp, lineHeight = 14.sp)
+                Text(
+                    CombatTactics.hint(plan),
+                    color = muted,
+                    fontSize = if (compactBattle) 8.sp else 10.sp,
+                    lineHeight = if (compactBattle) 10.sp else 14.sp,
+                )
                 if (plan.opening)
                     Text(
-                        "빈틈! 피해 +35% · 강공격 명중 +20%p",
+                        if (compactBattle) "빈틈! 다음 공격 강화" else "빈틈! 피해 +35% · 강공격 명중 +20%p",
                         color = mint,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp,
+                        fontSize = if (compactBattle) 8.sp else 10.sp,
+                        lineHeight = if (compactBattle) 10.sp else 14.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.semantics { contentDescription = "빈틈 공격 기회" },
                     )
-                Box(Modifier.fillMaxWidth().height(4.dp).background(line)) {
+                Box(
+                    Modifier.fillMaxWidth()
+                        .height(if (compactBattle) 3.dp else 4.dp)
+                        .background(line)
+                ) {
                     Box(
                         Modifier.fillMaxWidth((enemy.hp / enemy.maxHp).toFloat().coerceIn(0f, 1f))
                             .fillMaxHeight()
@@ -281,6 +293,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                         visible = true
                         rise.animateTo(1f, tween(1200))
                     }
+                    var popupHeight by remember { mutableStateOf(0.dp) }
                     val enemyHit = impact.target == ImpactTarget.ENEMY
                     val avoided =
                         impact.outcome in
@@ -291,12 +304,20 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     if (visible)
                         Column(
                             modifier =
-                                Modifier.offset(
+                                Modifier.onSizeChanged {
+                                        popupHeight = with(density) { it.height.toDp() }
+                                    }
+                                    .offset(
                                         x = maxWidth * (if (enemyHit) .48f else .05f),
                                         y =
                                             (maxHeight * (if (enemyHit) .34f else .62f) -
                                                     24.dp * rise.value)
-                                                .coerceAtLeast(headerHeight + 4.dp),
+                                                .coerceAtLeast(headerHeight + 4.dp)
+                                                .coerceAtMost(
+                                                    (maxHeight - popupHeight - 4.dp).coerceAtLeast(
+                                                        0.dp
+                                                    )
+                                                ),
                                     )
                                     .widthIn(max = maxWidth * .50f)
                                     .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
@@ -305,7 +326,10 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                         if (impact.critical) popupColor else line,
                                         RoundedCornerShape(6.dp),
                                     )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .padding(
+                                        horizontal = if (compactBattle) 6.dp else 8.dp,
+                                        vertical = if (compactBattle) 3.dp else 4.dp,
+                                    )
                                     .semantics(mergeDescendants = true) {
                                         contentDescription =
                                             "${if(enemyHit) "적" else "플레이어"} 피해 ${impact.label()}"
@@ -316,32 +340,54 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                 Text(
                                     "완전 방어",
                                     color = mint,
-                                    fontSize = 14.sp,
+                                    fontSize = if (compactBattle) 10.sp else 14.sp,
                                     fontWeight = FontWeight.Bold,
                                 )
                             if (impact.critical)
                                 Text(
                                     "치명타!",
                                     color = popupColor,
-                                    fontSize = 14.sp,
+                                    fontSize = if (compactBattle) 10.sp else 14.sp,
                                     fontWeight = FontWeight.Black,
                                 )
                             if (impact.tactic.isNotEmpty())
-                                Text(impact.tactic, color = mint, fontSize = 10.sp)
+                                Text(
+                                    impact.tactic,
+                                    color = mint,
+                                    fontSize = if (compactBattle) 8.sp else 10.sp,
+                                )
                             if (impact.luckyAttack)
-                                Text("행운 · 공격 강화", color = mint, fontSize = 10.sp)
+                                Text(
+                                    "행운 · 공격 강화",
+                                    color = mint,
+                                    fontSize = if (compactBattle) 8.sp else 10.sp,
+                                )
                             if (impact.luckyCritical)
-                                Text("행운 · 치명 확률 강화", color = mint, fontSize = 10.sp)
+                                Text(
+                                    "행운 · 치명 확률 강화",
+                                    color = mint,
+                                    fontSize = if (compactBattle) 8.sp else 10.sp,
+                                )
                             Text(
                                 if (impact.outcome == ImpactOutcome.BLOCK) "0"
-                                else if (avoided) impact.label() else "-${impact.amount}",
+                                else if (impact.outcome == ImpactOutcome.DODGE) "회피"
+                                else if (impact.outcome == ImpactOutcome.MISS) "빗나감"
+                                else "-${impact.amount}",
                                 color = popupColor,
-                                fontSize = if (impact.critical) 32.sp else 25.sp,
-                                lineHeight = if (impact.critical) 36.sp else 30.sp,
+                                fontSize =
+                                    if (compactBattle) 18.sp
+                                    else if (impact.critical) 32.sp else 25.sp,
+                                lineHeight =
+                                    if (compactBattle) 22.sp
+                                    else if (impact.critical) 36.sp else 30.sp,
                                 fontWeight = FontWeight.Black,
                             )
                             if (impact.outcome == ImpactOutcome.GUARD && !impact.critical)
-                                Text("방어", color = popupColor, fontSize = 10.sp)
+                                Text(
+                                    "방어",
+                                    color = popupColor,
+                                    fontSize = if (compactBattle) 8.sp else 10.sp,
+                                )
                         }
                 }
             }

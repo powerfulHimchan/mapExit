@@ -911,7 +911,10 @@ class GameEngine(
             enemy.opening = guardBreak
             CombatTactics.advance(enemy)
             s.mode = Mode.COMBAT_ATTACK
-            s.note(s.message + if (guardBreak) " · 적 공격 취소 · 다음 공격 강화" else " · 적은 숨을 고릅니다")
+            s.note(
+                if (guardBreak) "방패 파괴! 다음 공격 강화"
+                else if (hit) "빈틈 공격! ${damage.roundToInt()} 피해 · 반격 없음" else "공격이 빗나갔습니다 · 적은 휴식 중"
+            )
         } else s.mode = Mode.COMBAT_DEFEND
         s.selection = 0
     }

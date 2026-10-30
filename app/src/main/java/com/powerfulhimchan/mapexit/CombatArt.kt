@@ -227,7 +227,11 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
             if (showingTell && tell.guard > 0f && type in listOf("knight", "boss"))
                 sprite("shield", ex - unit * 2, ey + unit * 17, unit * 25)
             if (type in listOf("knight", "boss")) {
-                val hand = Offset(ex + unit * 8 - advance * unit * 4, ey + unit * 28)
+                val hand =
+                    Offset(
+                        ex + unit * 8 - advance * unit * 4,
+                        ey + unit * (28 - if (showingTell) tell.armLift else 0f),
+                    )
                 arm(Offset(ex + unit * 12, ey + unit * 22), hand, unit)
                 heldWeapon(
                     if (type == "boss") Kind.HAMMER else Kind.SWORD,
