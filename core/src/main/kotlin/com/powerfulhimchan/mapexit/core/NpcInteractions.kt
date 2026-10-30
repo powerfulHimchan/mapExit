@@ -61,7 +61,7 @@ object NpcInteractions {
             NpcRole.HERBALIST -> "“직접 만든 회복약이에요. 필요할 때 쓰세요.”\n회복약 1개를 받습니다. 가방에서 사용하면 최대 체력의 35%를 회복합니다."
             else -> ""
         }
-        return blockedReason(state)?.let { "$body\n\n$it" } ?: body
+        return blockedReason(state)?.let { "$it\n\n$body" } ?: body
     }
 
     /** Validate again at mutation time; repeated/stale taps cannot consume or reward twice. */

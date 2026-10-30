@@ -46,7 +46,7 @@ class NpcInteractionsTest {
             val e=fixture(NpcRole.BEGGAR,gold=gold,gift=true)
             val items=e.state.inventory.toList();val rng=e.state.rng
             assertFalse(e.controls.buttons().first().enabled)
-            assertTrue(NpcInteractions.description(e.state).contains("골드가 부족"))
+            assertTrue(NpcInteractions.description(e.state).startsWith("골드가 부족"))
             e.press(0);choose(e,"npcDonate")
             assertEquals(gold,e.state.gold);assertEquals(items,e.state.inventory)
             assertEquals(rng,e.state.rng);assertFalse(e.state.dungeon!!.here().resolved)
@@ -71,7 +71,7 @@ class NpcInteractionsTest {
     @Test fun healerCannotBeWastedAtFullHpAndRemainsAvailableAfterDeclining() {
         val e=fixture(NpcRole.HEALER,hp=360.0)
         assertFalse(e.controls.buttons().first().enabled)
-        assertTrue(NpcInteractions.description(e.state).contains("체력이 가득"))
+        assertTrue(NpcInteractions.description(e.state).startsWith("체력이 가득"))
         e.press(0);choose(e,"npcHeal")
         assertFalse(e.state.dungeon!!.here().resolved)
         assertTrue(e.state.npcServicesUsed.isEmpty())
