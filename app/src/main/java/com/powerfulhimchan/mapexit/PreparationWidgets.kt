@@ -146,7 +146,6 @@ internal fun PreparationMenuGrid(vm: GameModel) {
             "성장" to "growth",
             "보관소" to "bank",
             "기록" to "help",
-            "도감" to "bestiary",
         )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         menus.chunked(3).forEach { row ->

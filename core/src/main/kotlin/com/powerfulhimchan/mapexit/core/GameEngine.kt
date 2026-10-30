@@ -191,7 +191,6 @@ class GameEngine(
                     add(c("골드 보관소", "bank"))
                     add(c("지상 상점", "shop"))
                     add(c("기록 / 도움말", "help"))
-                    add(c("몬스터 도감", "bestiary"))
                     add(c("테스트 메뉴", "training"))
                     if (debugTools) add(c("개발용 테스트", "debug"))
                 }
@@ -221,7 +220,6 @@ class GameEngine(
                     add(c("성장 배분 (${s.points})", "growth"))
                     add(c("장착 현황", "equipment"))
                     add(c("미션 / 기록", "help"))
-                    add(c("몬스터 도감", "bestiary"))
                     if (s.debug) add(c("개발용 테스트", "debug"))
                 }
             Mode.MOVING -> listOf(c("이동 중 · 멈추기", "stop"), c("지상으로 · 탐험 포기", "retreat"))
@@ -454,7 +452,7 @@ class GameEngine(
     /** Header shortcuts stop automatic walking before opening a real menu. */
     fun openDungeonPanel(type: String): Boolean {
         if (
-            type !in listOf("equipment", "growth", "inventory", "help", "bestiary") ||
+            type !in listOf("equipment", "growth", "inventory", "help") ||
                 state.dungeon == null ||
                 state.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)
         )

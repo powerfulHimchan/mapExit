@@ -2181,13 +2181,13 @@ class LaunchTest {
             bounds("능력치의 영향",allowScroll=true)
             capture("growth-stat-explanations")
             scenario.onActivity { a ->
-                val e=a.game.engine;e.navigateBack();e.openDungeonPanel("bestiary");a.game.refresh()
+                val e=a.game.engine;e.navigateBack();e.openDungeonPanel("help");e.choose(e.choices().first { it.action=="bestiary" });a.game.refresh()
             }
             bounds("발견한 몬스터 1종");bounds(name)
             capture("bestiary-discovered")
             scenario.onActivity { a ->
                 assertEquals(1,a.game.engine.state.bestiary.values.single().encounters)
-                val e=a.game.engine;e.navigateBack();e.openDungeonPanel("equipment");a.game.refresh()
+                val e=a.game.engine;e.navigateBack();e.navigateBack();assertTrue(e.openDungeonPanel("equipment"));a.game.refresh()
             }
             bounds("돌아가기",allowScroll=true)
             capture("equipment-back-fixed")
@@ -2319,6 +2319,100 @@ class LaunchTest {
                 IntArray(480*h).also { image.asAndroidBitmap().getPixels(it,0,480,0,0,480,h) }.toList()
             }
             assertEquals(4,frames.distinct().size)
+        }
+    }
+    @Test fun bestiaryLivesInsideRecordsAndReturnsToRecordsOnBack() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a -> a.game.engine=GameEngine();a.game.active=false;a.game.refresh() }
+            bounds("출정 준비")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow,"도감"))
+            scenario.onActivity { assertFalse(it.game.engine.choices().any { c->c.action=="bestiary" }) }
+            tap("기록")
+            bounds("탐험 기록");bounds("몬스터 도감",allowScroll=true)
+            capture("records-bestiary-entry")
+            tap("몬스터 도감",allowScroll=true)
+            bounds("발견한 몬스터 0종")
+            tap("돌아가기");bounds("탐험 기록")
+            tap("돌아가기");bounds("출정 준비")
+            scenario.onActivity { a -> a.game.engine.enterFloor(1);a.game.engine.openDungeonPanel("help");a.game.refresh() }
+            tap("몬스터 도감",allowScroll=true)
+            bounds("발견한 몬스터 0종")
+            tap("돌아가기");bounds("탐험 기록")
+        }
+    }
+
+    @Test fun realVictoryRewardShowsItsItemIconAndEquipsWithoutClosingTheResult() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var reward: Gear?=null
+            var equipLabel=""
+            var beforeItems=0
+            scenario.onActivity { a ->
+                val e=GameEngine(State(experience=79));e.enterFloor(1);e.startBattle(false,elite=true)
+                e.state.enemy!!.hp=1.0;e.state.rng=0;e.attack(false)
+                assertEquals(Mode.VICTORY,e.state.mode)
+                reward=e.state.battleResult!!.rewards.single()
+                beforeItems=e.state.inventory.size
+                equipLabel="바로 장착 · ${Equipment.quickSlot(e.state,reward!!)!!.label} · ${reward!!.name}"
+                a.game.engine=e;a.game.active=false;a.game.refresh()
+            }
+            bounds("전투 승리")
+            val icon=bounds("획득 아이템 아이콘 · ${reward!!.name}",allowScroll=true)
+            val name=bounds(reward!!.name,allowScroll=true)
+            assertTrue(icon.centerX()<name.centerX())
+            bounds(equipLabel,allowScroll=true)
+            capture("victory-item-card")
+            tap(equipLabel,allowScroll=true)
+            bounds("[착용중] · ${reward!!.name}",allowScroll=true)
+            capture("victory-item-equipped")
+            scenario.onActivity { a ->
+                val e=a.game.engine
+                assertEquals(Mode.VICTORY,e.state.mode)
+                assertEquals(beforeItems,e.state.inventory.size)
+                assertTrue(reward!!.id in e.state.equipment.values)
+                assertEquals(reward,e.state.battleResult!!.rewards.single())
+                val cold=GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
+                assertEquals(Mode.VICTORY,cold.state.mode)
+                assertTrue(reward!!.id in cold.state.equipment.values)
+                assertEquals(e.state.levelUpNotice,cold.state.levelUpNotice)
+            }
+            tap("결과 확인 · 계속")
+            scenario.onActivity { assertTrue(reward!!.id in it.game.engine.state.equipment.values) }
+        }
+    }
+
+    @Test fun compactVictoryCanShowEveryRewardAndPotionsHaveNoEquipAction() {
+        val resize=instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
+        ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                var rewards=listOf<Gear>()
+                scenario.onActivity { a ->
+                    val e=GameEngine();e.enterFloor(1)
+                    rewards=listOf(ItemFactory.create(e.state,Kind.SPEAR,variantId="halberd"),
+                        ItemFactory.create(e.state,Kind.RING),ItemFactory.create(e.state,Kind.POTION))
+                    e.state.inventory.addAll(rewards)
+                    e.state.quickEquipIds=rewards.filter { it.kind!=Kind.POTION }.map { it.id }
+                    e.state.mode=Mode.VICTORY
+                    e.state.battleResult=BattleResult(Enemy("시험 몬스터",100.0,0.0,10.0,1.0,1.0),24,30,rewards.map { it.name },Mode.EXPLORE,rewards)
+                    a.game.engine=e;a.game.active=false;a.game.refresh()
+                }
+                for(gear in rewards) {
+                    bounds("획득 아이템 아이콘 · ${gear.name}",allowScroll=true)
+                    bounds(gear.name,allowScroll=true)
+                }
+                capture("victory-multiple-items-compact")
+                scenario.onActivity { a ->
+                    val potion=rewards.last()
+                    assertFalse(a.game.engine.lootChoices().any { it.argument==potion.id })
+                    assertTrue(a.game.engine.state.inventory.any { it.id==potion.id })
+                }
+                val next=bounds("결과 확인 · 계속")
+                val screenshot=instrumentation.uiAutomation.takeScreenshot()!!
+                assertTrue(next.bottom<=screenshot.height)
+            }
+        } finally {
+            val reset=instrumentation.uiAutomation.executeShellCommand("wm size reset")
+            ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
         }
     }
 
