@@ -384,11 +384,13 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
     ) {
         Text(
             b.label,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
             fontSize = 16.sp,
             lineHeight = 21.sp,
             color = if (b.enabled) pale else muted,
             fontWeight = FontWeight.Bold,
-            maxLines = 1,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            maxLines = 2,
         )
     }
 }

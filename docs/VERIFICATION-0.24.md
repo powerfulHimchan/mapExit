@@ -10,6 +10,6 @@ Roles and the beggar gift are fixed per cycle/floor and persisted on the map. Re
 
 Quest NPCs retain existing offer, acceptance and reward behavior. Support NPCs neither offer/replace quests nor claim an existing completed quest. Old save cells default to quest travelers, retaining their current offers. New role fields and service records have backwards-compatible defaults.
 
-Each role has its own authored clothing/props, title, dialogue and action label in both dungeon and encounter scenes. Unavailable actions stay visible but disabled, with a caption explaining insufficient gold or full HP. All three are accessible from the training menu with isolated training resources.
+Each role has its own authored clothing/props, title, dialogue and action label in both dungeon and encounter scenes. Unavailable actions stay visible but disabled, with the reason shown before the dialogue. Action labels wrap to two centered lines on compact screens. All three are accessible from the training menu with isolated training resources.
 
 Validation: authored-atlas check, core tests (role/action isolation, costs/rewards, healing cap, save/revisit/inheritance, stable roles/gifts, approximate distribution, legacy saves and training restoration), Android lint, APK build, and Android 11 instrumentation tests including normal and compact NPC dialogs and distinct role rendering. CI is authoritative for the current result.
