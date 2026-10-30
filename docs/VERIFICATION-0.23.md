@@ -13,8 +13,9 @@ Scope: ten requests approved for implementation. Achievement conditions/rewards 
 
 Validation is performed by the Android verification workflow: authored atlas check, all core tests, Android lint, debug APK assembly and emulator instrumentation tests. New regression tests cover records, serialization, training, inheritance, map species, face orientation, projection caps, growth healing and artwork identity.
 
-## Current verification status
+## Validation
 
-- Passed locally: authored-atlas consistency, 20 distinct weapon silhouettes, 30 distinct ordinary monster sprites, palette bounds and git whitespace checks.
-- Pending: Kotlin compilation, core tests, Android lint, APK assembly, and emulator tests. This workspace has no Android/Kotlin/Gradle toolchain.
-- Repository upload and main merge are authorized. CI validation is required before merging.
+Local authored-atlas, distinct-silhouette, palette-bound and whitespace checks pass.
+Kotlin compilation, all core tests, Android lint, APK assembly and emulator tests are
+checked in the Android verification workflow before main merge. The workflow run
+linked from the pull request is the source of truth for the current result.

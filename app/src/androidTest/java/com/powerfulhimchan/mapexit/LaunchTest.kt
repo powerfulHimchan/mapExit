@@ -126,7 +126,7 @@ class LaunchTest {
 
     private fun assertVictoryClearsDamage(scenario: ActivityScenario<MainActivity>) {
         var popupLabel = ""
-        scenario.onActivity { popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+        scenario.onActivity { popupLabel = "몬스터 피해 ${it.game.engine.state.lastImpact!!.label()}" }
         bounds("전투 종료 · 보상을 확인하고 계속하세요")
         assertNull(
             "Finished combat must not retain the final damage popup",
@@ -330,7 +330,7 @@ class LaunchTest {
             capture("third-person")
             tap("일반 공격")
             var popup = ""
-            scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+            scenario.onActivity { popup = "몬스터 피해 ${it.game.engine.state.lastImpact!!.label()}" }
             bounds(popup)
             capture("enemy-damage")
             tap("방어")
@@ -679,7 +679,7 @@ class LaunchTest {
                 assertEquals(serial, e.state.impactSequence)
                 assertEquals(Mode.COMBAT_DEFEND, e.state.mode)
                 assertTrue(e.state.lastImpact!!.critical)
-                popup = "적 피해 ${e.state.lastImpact!!.label()}"
+                popup = "몬스터 피해 ${e.state.lastImpact!!.label()}"
             }
             bounds(popup)
             capture("critical-enemy")
@@ -1667,7 +1667,7 @@ class LaunchTest {
                 bounds("몬스터 행동 예고 방패를 세웁니다")
                 tap("강공격")
                 var popup = ""
-                scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+                scenario.onActivity { popup = "몬스터 피해 ${it.game.engine.state.lastImpact!!.label()}" }
                 val damage = bounds(popup)
                 val tell = bounds("몬스터 행동 예고 검을 높이 들어 올립니다")
                 val opening = bounds("빈틈 공격 기회")
@@ -1739,7 +1739,7 @@ class LaunchTest {
                     assertEquals(crit, e.stats().crit, .0001)
                     assertEquals(seed == 11L, e.state.lastImpact!!.luckyAttack)
                     assertEquals(seed == 11L, e.state.lastImpact!!.luckyCritical)
-                    label = "적 피해 ${e.state.lastImpact!!.label()}"
+                    label = "몬스터 피해 ${e.state.lastImpact!!.label()}"
                 }
                 bounds(label)
                 capture(if (seed == 11L) "luck-active" else "luck-inactive")
