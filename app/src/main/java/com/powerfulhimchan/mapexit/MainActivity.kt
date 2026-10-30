@@ -79,6 +79,12 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         if (serial == goldNoticeSerial) goldNoticeVisible = false
     }
 
+    fun dismissAchievementNotices(ids: List<String>) {
+        engine.state.achievements.notices.removeAll(ids.toSet())
+        save()
+        refresh()
+    }
+
     fun dismissChestLoot() {
         engine.state.chestLoot = null
         save()
@@ -193,6 +199,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                         "guard",
                         "dodge",
                         "potion",
+                        "strongPotion",
                         "flee",
                         "battleContinue",
                         "runContinue",

@@ -62,7 +62,7 @@ class ShopComparisonTest {
     fun recordsExposeBestiaryAndBackAndBattleEntryHasNoCameraDescription() {
         val e = GameEngine()
         e.choose(e.choices().first { it.action == "help" })
-        assertEquals(listOf("bestiary", "back"), e.choices().map { it.action })
+        assertEquals(listOf("bestiary", "achievements", "back"), e.choices().map { it.action })
         e.choose(e.choices().first { it.action == "bestiary" })
         assertEquals("bestiary", e.state.menu?.type)
         assertEquals(listOf("back"), e.choices().map { it.action })

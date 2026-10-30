@@ -174,7 +174,7 @@ class ContextControlsTest {
         assertEquals(Mode.EXPLORE, e.state.mode)
         assertTrue(e.openDungeonPanel("help"))
         assertEquals("help", e.state.menu!!.type)
-        assertEquals(listOf("bestiary", "back"), e.choices().map { it.action })
+        assertEquals(listOf("bestiary", "achievements", "back"), e.choices().map { it.action })
         e.navigateBack()
         assertEquals(Mode.EXPLORE, e.state.mode)
     }

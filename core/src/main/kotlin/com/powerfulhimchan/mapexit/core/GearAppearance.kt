@@ -9,6 +9,8 @@ object GearAppearance {
                 ?: WeaponCatalog.of(gear.kind).first()
             return "weapon_${variant.id}"
         }
+        if (gear.kind == Kind.POTION && gear.potionGrade == PotionGrade.GREATER) return "potion_greater"
+        if (gear.kind == Kind.RING && gear.variantId == "exit-seal") return "ring_exit_seal"
         if (gear.kind == Kind.RING) {
             val names = listOf("전사의", "바람의", "광기의", "사냥꾼의", "행운의", "수호의")
             return "ring_${names.indexOfFirst { gear.name.startsWith(it) }.coerceAtLeast(0)}"

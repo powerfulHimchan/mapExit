@@ -155,6 +155,10 @@ object Equipment {
 }
 
 object ItemFactory {
+    fun potion(s: State, grade: PotionGrade): Gear = Gear(
+        s.nextId++, Kind.POTION, grade.label, price = grade.price, potionGrade = grade,
+    )
+
     fun create(
         s: State,
         kind: Kind? = null,
@@ -163,6 +167,8 @@ object ItemFactory {
     ): Gear {
         val k = kind ?: Kind.entries[s.nextInt(Kind.entries.size)]
         val tier = (1 + (floor - 1) / 10 + s.nextInt(2)).coerceAtMost(7)
+        if (k == Kind.POTION && kind == null && floor >= 11 && s.random() < .25)
+            return potion(s, PotionGrade.GREATER)
         val t = tier.toDouble()
         var f = Stats.zero()
         var p = Stats.zero()
