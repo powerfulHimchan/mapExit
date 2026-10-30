@@ -246,7 +246,7 @@ class LaunchTest {
                     }
                 assertTrue(index >= 0)
                 val b = it.game.engine.controls.buttons()[index]
-                movementLabel = "${if(index==0) "A" else "B"} ${b.label}"
+                movementLabel = b.label
             }
             tap(movementLabel)
             scenario.onActivity {
