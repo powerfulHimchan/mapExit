@@ -71,7 +71,7 @@ internal fun EncounterCaption(vm: GameModel, modifier: Modifier) {
 internal fun DrawScope.drawEncounter(s: State, clock: Long) {
     val w = size.width
     val h = size.height
-    arena(clock, .52f)
+    arena(clock, .52f, s.floor)
     adventurer(s, w * .17f, h * .94f, min(w * .30f, h * .25f))
     if (s.encounter == Event.CHEST) {
         val width = w * .23f

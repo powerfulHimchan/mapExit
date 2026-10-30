@@ -126,12 +126,12 @@ class EncounterFlowTest {
         assertEquals(Mode.ENCOUNTER, e.state.menu!!.returnMode)
         choose(e, "sellMenu")
         val row = e.choices().first { it.action == "sell" && it.argument == sword.id }
-        assertTrue(row.label.contains("장착 중: 오른손"))
+        assertTrue(row.label.contains("[착용중] · 오른손"))
         assertFalse(
             e.choices()
                 .first { it.action == "sell" && it.argument == duplicate.id }
                 .label
-                .contains("장착 중")
+                .contains("[착용중]")
         )
         val gold = e.state.gold
         e.choose(row)
@@ -212,14 +212,13 @@ class EncounterFlowTest {
                 0,
                 3 -> t.pattern.forEach { e.press(it) }
                 1 -> {
-                    advance(e, (t.target * 1000).toLong())
-                    e.press(t.pattern[0])
+                    advance(e, t.limitMs / 2)
+                    e.press(0)
                 }
                 2 -> repeat(t.required) { e.press(t.pattern[0]) }
                 4 -> {
-                    e.rawDown(t.pattern[0])
-                    advance(e, t.signalMs)
-                    e.rawUp(t.pattern[0])
+                    advance(e, t.limitMs / 2)
+                    e.press(1)
                 }
             }
             assertTrue("trap $type", t.success)

@@ -39,6 +39,7 @@ internal fun DrawScope.sprite(
     color: Color = pale,
     flash: Color? = null,
     articulated: Boolean = false,
+    opacity: Float = 1f,
 ) {
     val art = FineSprites.all[type] ?: FineSprites.all.getValue("npc")
     val unit = spriteUnit(width)
@@ -49,6 +50,7 @@ internal fun DrawScope.sprite(
             dstOffset = IntOffset(x.roundToInt(), y.roundToInt()),
             dstSize = IntSize((art.width * unit).toInt(), (art.height * unit).toInt()),
             filterQuality = FilterQuality.None,
+            alpha = opacity.coerceIn(0f,1f),
             colorFilter =
                 flash?.let {
                     androidx.compose.ui.graphics.ColorFilter.tint(
@@ -100,19 +102,15 @@ internal fun DrawScope.adventurer(
     armed: Boolean = true,
     hitTint: Color? = null,
     articulated: Boolean = false,
+    shadow: Boolean = true,
+    stride: Float = 0f,
 ): HeroPose {
     val unit = spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
-    contactShadow(x, baseline + 3, actual)
-    sprite(
-        if (back) "heroBack" else "hero",
-        x,
-        y,
-        actual,
-        flash = hitTint,
-        articulated = articulated,
-    )
+    if(shadow) contactShadow(x, baseline + 3, actual)
+    combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride)
+
     if (back && armed) {
         val weapon = Equipment.equipped(s).firstOrNull { it.weapon }
         weapon?.let {
@@ -141,7 +139,7 @@ internal fun DrawScope.drawScene(
     drawRect(ink)
     when {
         s.mode == Mode.ENCOUNTER -> drawEncounter(s, clock)
-        s.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE) -> s.trap?.let { drawTrap(it) }
+        s.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE) -> s.trap?.let { drawObstacle(s, clock) }
         s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) ->
             drawAnimatedBattle(s, clock, battle)
         s.floor == 0 || s.mode == Mode.INHERIT -> drawCamp(s, clock)
@@ -187,21 +185,22 @@ private fun DrawScope.drawCamp(s: State, clock: Long) {
     }
 }
 
-internal fun DrawScope.arena(clock: Long, horizon: Float = .45f) {
+internal fun DrawScope.arena(clock: Long, horizon: Float = .45f, floor: Int = 1) {
+    val theme = DungeonTheme.forFloor(floor)
     val w = size.width
     val h = size.height
-    masonry(0f, 0f, w, h * horizon, Color(0xff30434b))
+    masonry(0f, 0f, w, h * horizon, Color(theme.wall), theme)
     for (x in listOf(.06f, .88f)) {
-        pixelRect(Color(0xff182b35), w * x + 3, h * .08f, w * .05f, h * (horizon - .08f))
-        pixelRect(Color(0xff566b72), w * x, h * .08f, w * .045f, h * (horizon - .08f))
+        pixelRect(Color(theme.grout), w * x + 3, h * .08f, w * .05f, h * (horizon - .08f))
+        pixelRect(Color(theme.wall), w * x, h * .08f, w * .045f, h * (horizon - .08f))
         pixelRect(Color(0xff8a9792), w * x, h * .08f, 2f, h * (horizon - .08f))
         for (row in 0..6) pixelRect(line, w * x, h * (.10f + row * .05f), w * .045f, 2f)
     }
-    stoneFloor(horizon)
+    stoneFloor(horizon, theme)
     pixelRect(Color(0xff101d26), 0f, h * horizon - 3, w, 5f)
     pixelRect(Color(0xff66736d), 0f, h * horizon - 4, w, 1f)
-    torch(w * .15f, h * .29f, clock)
-    torch(w * .82f, h * .29f, clock + 170)
+    torch(w * .15f, h * .29f, clock, Color(theme.light))
+    torch(w * .82f, h * .29f, clock + 170, Color(theme.light))
 }
 
 internal fun DrawScope.drawMap(s: State) {
@@ -230,6 +229,7 @@ internal fun DrawScope.drawMap(s: State) {
             val color =
                 when (c.event) {
                     Event.MONSTER -> red
+                    Event.ELITE -> amber
                     Event.CHEST -> amber
                     Event.HEAL -> mint
                     Event.MERCHANT -> Color(0xFFBA9DDA)
@@ -268,122 +268,5 @@ private fun DrawScope.glyph(letter: Char, x: Float, y: Float, unit: Float, color
         s.forEachIndexed { col, c ->
             if (c == '1') pixelRect(color, x + col * unit, y + row * unit, unit, unit)
         }
-    }
-}
-
-private fun DrawScope.plate(x: Float, y: Float, w: Float, h: Float, accent: Color = line) {
-    pixelRect(Color(0xff101c25), x, y, w, h)
-    pixelRect(Color(0xff53656d), x + 2, y + 2, w - 4, 2f)
-    pixelRect(Color(0xff354953), x + 2, y + 4, 2f, h - 8)
-    pixelRect(accent, x + 4, y + h - 4, w - 8, 1f)
-    for (px in listOf(x + 5, x + w - 7)) for (py in listOf(y + 6, y + h - 8)) {
-        pixelRect(amber, px, py, 2f, 2f)
-        pixelRect(Color(0xff624c32), px + 1, py + 1, 1f, 1f)
-    }
-}
-
-private fun DrawScope.drawTrap(t: TrapState) {
-    val w = size.width
-    val h = size.height
-    masonry(0f, 0f, w, h, Color(0xff263942))
-    for (x in listOf(.04f, .94f)) {
-        pixelRect(Color(0xff101c25), w * x, h * .06f, 8f, h * .88f)
-        for (i in 0..15) {
-            pixelRect(Color(0xff56636a), w * x, h * .07f + i * h * .055f, 5f, 10f)
-            pixelRect(Color(0xff83908c), w * x + 1, h * .07f + i * h * .055f, 1f, 6f)
-        }
-    }
-    plate(w * .08f, h * .14f, w * .84f, h * .69f)
-    if (t.phase == TrapPhase.RESULT) {
-        val c = if (t.success) mint else red
-        for (i in 0..3) {
-            val inset = i * 7f
-            pixelRect(
-                c.copy(alpha = .08f + i * .025f),
-                w * .24f + inset,
-                h * .28f + inset,
-                w * .52f - inset * 2,
-                h * .39f - inset * 2,
-            )
-        }
-        return
-    }
-    if (t.phase == TrapPhase.PREPARE) {
-        for (i in 0..2) plate(
-            w * (.30f + i * .14f),
-            h * .37f,
-            w * .10f,
-            h * .16f,
-            if (t.elapsedMs > i * 330) amber else line,
-        )
-        return
-    }
-    when (t.type) {
-        0,
-        3 -> {
-            val reveal = t.type == 0 || t.phase == TrapPhase.REVEAL
-            val cell = w * .78f / t.pattern.size
-            t.pattern.forEachIndexed { i, b ->
-                val x = w * .11f + i * cell
-                val tileW = cell - 6
-                val color = if (i < t.progress) mint else if (reveal) amber else muted
-                plate(x, h * .36f, tileW, h * .23f, color)
-                val unit = min(tileW / 9, h * .23f / 11).toInt().coerceAtLeast(1).toFloat()
-                glyph(
-                    if (i < t.progress) '+' else if (reveal) if (b == 0) 'A' else 'B' else '?',
-                    x + (tileW - unit * 5) / 2,
-                    h * .36f + (h * .23f - unit * 7) / 2,
-                    unit,
-                    color,
-                )
-            }
-        }
-        1 -> {
-            plate(w * .10f, h * .39f, w * .80f, h * .19f)
-            pixelRect(
-                mint.copy(alpha = .7f),
-                w * (.12f + .76f * (t.target - t.targetWidth / 2).toFloat()),
-                h * .42f,
-                w * .76f * t.targetWidth.toFloat(),
-                h * .12f,
-            )
-            for (i in 0..20) pixelRect(muted, w * (.12f + i * .038f), h * .57f, 1f, 3f)
-            val x = w * (.12f + .76f * t.position().toFloat())
-            pixelRect(amber, x, h * .37f, 3f, h * .23f)
-            pixelRect(pale, x + 1, h * .39f, 1f, h * .18f)
-        }
-        2 -> {
-            val count = t.required
-            val cell = w * .72f / count
-            for (i in 0 until count) {
-                val x = w * .14f + i * cell
-                plate(x, h * .37f, cell - 5, h * .23f, if (i < t.progress) mint else amber)
-                if (i < t.progress) pixelRect(mint, x + 5, h * .43f, cell - 15, h * .10f)
-            }
-        }
-        4 -> {
-            val c = if (t.signal()) mint else amber
-            plate(w * .30f, h * .29f, w * .40f, h * .38f, c)
-            val unit = min(w * .40f / 10, h * .38f / 11).toInt().coerceAtLeast(1).toFloat()
-            glyph(
-                if (t.pattern[0] == 0) 'A' else 'B',
-                w * .50f - unit * 2.5f,
-                h * .48f - unit * 3.5f,
-                unit,
-                c,
-            )
-            if (t.signal())
-                for (i in 0..3) pixelRect(mint, w * (.24f + i * .16f), h * .71f, w * .05f, 3f)
-        }
-    }
-    if (t.phase == TrapPhase.ACTIVE) {
-        pixelRect(line, w * .14f, h * .77f, w * .72f, 4f)
-        pixelRect(
-            amber,
-            w * .14f,
-            h * .77f,
-            w * .72f * (1 - t.elapsedMs.toFloat() / t.limitMs).coerceIn(0f, 1f),
-            3f,
-        )
     }
 }

@@ -9,6 +9,9 @@ object MapGenerator {
     fun generate(s: State, floor: Int, size: Int = 15): Dungeon {
         val n = if (size % 2 == 0) size + 1 else size
         require(n >= 9 && n <= 31)
+        // Persist one schedule for the cycle; revisiting or changing map seeds cannot reroll
+        // visitors.
+        val visitorSeed = s.visitorSeed ?: s.rng.also { s.visitorSeed = it }
         val map = Dungeon(n, n, MutableList(n * n) { Cell() })
         fun carve(x: Int, y: Int) {
             map.cell(x, y).wall = false
@@ -32,9 +35,15 @@ object MapGenerator {
         val distance = distances(map, 1, 1)
         val exit = distance.indices.maxBy { distance[it] }
         map.cells[exit].event = Event.EXIT
+        val elite = if (floor % 5 == 0) {
+            val x = exit % n; val y = exit / n
+            (0..3).map { d -> (y + dy[d]) * n + x + dx[d] }
+                .first { it in map.cells.indices && !map.cells[it].wall && distance[it] == distance[exit] - 1 }
+                .also { map.cells[it].event = Event.ELITE }
+        } else -1
         val spaces =
             map.cells.indices
-                .filter { !map.cells[it].wall && it != n + 1 && it != exit }
+                .filter { !map.cells[it].wall && it != n + 1 && it != exit && it != elite }
                 .toMutableList()
         fun place(event: Event, count: Int) {
             repeat(count) {
@@ -46,10 +55,13 @@ object MapGenerator {
             }
         }
         place(Event.MONSTER, 7 + floor / 15)
-        place(Event.CHEST, 4)
+        place(Event.CHEST, 2)
         place(Event.HEAL, 2)
-        place(Event.MERCHANT, 1)
-        place(Event.NPC, 1)
+        place(
+            Event.MERCHANT,
+            if (floor in VisitorSchedule.floors(visitorSeed, Event.MERCHANT)) 1 else 0,
+        )
+        place(Event.NPC, if (floor in VisitorSchedule.floors(visitorSeed, Event.NPC)) 1 else 0)
         place(Event.TRAP, 3)
         map.reveal()
         return map

@@ -21,7 +21,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     private val saveFile = AtomicFile(File(app.filesDir, "mapexit-save-v1.json"))
     private val writer = Executors.newSingleThreadExecutor()
     private var saveClock = 0L
-    private val downInTrap = BooleanArray(2)
+    private val mapRandom = java.security.SecureRandom()
     private val downContext = arrayOf("", "")
     private var lastActionAt = 0L
     private var observedImpact = 0L
@@ -69,6 +69,44 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     var visualEffectAt by mutableLongStateOf(0L)
         private set
 
+    var goldNoticeSerial by mutableLongStateOf(0L)
+        private set
+
+    var goldNoticeVisible by mutableStateOf(false)
+        private set
+
+    fun clearGoldNotice(serial: Long) {
+        if (serial == goldNoticeSerial) goldNoticeVisible = false
+    }
+
+    fun dismissChestLoot() {
+        engine.state.chestLoot = null
+        save()
+        refresh()
+    }
+
+    fun trainingMenu() {
+        engine.trainingMenu()
+        battleVisual = null
+        currentImpact = null
+        save()
+        refresh()
+    }
+
+    fun exitTraining() {
+        engine.exitTraining()
+        battleVisual = null
+        currentImpact = null
+        save()
+        refresh()
+    }
+
+    fun resetDirections() {
+        if (engine.state.mode != Mode.EXPLORE) return
+        engine.controls.resetDirections()
+        refresh()
+    }
+
     var active = false
     var loadError: String? = null
         private set
@@ -88,7 +126,12 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                     null
                 }
             else null
-        engine = GameEngine(saved ?: State(), BuildConfig.DEBUG)
+        engine =
+            GameEngine(
+                saved ?: State(rng = mapRandom.nextLong()),
+                BuildConfig.DEBUG,
+                mapSeed = { mapRandom.nextLong() },
+            )
         dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = false)
         observedImpact = engine.state.impactSequence
     }
@@ -96,12 +139,10 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     fun down(button: Int) {
         if (loadError != null) return
         downContext[button] = if (battleBusy()) "BUSY" else engine.controls.inputToken()
-        downInTrap[button] = engine.state.mode == Mode.TRAP
-        if (downInTrap[button]) engine.rawDown(button)
         refresh()
     }
 
-    fun up(button: Int, released: Boolean = true, held: Boolean = false) {
+    fun up(button: Int, released: Boolean = true) {
         if (loadError != null) {
             if (button == 1) {
                 val f = saveFile.baseFile
@@ -111,7 +152,12 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                         overwrite = false,
                     )
                 loadError = null
-                engine = GameEngine(State(), BuildConfig.DEBUG)
+                engine =
+                    GameEngine(
+                        State(rng = mapRandom.nextLong()),
+                        BuildConfig.DEBUG,
+                        mapSeed = { mapRandom.nextLong() },
+                    )
                 save()
             }
             refresh()
@@ -122,20 +168,12 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             refresh()
             return
         }
-        if (downInTrap[button]) engine.rawUp(button)
-        else if (
-            engine.state.mode != Mode.TRAP && downContext[button] == engine.controls.inputToken()
-        ) {
+        if (downContext[button] == engine.controls.inputToken()) {
             val now = android.os.SystemClock.uptimeMillis()
-            if (now - lastActionAt >= 180 && !battleBusy(now)) {
-                val action =
-                    engine.controls
-                        .buttons()
-                        .getOrNull(button)
-                        ?.let { if (held) it.holdChoice else it.choice }
-                        ?.action
+            if ((engine.state.mode == Mode.TRAP || now - lastActionAt >= 180) && !battleBusy(now)) {
+                val action = engine.controls.buttons().getOrNull(button)?.choice?.action
                 val before = engine.state.battleSnapshot()
-                if (held) engine.hold(button) else engine.press(button)
+                engine.press(button)
                 animateBattle(action, before, now)
                 lastActionAt = now
             }
@@ -161,9 +199,58 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                     )
         )
             return
+        val valid =
+            (engine.choices()+engine.lootChoices()).any { it.action == choice.action && it.argument == choice.argument }
+        if (valid && choice.action == "purchase") {
+            val item =
+                engine.state.shop.find {
+                    it.id ==
+                        choice.argument
+                }
+            val count = if (choice.action == "buyQuantity") choice.argument.toInt() else 1
+            if (
+                item != null &&
+                    count > 0 &&
+                    engine.state.gold < Equipment.buyPrice(engine.state, item) * count
+            ) {
+                goldNoticeSerial++
+                goldNoticeVisible = true
+                return
+            }
+        }
         val before = engine.state.battleSnapshot()
         engine.choose(choice)
         animateBattle(choice.action, before, android.os.SystemClock.uptimeMillis())
+        save()
+        refresh()
+    }
+
+    fun purchase(itemId: Long, count: Int) {
+        if (loadError != null || battleBusy()) return
+        val item=engine.state.shop.find { it.id==itemId } ?: return
+        if(engine.state.gold < Equipment.buyPrice(engine.state,item)*count) {
+            goldNoticeSerial++; goldNoticeVisible=true
+            return
+        }
+        engine.purchase(itemId,count)
+        save(); refresh()
+    }
+
+    fun openLevelUpGrowth() {
+        if (loadError != null || battleBusy()) return
+        if(engine.openLevelUpGrowth()) { save(); refresh() }
+    }
+
+    fun openDungeonPanel(type: String) {
+        if (loadError != null || battleBusy()) return
+        if (engine.openDungeonPanel(type)) {
+            save()
+            refresh()
+        }
+    }
+
+    fun dismissLevelUp() {
+        engine.state.levelUpNotice = null
         save()
         refresh()
     }

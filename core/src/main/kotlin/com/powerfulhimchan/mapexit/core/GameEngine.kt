@@ -4,14 +4,19 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-class GameEngine(var state: State = State(), private val debugTools: Boolean = false) {
+class GameEngine(
+    var state: State = State(),
+    private val debugTools: Boolean = false,
+    private val mapSeed: (() -> Long)? = null,
+) {
     private var debugBackup: String? = null
+    private var trainingBackup: String? = null
     val controls = ContextControls(this)
 
     init {
         if (!state.bootstrapped) {
             state.bootstrapped = true
-            state.inventory.add(ItemFactory.create(state, Kind.SWORD, 1))
+            state.inventory.add(ItemFactory.create(state, Kind.SWORD, 1, variantId = "longsword"))
             state.inventory.add(ItemFactory.create(state, Kind.SHIELD, 1))
             repeat(2) { state.inventory.add(ItemFactory.create(state, Kind.POTION, 1)) }
             Equipment.equip(state, state.inventory[0].id, Slot.RIGHT)
@@ -19,6 +24,19 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             state.shop = MutableList(6) { ItemFactory.create(state, floor = 1) }
             state.shop.add(ItemFactory.create(state, Kind.POTION, 1))
             state.note("출정 준비: 장비와 소모품을 확인한 뒤 던전에 진입하세요")
+        }
+        if (
+            !state.training &&
+                state.mode == Mode.MENU &&
+                state.menu?.type in listOf("training", "trainingTraps")
+        ) {
+            state.mode = state.menu?.returnMode ?: Mode.SURFACE
+            state.menu = null
+            state.menuStack.clear()
+        }
+        if(state.quickEquipIds.isEmpty() && state.mode in listOf(Mode.EXPLORE,Mode.VICTORY)) {
+            state.quickEquipIds=(state.chestLoot?.items ?: state.battleResult?.rewards ?: emptyList())
+                .filter { it.kind!=Kind.POTION && itemOwned(it.id) }.map { it.id }
         }
         if (state.mode == Mode.TRAP_GUIDE) state.mode = Mode.TRAP
         // Saves from before expedition records can still report their current depth.
@@ -30,7 +48,63 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         }
     }
 
+    private fun itemOwned(id:Long)=state.inventory.any { it.id==id }
+
     fun stats() = Equipment.stats(state)
+
+    fun trainingMenu() {
+        if (!state.training) return
+        state.enemy = null
+        state.trap = null
+        state.battleResult = null
+        state.lastImpact = null
+        state.encounter = null
+        state.chestLoot = null
+        state.menuStack.clear()
+        state.mode = Mode.MENU
+        state.menu = Menu("training", returnMode = Mode.SURFACE)
+    }
+
+    fun exitTraining() {
+        if (!state.training) return
+        trainingBackup?.let { state = SaveCodec.decode(it) }
+            ?: run { state = GameEngine(State(), debugTools, mapSeed).state }
+        state.training = false
+        state.debug = false
+        trainingBackup = null
+        controls.reset()
+    }
+
+    private fun beginTraining(activity: String, trapType: Int = 0) {
+        if (!state.training) {
+            val normal =
+                state.copy(
+                    mode = state.menu?.returnMode ?: Mode.SURFACE,
+                    menu = null,
+                    menuStack = mutableListOf(),
+                )
+            trainingBackup = SaveCodec.encode(normal)
+        }
+        state =
+            GameEngine(State(rng = state.rng), false)
+                .state
+                .copy(training = true, debug = true, gold = 1000)
+        enterFloor(1)
+        when (activity) {
+            "trap" -> {
+                state.trap = Traps.create(state, trapType)
+                state.mode = Mode.TRAP
+            }
+            "battle" -> startBattle(false)
+            "merchant",
+            "npc" -> {
+                val event = if (activity == "merchant") Event.MERCHANT else Event.NPC
+                state.dungeon!!.here().event = event
+                beginEncounter(event)
+            }
+        }
+        controls.reset()
+    }
 
     private fun beginEncounter(event: Event) {
         val s = state
@@ -62,7 +136,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 s.dungeon?.cells?.count { it.event == Event.MONSTER && !it.resolved } ?: 0
             val chests = s.dungeon?.cells?.count { it.event == Event.CHEST && !it.resolved } ?: 0
             val kills = if (s.floor < 50) 5 else min(5, monsters)
-            val boxes = if (s.floor < 50) 3 else min(3, chests)
+            val boxes = min(3, chests + (50 - s.floor).coerceAtLeast(0) * 2)
             if (kills > 0) add(Quest("몬스터 ${kills}마리 처치", "kill", kills, reward = 80 + s.floor * 8))
             if (boxes > 0) add(Quest("상자 ${boxes}개 열기", "chest", boxes, reward = 100 + s.floor * 8))
             if (s.floor < 50)
@@ -86,6 +160,13 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.selection = 0
         if (message != null) s.note(message)
         controls.skipCurrentEvent()
+        if (s.training) trainingMenu()
+    }
+
+    fun lootChoices(): List<Choice> = state.quickEquipIds.mapNotNull { id ->
+        state.inventory.find { it.id == id && it.kind != Kind.POTION }?.let { item ->
+            Choice(if (id in state.equipment.values) "[착용중]" else "바로 장착 · ${item.name}", "equipLoot", id)
+        }
     }
 
     fun choices(): List<Choice> {
@@ -102,10 +183,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     add(c("골드 보관소", "bank"))
                     add(c("지상 상점", "shop"))
                     add(c("기록 / 도움말", "help"))
+                    add(c("테스트 메뉴", "training"))
                     if (debugTools) add(c("개발용 테스트", "debug"))
                 }
             Mode.EXPLORE ->
                 buildList {
+                    addAll(lootChoices())
                     val m = s.dungeon ?: return@buildList
                     add(c("지상으로 · 탐험 포기", "retreat"))
                     val cell = m.here()
@@ -131,7 +214,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     add(c("미션 / 기록", "help"))
                     if (s.debug) add(c("개발용 테스트", "debug"))
                 }
-            Mode.MOVING -> listOf(c("이동 중 · B로 멈추기", "stop"), c("지상으로 · 탐험 포기", "retreat"))
+            Mode.MOVING -> listOf(c("이동 중 · 멈추기", "stop"), c("지상으로 · 탐험 포기", "retreat"))
             Mode.RUN_RESULT -> listOf(c("준비 화면으로", "runContinue"))
             Mode.COMBAT_ATTACK ->
                 listOf(
@@ -195,10 +278,14 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         fun c(label: String, action: String, arg: Long = 0) = Choice(label, action, arg)
         val items =
             when (menu.type) {
+                "slotInventory" ->
+                    s.inventory.filter { Slot.entries[menu.argument.toInt()] in Equipment.allowedSlots(it) }.map {
+                        c("${it.name}${if(it.id in s.equipment.values) " [착용중]" else ""}", "item", it.id)
+                    }
                 "inventory" ->
                     s.inventory.map { item ->
                         c(
-                            "${if(item.inherited)"◆ " else ""}${item.name}${if(item.id in s.equipment.values)" [착용]" else ""}",
+                            "${if(item.inherited)"◆ " else ""}${item.name}${if(item.id in s.equipment.values)" [착용중]" else ""}",
                             "item",
                             item.id,
                         )
@@ -234,7 +321,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                         c("보관 ${s.bank}G 전부 인출", "withdraw"),
                     )
                 "shop" ->
-                    s.shop.map { c("${it.name} · ${Equipment.buyPrice(s,it)}G", "buy", it.id) } +
+                    s.shop.map { c(it.name, "buy", it.id) } +
                         c("아이템 판매", "sellMenu")
                 "sell" ->
                     s.inventory.map {
@@ -244,19 +331,23 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                             it.id,
                         )
                     }
-                "quantity" -> {
-                    val potion = s.shop.find { it.id == menu.argument && it.kind == Kind.POTION }
-                    if (potion == null) emptyList()
-                    else
-                        listOf(1, 3, 5).map {
-                            c(
-                                "회복약 ${it}개 구매 · ${Equipment.buyPrice(s,potion)*it}G",
-                                "buyQuantity",
-                                it.toLong(),
-                            )
-                        }
+                "shopItem" -> {
+                    val item = s.shop.find { it.id == menu.argument }
+                    if (item == null) listOf(c("취소", "back"))
+                    else listOf(c("구매", "purchase", item.id), c("취소", "back"))
                 }
                 "help" -> emptyList()
+                "training" ->
+                    listOf(
+                        c("장애물 피하기", "trainingTraps"),
+                        c("전투", "trainBattle"),
+                        c("상인", "trainMerchant"),
+                        c("미션 NPC 대화", "trainNpc"),
+                    )
+                "trainingTraps" ->
+                    listOf("뜨거운 물 솥", "바닥 칼날", "좁혀오는 벽", "기억 석판", "천장 나무봉").mapIndexed { i, name ->
+                        c(name, "trainTrap", i.toLong())
+                    }
                 "debug" ->
                     buildList {
                         repeat(5) { add(c("함정 ${it+1} 바로 테스트", "testTrap", it.toLong())) }
@@ -273,13 +364,13 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                     }
                 else -> emptyList()
             }
-        return items + c("돌아가기", "back")
+        return if (menu.type == "shopItem") items else items + c("돌아가기", "back")
     }
 
     fun press(button: Int) {
         if (state.mode == Mode.TRAP) {
-            rawDown(button)
-            rawUp(button)
+            state.trap?.let { Traps.tap(it, button) }
+            applyTrapResult()
             return
         }
         controls.press(button)
@@ -287,13 +378,9 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
 
     /** Touch menus and tests invoke current choices directly, without selection cycling. */
     fun choose(choice: Choice) {
-        choices()
+        (choices() + if (state.mode in listOf(Mode.EXPLORE, Mode.VICTORY) || state.menu?.type == "shop") lootChoices() else emptyList())
             .firstOrNull { it.action == choice.action && it.argument == choice.argument }
             ?.let(::execute)
-    }
-
-    fun hold(button: Int) {
-        controls.press(button, held = true)
     }
 
     fun navigateBack() {
@@ -346,6 +433,38 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         }
     }
 
+    /** Header shortcuts stop automatic walking before opening a real menu. */
+    fun openDungeonPanel(type: String): Boolean {
+        if (
+            type !in listOf("equipment", "growth", "inventory", "help") ||
+                state.dungeon == null ||
+                state.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)
+        )
+            return false
+        if (state.mode == Mode.MOVING) {
+            state.mode = Mode.EXPLORE
+            state.movementMs = 0L
+        }
+        if (type == "growth") state.levelUpNotice = null
+        open(type)
+        return true
+    }
+
+    fun openLevelUpGrowth(): Boolean {
+        if (state.levelUpNotice == null || state.mode !in listOf(Mode.SURFACE, Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)) return false
+        if (state.mode == Mode.MOVING) { state.mode = Mode.EXPLORE; state.movementMs = 0 }
+        state.levelUpNotice = null
+        open("growth")
+        return true
+    }
+
+    fun turnBack() {
+        val map = state.dungeon ?: return
+        if (state.mode != Mode.EXPLORE) return
+        map.direction = (map.direction + 2) % 4
+        controls.skipCurrentEvent()
+    }
+
     private fun open(type: String, arg: Long = 0L) {
         val s = state
         if (s.mode == Mode.MENU) s.menu?.let { s.menuStack.add(it) }
@@ -356,6 +475,10 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
 
     private fun back() {
         val s = state
+        if (s.training && s.menu?.type == "training") {
+            exitTraining()
+            return
+        }
         if (s.menuStack.isNotEmpty()) s.menu = s.menuStack.removeAt(s.menuStack.lastIndex)
         else {
             s.mode = s.menu?.returnMode ?: Mode.SURFACE
@@ -401,10 +524,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "battleContinue" -> {
                 val result = s.battleResult ?: return
                 s.battleResult = null
+                s.quickEquipIds = emptyList()
                 s.lastImpact = null
                 s.mode = result.returnMode
                 s.selection = 0
                 s.note(if (s.mode == Mode.FLOOR_CLEAR) "보스 격파 · 층 클리어" else "전투 종료 · 탐험을 계속하세요")
+                if (s.training) trainingMenu()
             }
             "encounter" -> beginEncounter(Event.entries[c.argument.toInt()])
             "encounterLeave" -> leaveEncounter("탐험을 계속합니다")
@@ -417,6 +542,8 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "enter" -> enterFloor(c.argument.toInt())
             "return" -> surface(false)
             "move" -> {
+                s.chestLoot = null
+                s.quickEquipIds = emptyList()
                 val dungeon = s.dungeon ?: return
                 val facing = dungeon.direction
                 val backward = c.argument.toInt() == (facing + 2) % 4
@@ -437,11 +564,25 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "growth",
             "equipment",
             "bank",
-            "help" -> open(c.action)
-            "item" -> open("item", c.argument)
+            "help" -> {
+                if (c.action == "growth") s.levelUpNotice = null
+                open(c.action)
+            }
+            "equipLoot" -> {
+                val item = s.inventory.find { it.id == c.argument && it.id in s.quickEquipIds && it.kind != Kind.POTION && it.id !in s.equipment.values } ?: return
+                val slot = Equipment.quickSlot(s, item) ?: return
+                if (Equipment.equip(s, item.id, slot)) s.note("${item.name} 장착")
+            }
+            "item" -> {
+                val slot = s.menu?.takeIf { it.type == "slotInventory" }?.argument?.toInt()?.let { Slot.entries[it] }
+                if (slot != null && s.equipment[slot] == null) {
+                    if (Equipment.equip(s, c.argument, slot)) s.note("장비를 변경했습니다")
+                    returnToGearSelection()
+                } else open("item", c.argument)
+            }
             "slotItem" -> {
                 val id = s.equipment[Slot.entries[c.argument.toInt()]]
-                if (id != null) open("item", id) else open("inventory")
+                if (id != null) open("item", id) else open("slotInventory", c.argument)
             }
             "equip" -> {
                 val id = s.menu?.argument ?: return
@@ -468,36 +609,9 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 s.bank = 0
                 s.note("보관 골드를 인출했습니다")
             }
-            "shop" -> open("shop")
-            "buy" -> {
-                val item = s.shop.find { it.id == c.argument } ?: return
-                if (item.kind == Kind.POTION) {
-                    open("quantity", item.id)
-                    return
-                }
-                val price = Equipment.buyPrice(s, item)
-                if (s.gold >= price) {
-                    s.gold -= price
-                    s.shop.remove(item)
-                    s.inventory.add(item)
-                    s.note("${item.name} 구매")
-                    s.selection = s.selection.coerceAtMost(choices().lastIndex)
-                } else s.note("골드가 부족합니다")
-            }
-            "buyQuantity" -> {
-                val potion =
-                    s.shop.find { it.id == s.menu?.argument && it.kind == Kind.POTION } ?: return
-                val count = c.argument.toInt()
-                if (count !in listOf(1, 3, 5)) return
-                val price = Equipment.buyPrice(s, potion) * count
-                if (s.gold < price) {
-                    s.note("골드가 부족합니다")
-                    return
-                }
-                s.gold -= price
-                repeat(count) { s.inventory.add(potion.copy(id = s.nextId++)) }
-                s.note("회복약 ${count}개 구매 · ${price}G")
-            }
+            "shop" -> { s.quickEquipIds = emptyList(); open("shop") }
+            "buy" -> open("shopItem", c.argument)
+            "purchase" -> purchase(c.argument, 1)
             "sellMenu" -> open("sell")
             "sell" -> {
                 val item = s.inventory.find { it.id == c.argument } ?: return
@@ -531,7 +645,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "questInfo" ->
                 s.note(
                     s.quest?.let { "${it.title} (${it.progress}/${it.target}) · 귀환/사망 시 종료" }
-                        ?: "버튼 이름의 행동을 바로 실행 · 길게 누르기로 가방·회복약·도주 · 출구에서 귀환"
+                        ?: "버튼 이름의 행동을 바로 실행 · 상단 메뉴로 가방·기록·회복약·도주 · 출구에서 귀환"
                 )
             "exit" -> exitFloor()
             "attack" -> attack(false)
@@ -548,6 +662,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             "ending" -> beginInheritance()
             "inherit" -> newCycle(c.argument)
             "back" -> back()
+            "training" -> open("training")
+            "trainingTraps" -> open("trainingTraps")
+            "trainTrap" -> beginTraining("trap", c.argument.toInt())
+            "trainBattle" -> beginTraining("battle")
+            "trainMerchant" -> beginTraining("merchant")
+            "trainNpc" -> beginTraining("npc")
             "debug" -> {
                 if (!s.debug) debugBackup = SaveCodec.encode(s)
                 s.debug = true
@@ -595,6 +715,23 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         }
     }
 
+    fun purchase(itemId: Long, count: Int): Boolean {
+        val s = state
+        if (s.mode != Mode.MENU || s.menu?.type != "shopItem" || s.menu?.argument != itemId) return false
+        val item = s.shop.find { it.id == itemId } ?: return false
+        if (count !in listOf(1, 3, 5) || item.kind != Kind.POTION && count != 1) return false
+        val price = Equipment.buyPrice(s, item) * count
+        if (s.gold < price) { s.note("골드가 부족합니다"); return false }
+        s.gold -= price
+        if (item.kind == Kind.POTION) {
+            repeat(count) { s.inventory.add(item.copy(id = s.nextId++)) }
+            s.quickEquipIds = emptyList()
+        } else { s.shop.remove(item); s.inventory.add(item); s.quickEquipIds = listOf(item.id) }
+        s.note("${item.name}${if(count > 1) " ${count}개" else ""} 구매 · ${price}G")
+        back()
+        return true
+    }
+
     fun enterFloor(floor: Int) {
         require(floor in 1..50)
         val s = state
@@ -606,9 +743,12 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             s.runDeepestFloor = 0
         }
         s.runResult = null
+        s.quickEquipIds = emptyList()
+        s.chestLoot = null
         s.runDeepestFloor = max(s.runDeepestFloor, floor)
         s.floor = floor
         s.highest = max(s.highest, floor)
+        mapSeed?.let { s.rng = it() }
         s.dungeon = MapGenerator.generate(s, floor)
         s.enemy = null
         s.battleResult = null
@@ -639,12 +779,16 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         m.x = xx
         m.y = yy
         m.reveal()
+        s.chestLoot = null
+        s.quickEquipIds = emptyList()
+        s.message = "통로를 탐험하고 있습니다"
         val cell = m.here()
         if (!cell.resolved && cell.event != Event.NONE) {
             s.mode = Mode.EXPLORE
             s.selection = 0
             when (cell.event) {
                 Event.MONSTER -> startBattle(false)
+                Event.ELITE -> startBattle(false, elite = true)
                 Event.TRAP -> {
                     s.trap = Traps.create(s, cell.trapType)
                     s.mode = Mode.TRAP
@@ -678,6 +822,10 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
     private fun exitFloor() {
         val s = state
         val m = s.dungeon ?: return
+        if (s.floor % 5 == 0 && !m.eliteCleared && m.cells.none { it.event == Event.ELITE }) {
+            startBattle(false, elite = true)
+            return
+        }
         if (s.floor % 10 == 0 && !m.bossCleared) {
             startBattle(true)
             return
@@ -693,6 +841,7 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         if (cell.resolved) return
         cell.resolved = true
         s.runChests++
+        s.chestLoot = null
         s.quest?.takeIf { it.kind == "chest" }?.let { it.progress++ }
         s.encounter = null
         s.mode = Mode.EXPLORE
@@ -705,27 +854,37 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         val extra = Equipment.charm(s) == Charm.CHEST && s.random() < .25
         val gear = ItemFactory.create(s)
         s.inventory.add(gear)
-        if (extra) s.inventory.add(ItemFactory.create(s))
+        val rewards = mutableListOf(gear)
+        if (extra) {
+            val bonus = ItemFactory.create(s)
+            s.inventory.add(bonus)
+            rewards.add(bonus)
+        }
         val gold = 15 + s.floor * 3 + s.nextInt(15)
         s.gold += gold
+        s.quickEquipIds = rewards.filter { it.kind != Kind.POTION }.map { it.id }
+        s.chestLoot = ChestLootNotice(rewards, gold)
         s.note("${gear.name} · ${gold}G${if(extra)" · 추가 아이템!" else ""}")
     }
 
-    fun startBattle(boss: Boolean) {
+    fun startBattle(boss: Boolean, elite: Boolean = false) {
         val s = state
         val floor = max(1, s.floor)
-        val hp = (300 + floor * 26.0) * (if (boss) 1.7 else 1.0)
+        val hp = (300 + floor * 26.0) * (if (boss) 1.7 else if (elite) 1.4 else 1.0)
         s.enemy =
             Enemy(
-                if (boss) "${floor}층의 수문장" else listOf("동굴 슬라임", "녹슨 기사", "심연 박쥐")[s.nextInt(3)],
+                if (boss) "${floor}층의 수문장" else if (elite) "${floor}층의 정예 기사" else listOf("동굴 슬라임", "녹슨 기사", "심연 박쥐")[s.nextInt(3)],
                 hp,
                 hp,
-                (65 + floor * 4.0) * (if (boss) 1.2 else 1.0),
-                20 + floor * 1.8,
+                (65 + floor * 4.0) * (if (boss) 1.2 else if (elite) 1.1 else 1.0),
+                (20 + floor * 1.8) * (if (elite) 1.1 else 1.0),
                 10.0 + floor * .3,
                 boss,
+                elite = elite,
             )
+        s.enemy!!.let { it.intent = CombatTactics.pattern(it).first() }
         s.encounter = null
+        s.quickEquipIds = emptyList()
         s.battleId++
         s.battleResult = null
         s.lastImpact = null
@@ -739,15 +898,32 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         if (s.mode != Mode.COMBAT_ATTACK) return
         val enemy = s.enemy ?: return
         val p = stats()
+        val opening = enemy.opening
+        enemy.opening = false
         var damage = 0.0
-        val critical = s.random() < p.crit
-        if (
+        val criticalRoll = s.random()
+        val hit =
             s.random() <
-                (if (strong) GameBalance.model("strong_hit") else GameBalance.model("normal_hit"))
-        )
+                ((if (strong) GameBalance.model("strong_hit")
+                else GameBalance.model("normal_hit")) + if (strong && opening) .20 else 0.0)
+        val lucky = if (hit) Luck.roll(s, p) else AttackLuck()
+        val critical = criticalRoll < Luck.criticalChance(p.crit, lucky)
+        if (hit)
             damage =
-                p.attack * (if (strong) GameBalance.model("strong_damage") else 1.0) * 100 /
-                    (100 + enemy.defense) * (if (critical) p.critDamage else 1.0)
+                p.attack *
+                    Luck.attackMultiplier(lucky) *
+                    (if (opening || enemy.intent == EnemyIntent.RECOVER) 1.35 else 1.0) *
+                    (if (enemy.intent == EnemyIntent.GUARD && !strong) .55 else 1.0) *
+                    (if (strong) GameBalance.model("strong_damage") else 1.0) *
+                    100 / (100 + enemy.defense) * (if (critical) p.critDamage else 1.0)
+        val guardBreak = hit && strong && enemy.intent == EnemyIntent.GUARD
+        val tactic =
+            when {
+                guardBreak -> "방패 파괴"
+                hit && (opening || enemy.intent == EnemyIntent.RECOVER) -> "빈틈 공격"
+                hit && enemy.intent == EnemyIntent.GUARD -> "적 방패에 경감"
+                else -> ""
+            }
         val previousHp = enemy.hp
         enemy.hp = max(0.0, enemy.hp - damage)
         impact(
@@ -755,16 +931,28 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
             previousHp - enemy.hp,
             if (damage == 0.0) ImpactOutcome.MISS else ImpactOutcome.DAMAGE,
             critical && damage > 0,
+            lucky.attackBoost,
+            lucky.criticalBoost,
+            tactic,
         )
         s.note(
             if (damage == 0.0) "공격이 빗나갔습니다"
-            else "${if(critical)"치명타! " else ""}${damage.roundToInt()} 피해"
+            else
+                "${if(tactic.isNotEmpty()) "$tactic · " else ""}${if(lucky.attackBoost) "행운 공격 강화 · " else ""}${if(lucky.criticalBoost) "행운 치명 확률 강화 · " else ""}${if(critical)"치명타! " else ""}${damage.roundToInt()} 피해"
         )
         if (enemy.hp <= 0) {
             victory()
             return
         }
-        s.mode = Mode.COMBAT_DEFEND
+        if (guardBreak || enemy.intent == EnemyIntent.RECOVER) {
+            enemy.opening = guardBreak
+            CombatTactics.advance(enemy)
+            s.mode = Mode.COMBAT_ATTACK
+            s.note(
+                if (guardBreak) "방패 파괴! 다음 공격 강화"
+                else if (hit) "빈틈 공격! ${damage.roundToInt()} 피해 · 반격 없음" else "공격이 빗나갔습니다 · 적은 휴식 중"
+            )
+        } else s.mode = Mode.COMBAT_DEFEND
         s.selection = 0
     }
 
@@ -773,37 +961,66 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         if (s.mode != Mode.COMBAT_DEFEND) return
         val e = s.enemy ?: return
         val p = stats()
+        if (e.intent == EnemyIntent.RECOVER) {
+            CombatTactics.advance(e)
+            s.mode = Mode.COMBAT_ATTACK
+            s.selection = 0
+            s.note("적은 숨을 고릅니다 · 공격 기회")
+            return
+        }
         val chance =
             (GameBalance.model("dodge_base") +
-                    (p.agility - e.precision) * GameBalance.model("dodge_per_agility_gap"))
-                .coerceIn(GameBalance.model("dodge_min"), GameBalance.model("dodge_max"))
+                    (p.agility - e.precision) * GameBalance.model("dodge_per_agility_gap") +
+                    when (e.intent) {
+                        EnemyIntent.HEAVY -> .25
+                        EnemyIntent.FLURRY -> -.15
+                        else -> 0.0
+                    })
+                .coerceIn(
+                    GameBalance.model("dodge_min"),
+                    if (e.intent == EnemyIntent.HEAVY) .80 else GameBalance.model("dodge_max"),
+                )
         val shield = Equipment.equipped(s).any { it.kind == Kind.SHIELD }
         val critical = s.random() < .10
-        var damage = e.attack * 100 / (100 + p.defense) * (if (critical) 1.5 else 1.0)
+        val incoming = e.attack * CombatTactics.incomingMultiplier(e.intent)
+        var damage = Defense.damageAfterArmor(incoming, p.defense) * (if (critical) 1.5 else 1.0)
         if (dodge) {
             if (s.random() < chance) damage = 0.0
         } else
             damage *=
                 1.0 -
-                    GameBalance.model("guard_reduction") -
+                    (if (e.intent == EnemyIntent.FLURRY) .60
+                    else GameBalance.model("guard_reduction")) -
                     (if (shield) GameBalance.shield("guard_bonus") else 0.0)
+        val fullGuard = !dodge && s.random() < Defense.zeroDamageChance(p, incoming)
+        if (fullGuard) damage = 0.0
+        val createsOpening =
+            (dodge && damage == 0.0 && e.intent == EnemyIntent.HEAVY) ||
+                (!dodge && e.intent == EnemyIntent.FLURRY)
+        val tactic = if (createsOpening) "빈틈 발생 · 다음 공격 강화" else ""
         val previousHp = s.hp
         s.hp = max(0.0, s.hp - damage)
         impact(
             ImpactTarget.PLAYER,
             previousHp - s.hp,
-            if (damage == 0.0) ImpactOutcome.DODGE
+            if (fullGuard) ImpactOutcome.BLOCK
+            else if (damage == 0.0) ImpactOutcome.DODGE
             else if (!dodge) ImpactOutcome.GUARD else ImpactOutcome.DAMAGE,
             critical && damage > 0,
+            tactic = tactic,
         )
         s.note(
-            if (damage == 0.0) "회피 성공!"
-            else "${if(dodge)"회피 실패 · " else "방어 · "}${damage.roundToInt()} 피해"
+            (if (fullGuard) "완전 방어! 피해를 받지 않았습니다"
+            else if (damage == 0.0) "회피 성공!"
+            else "${if(dodge)"회피 실패 · " else "방어 · "}${damage.roundToInt()} 피해") +
+                if (createsOpening) " · $tactic" else ""
         )
         if (s.hp <= 0) {
             die()
             return
         }
+        e.opening = createsOpening
+        CombatTactics.advance(e)
         s.mode = Mode.COMBAT_ATTACK
         s.selection = 0
     }
@@ -813,6 +1030,9 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         damage: Double,
         outcome: ImpactOutcome,
         critical: Boolean = false,
+        luckyAttack: Boolean = false,
+        luckyCritical: Boolean = false,
+        tactic: String = "",
     ) {
         val s = state
         s.impactSequence++
@@ -823,15 +1043,19 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
                 if (damage > 0) damage.roundToInt().coerceAtLeast(1) else 0,
                 outcome,
                 critical,
+                luckyAttack,
+                luckyCritical,
+                tactic,
             )
     }
 
     private fun victory() {
         val s = state
         val enemy = s.enemy ?: return
-        val gold = 20 + s.floor * 4
-        val experience = 25 + s.floor * 5
+        val gold = ((20 + s.floor * 4) * (if (enemy.elite) 1.5 else 1.0)).toInt()
+        val experience = ((25 + s.floor * 5) * (if (enemy.elite) 1.5 else 1.0)).toInt()
         val items = mutableListOf<String>()
+        val rewards = mutableListOf<Gear>()
         s.runKills++
         s.gold += gold
         gainExperience(experience)
@@ -839,21 +1063,26 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         if (enemy.boss) {
             s.devices.add(s.floor)
             s.dungeon?.bossCleared = true
-            val reward = ItemFactory.create(s, Kind.entries[s.nextInt(Kind.entries.size - 1)])
+            val reward = ItemFactory.bossWeapon(s)
             s.inventory.add(reward)
             items.add(reward.name)
+            rewards.add(reward)
         } else {
-            s.dungeon?.here()?.resolved = true
-            if (s.random() < (.25 + stats().luck * .003).coerceAtMost(.65)) {
-                val reward = ItemFactory.create(s)
+            if (enemy.elite) s.dungeon?.eliteCleared = true
+            s.dungeon?.here()?.let { if (it.event != Event.EXIT) it.resolved = true }
+            if (enemy.elite || s.random() < (.25 + stats().luck * .003).coerceAtMost(.65)) {
+                val reward = if (enemy.elite) ItemFactory.create(s, Kind.entries.filter { it != Kind.POTION }[s.nextInt(Kind.entries.size - 1)]) else ItemFactory.create(s)
                 s.inventory.add(reward)
                 items.add(reward.name)
+                rewards.add(reward)
             }
         }
         val returnMode =
-            if (enemy.boss) Mode.FLOOR_CLEAR
+            if (enemy.boss || enemy.elite && s.dungeon?.here()?.event == Event.EXIT && s.floor % 10 != 0) Mode.FLOOR_CLEAR
             else if (s.dungeon == null) Mode.SURFACE else Mode.EXPLORE
-        s.battleResult = BattleResult(enemy.copy(hp = 0.0), gold, experience, items, returnMode)
+        s.quickEquipIds = rewards.filter { it.kind != Kind.POTION }.map { it.id }
+        s.battleResult =
+            BattleResult(enemy.copy(hp = 0.0), gold, experience, items, returnMode, rewards)
         s.enemy = null
         s.mode = Mode.VICTORY
         s.selection = 0
@@ -886,11 +1115,21 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
 
     private fun gainExperience(amount: Int) {
         val s = state
+        val before = s.level
         s.experience += amount
-        while (s.experience >= s.level * 80) {
-            s.experience -= s.level * 80
+        while (s.experience >= s.experienceRequired) {
+            s.experience -= s.experienceRequired
             s.level++
             s.points += 3
+        }
+        if (s.level > before) {
+            val pending = s.levelUpNotice
+            s.levelUpNotice =
+                LevelUpNotice(
+                    pending?.from ?: before,
+                    s.level,
+                    (pending?.gainedPoints ?: 0) + (s.level - before) * 3,
+                )
         }
     }
 
@@ -941,9 +1180,11 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         state.trap = null
         state.mode = if (state.dungeon == null) Mode.SURFACE else Mode.EXPLORE
         state.selection = 0
+        if (state.training) trainingMenu()
     }
 
     fun die() {
+        state.chestLoot = null
         endRun(retreated = false)
     }
 
@@ -1015,8 +1256,11 @@ class GameEngine(var state: State = State(), private val debugTools: Boolean = f
         s.inventory.removeAll { !it.inherited }
         s.equipment.clear()
         s.cycle++
+        s.visitorSeed = null
         s.clears++
         s.level = 1
+        s.chestLoot = null
+        s.levelUpNotice = null
         s.experience = 0
         s.points = 0
         s.base = Stats()

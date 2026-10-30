@@ -26,7 +26,7 @@ class GameRulesTest {
     }
 
     @Test
-    fun generatedMapsAreConnectedAndHaveAllEvents() {
+    fun generatedMapsAreConnectedAndHaveRequiredEventsAndScheduledVisitors() {
         for (seed in 1L..50L) {
             val s = state().copy(rng = seed)
             val m = MapGenerator.generate(s, seed.toInt())
@@ -36,15 +36,14 @@ class GameRulesTest {
             }
             assertEquals(1, m.cells.count { it.event == Event.EXIT })
             assertTrue(m.here().event == Event.NONE)
-            for (event in
-                listOf(
-                    Event.MONSTER,
-                    Event.CHEST,
-                    Event.HEAL,
-                    Event.MERCHANT,
-                    Event.NPC,
-                    Event.TRAP,
-                )) assertTrue(m.cells.any { it.event == event })
+            for (event in listOf(Event.MONSTER, Event.CHEST, Event.HEAL, Event.TRAP)) assertTrue(
+                m.cells.any { it.event == event }
+            )
+            assertEquals(2, m.cells.count { it.event == Event.CHEST })
+            for (visitor in listOf(Event.NPC, Event.MERCHANT)) assertEquals(
+                if (seed.toInt() in VisitorSchedule.floors(s.visitorSeed!!, visitor)) 1 else 0,
+                m.cells.count { it.event == visitor },
+            )
         }
     }
 
@@ -373,16 +372,16 @@ class GameRulesTest {
     }
 
     @Test
-    fun timingBarUsesPositionNotFrameRate() {
+    fun bladeJumpSucceedsOnlyWhenTheBladesAreRetracted() {
         val s = state()
         val t = Traps.create(s, 1)
         tick(t, Traps.PREPARE_MS)
-        tick(t, (t.target * 1000).toLong())
-        Traps.down(t, t.pattern[0])
+        tick(t, t.limitMs / 2)
+        Traps.tap(t, 0)
         assertTrue(t.success)
         val wrong = Traps.create(s, 1)
         tick(wrong, Traps.PREPARE_MS)
-        Traps.down(wrong, wrong.pattern[0])
+        Traps.tap(wrong, 0)
         assertFalse(wrong.success)
     }
 
@@ -417,34 +416,25 @@ class GameRulesTest {
     }
 
     @Test
-    fun holdReleaseSupportsEarlyCorrectLateAndPause() {
-        fun start(): TrapState =
-            Traps.create(state(), 4).also {
-                tick(it, Traps.PREPARE_MS)
-                Traps.down(it, it.pattern[0])
-            }
-        val early = start()
-        tick(early, 100)
-        Traps.up(early, early.pattern[0])
-        assertFalse(early.success)
-        val ok = start()
-        tick(ok, ok.signalMs)
-        Traps.up(ok, ok.pattern[0])
-        assertTrue(ok.success)
-        val late = start()
-        tick(late, late.signalMs + late.releaseWindowMs + 1)
+    fun beamAcceptsOneCrouchBeforeImpactAndRejectsJumpOrTimeout() {
+        for (time in listOf(0L, 500L, 1500L, 1999L)) {
+            val t = Traps.create(state(), 4)
+            tick(t, Traps.PREPARE_MS)
+            tick(t, time)
+            Traps.tap(t, 1)
+            assertTrue("crouch at $time", t.success)
+            assertEquals(TrapPhase.RESULT, t.phase)
+        }
+        val jump = Traps.create(state(), 4)
+        tick(jump, Traps.PREPARE_MS)
+        Traps.tap(jump, 0)
+        assertFalse(jump.success)
+        val late = Traps.create(state(), 4)
+        tick(late, Traps.PREPARE_MS)
+        tick(late, late.limitMs)
+        Traps.tap(late, 1)
         assertFalse(late.success)
         assertEquals(TrapPhase.RESULT, late.phase)
-        val paused = start()
-        tick(paused, 300)
-        Traps.pause(paused)
-        val time = paused.elapsedMs
-        tick(paused, 5000)
-        assertEquals(time, paused.elapsedMs)
-        Traps.down(paused, paused.pattern[0])
-        tick(paused, paused.signalMs - 300)
-        Traps.up(paused, paused.pattern[0])
-        assertTrue(paused.success)
     }
 
     @Test

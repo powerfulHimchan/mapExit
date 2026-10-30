@@ -30,53 +30,78 @@ data class TrapState(
     var success: Boolean = false,
     var applied: Boolean = false,
     var result: String = "",
+    var action: Int = -1,
+    var actionAtMs: Long = 0L,
 ) {
     val title: String
-        get() = listOf("순간 입력", "타이밍 바", "연타", "패턴 기억", "누르고 떼기")[type]
+        get() = listOf("순간 입력", "바닥 칼날", "연타", "패턴 기억", "천장 나무봉")[type]
 
-    fun position(): Double {
-        val v = (elapsedMs % 2000) / 1000.0
-        return if (v <= 1) v else 2 - v
+    val physicalAction: Boolean
+        get() = type == 1 || type == 4
+
+    /** The rendered blade height is also the collision rule. A fully retracted blade is safe. */
+    fun bladeExtension(): Float {
+        val time = if (phase == TrapPhase.RESULT) actionAtMs else elapsedMs
+        val p = (time.toFloat() / limitMs.coerceAtLeast(1)).coerceIn(0f, 1f)
+        return when {
+            p < .15f -> 1f
+            p < .35f -> (.35f - p) / .20f
+            p <= .65f -> 0f
+            p < .85f -> (p - .65f) / .20f
+            else -> 1f
+        }.coerceIn(0f, 1f)
     }
 
-    fun signal(): Boolean = holdStarted >= 0 && elapsedMs - holdStarted >= signalMs
+    fun bladesRetracted(): Boolean = bladeExtension() <= .001f
+
+    /** The beam falls by itself; crouching early remains safe until it has passed. */
+    fun beamDescent(): Float {
+        val time =
+            if (phase == TrapPhase.RESULT)
+                actionAtMs + (limitMs - actionAtMs) * (elapsedMs / 650f).coerceIn(0f, 1f)
+            else elapsedMs.toFloat()
+        val p = (time / limitMs.coerceAtLeast(1)).coerceIn(0f, 1f)
+        return p * p
+    }
+
+    /** Input direction is conveyed by the scene, never by answer text. */
+    fun visualSide(): Int? =
+        when {
+            phase == TrapPhase.PREPARE || phase == TrapPhase.RESULT -> null
+            physicalAction -> null
+            type == 3 && phase == TrapPhase.REVEAL -> {
+                val index =
+                    ((elapsedMs * pattern.size) / revealMs.coerceAtLeast(1))
+                        .toInt()
+                        .coerceIn(0, pattern.lastIndex)
+                val stepMs = revealMs.toFloat() / pattern.size
+                if ((elapsedMs % stepMs.toLong().coerceAtLeast(1)) / stepMs < .8f) pattern[index]
+                else null
+            }
+            type == 3 -> null
+            type == 0 -> pattern.getOrNull(progress)
+            else -> pattern.firstOrNull()
+        }
 
     fun prompt(): String =
         when {
-            phase == TrapPhase.RESULT -> result
+            phase == TrapPhase.RESULT -> if (success) "회피 성공" else "회피 실패"
             phase == TrapPhase.PREPARE -> cue()
-            rehold -> "${button(pattern[0])}를 다시 누르면 이어집니다"
-            phase == TrapPhase.REVEAL -> "기억하세요  ${pattern.joinToString(" "){button(it)}}"
-            type == 0 -> "${pattern.joinToString(" → "){button(it)}}  ($progress/${pattern.size})"
-            type == 1 -> "목표 구간에서 ${button(pattern[0])}!"
-            type == 2 -> "${button(pattern[0])} 연타  $progress / $required"
-            type == 3 -> "기억한 순서 입력  $progress / ${pattern.size}"
-            holdStarted < 0 -> "${button(pattern[0])}를 누르고 유지하세요"
-            signal() -> "지금 놓으세요!"
-            else -> "계속 누르고 있으세요…"
+            phase == TrapPhase.REVEAL -> "기억해라"
+            else -> listOf("솥을 살피세요", "칼날을 살피세요", "벽을 밀어내세요", "기억한 움직임을 따라 하세요", "나무봉을 살피세요")[type]
         }
 
     fun cue(): String =
         when (type) {
-            0 -> "순서대로 눌러라"
-            1 -> "초록에 맞춰라"
-            2 -> "빠르게 눌러라"
+            0 -> "솥을 피해라"
+            1 -> "칼날을 피해라"
+            2 -> "벽을 밀어라"
             3 -> "기억해라"
-            else -> "신호에 놓아라"
+            else -> "봉을 피해라"
         }
 
-    fun instruction(): String =
-        when (type) {
-            0 -> "보이는 A/B 순서 입력"
-            1 -> "바가 목표에 오면 입력"
-            2 -> "지정 버튼을 눌렀다 떼기"
-            3 -> "패턴이 사라지면 그대로 입력"
-            else -> "신호가 바뀌면 손 떼기"
-        }
+    fun instruction(): String = "장면의 움직임과 빛을 살피세요"
 
-    companion object {
-        fun button(n: Int) = if (n == 0) "A" else "B"
-    }
 }
 
 object Traps {
@@ -86,21 +111,24 @@ object Traps {
     fun create(s: State, type: Int): TrapState {
         require(type in 0..4)
         val charm = if (Equipment.charm(s) == Charm.TRAP) 1.25 else 1.0
+        val depth = s.floor.coerceIn(1, 50) - 1
         val first = s.nextInt(2)
         val pattern =
             when (type) {
-                0 -> listOf(first, 1 - first)
-                3 -> List((3 + s.floor / 25).coerceAtMost(5)) { s.nextInt(2) }
+                0 -> List(2 + depth / 20) { if (it % 2 == 0) first else 1 - first }
+                3 -> List(3 + depth / 20) { s.nextInt(2) }
                 else -> listOf(first)
             }
         return TrapState(
             type,
             pattern,
-            (2000 * charm).toLong(),
-            1000L,
+            ((2000 - depth * 10) * charm).toLong(),
+            if (type == 3)
+                kotlin.math.round(pattern.size * (1000.0 / 3 - depth * .6) * charm).toLong()
+            else 1000L,
             .25 + s.random() * .5,
             .20 * charm,
-            4 + s.floor / 20,
+            4 + depth / 20,
             450 + s.nextInt(300).toLong(),
             (400 * charm).toLong(),
         )
@@ -108,6 +136,7 @@ object Traps {
 
     private fun finish(t: TrapState, success: Boolean, text: String) {
         if (t.phase == TrapPhase.RESULT) return
+        t.actionAtMs = t.elapsedMs
         t.success = success
         t.result = text
         t.phase = TrapPhase.RESULT
@@ -115,7 +144,7 @@ object Traps {
     }
 
     fun tick(t: TrapState, delta: Long) {
-        if (t.rehold) return
+        if (t.rehold && !t.physicalAction) return
         t.elapsedMs += delta.coerceAtLeast(0)
         when (t.phase) {
             TrapPhase.PREPARE ->
@@ -131,19 +160,30 @@ object Traps {
                     t.held = -1
                 }
             TrapPhase.ACTIVE -> {
-                if (
-                    t.type == 4 &&
-                        t.holdStarted >= 0 &&
-                        t.elapsedMs - t.holdStarted > t.signalMs + t.releaseWindowMs
-                )
-                    finish(t, false, "놓기 신호를 놓쳤습니다")
-                else if (t.elapsedMs >= t.limitMs) finish(t, false, "시간 초과")
+                if (t.elapsedMs >= t.limitMs) finish(t, false, "시간 초과")
             }
             else -> Unit
         }
     }
 
+    /** Jump/crouch have fixed meanings. Neither challenge asks for a random direction or hold. */
+    fun tap(t: TrapState, button: Int) {
+        if (t.phase != TrapPhase.ACTIVE) return
+        if (!t.physicalAction) {
+            down(t, button)
+            up(t, button)
+            return
+        }
+        t.action = button
+        val ok = if (t.type == 1) button == 0 && t.bladesRetracted() else button == 1
+        finish(t, ok, if (ok) "회피 성공!" else "회피 실패")
+    }
+
     fun down(t: TrapState, button: Int) {
+        if (t.physicalAction) {
+            tap(t, button)
+            return
+        }
         if (t.phase != TrapPhase.ACTIVE || t.held != -1) return
         if (t.rehold) {
             if (button == t.pattern[0]) {
@@ -162,17 +202,7 @@ object Traps {
                     if (t.progress == t.pattern.size) finish(t, true, "회피 성공!")
                 }
             }
-            1 -> {
-                val ok =
-                    button == t.pattern[0] &&
-                        kotlin.math.abs(t.position() - t.target) <= t.targetWidth / 2
-                finish(t, ok, if (ok) "정확한 타이밍!" else "목표 구간을 놓쳤습니다")
-            }
             2 -> Unit
-            4 -> {
-                if (button != t.pattern[0]) finish(t, false, "다른 버튼을 눌렀습니다")
-                else t.holdStarted = t.elapsedMs
-            }
         }
     }
 
@@ -185,22 +215,11 @@ object Traps {
                     t.progress++
                     if (t.progress >= t.required) finish(t, true, "연타 성공!")
                 }
-            4 -> {
-                val time = t.elapsedMs - t.holdStarted
-                val ok = time in t.signalMs..t.signalMs + t.releaseWindowMs
-                finish(t, ok, if (ok) "신호에 맞춰 회피!" else "너무 일찍 놓았습니다")
-            }
         }
     }
 
     fun pause(t: TrapState) {
-        if (
-            t.type == 4 &&
-                t.phase == TrapPhase.ACTIVE &&
-                t.holdStarted >= 0 &&
-                t.held == t.pattern[0]
-        )
-            t.rehold = true
+        t.rehold = false
         t.held = -1
     }
 }

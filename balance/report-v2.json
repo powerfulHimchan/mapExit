@@ -1,0 +1,63 @@
+{
+  "model_version": 2,
+  "seed": 20261028,
+  "trials_per_scenario": 1500,
+  "scenario_count": 60,
+  "duel_count": 540000,
+  "efficiency_spread": 0.09341550168433188,
+  "win_rate_spread": 0.04604444444444444,
+  "dominated_loadouts": [],
+  "checks": {
+    "mean_efficiency_spread": true,
+    "no_universal_winner": true,
+    "no_excessive_top_share": true,
+    "no_strictly_dominated_loadout": true,
+    "mean_win_rate_spread": true
+  },
+  "summary": {
+    "sword_shield": {
+      "mean_relative_efficiency": 1.029438809061389,
+      "top_scenario_share": 0.4,
+      "win_rate": 0.8965888888888889,
+      "mean_turns": 5.059633333333333,
+      "remaining_hp_fraction": 0.47597661052826196
+    },
+    "spear": {
+      "mean_relative_efficiency": 0.9870102603811749,
+      "top_scenario_share": 0.0,
+      "win_rate": 0.8619777777777777,
+      "mean_turns": 4.273777777777778,
+      "remaining_hp_fraction": 0.45546765873159323
+    },
+    "hammer": {
+      "mean_relative_efficiency": 0.9625771499420562,
+      "top_scenario_share": 0.16666666666666666,
+      "win_rate": 0.8511888888888889,
+      "mean_turns": 3.997177777777778,
+      "remaining_hp_fraction": 0.4512181913337759
+    },
+    "claw_shield": {
+      "mean_relative_efficiency": 0.9639422773848678,
+      "top_scenario_share": 0.0,
+      "win_rate": 0.8505444444444444,
+      "mean_turns": 5.543955555555556,
+      "remaining_hp_fraction": 0.43658074960923954
+    },
+    "dual_claw": {
+      "mean_relative_efficiency": 1.0524967773137677,
+      "top_scenario_share": 0.43333333333333335,
+      "win_rate": 0.8878333333333334,
+      "mean_turns": 4.9576,
+      "remaining_hp_fraction": 0.484725343248752
+    },
+    "whip_shield": {
+      "mean_relative_efficiency": 1.004534725916744,
+      "top_scenario_share": 0.0,
+      "win_rate": 0.8750777777777777,
+      "mean_turns": 5.366422222222222,
+      "remaining_hp_fraction": 0.45993504373524313
+    }
+  },
+  "config_sha256": "0f0865e56ca7826f391959e72e681686bc9c21efa7ae2d6c4bfc9bc6f41cf0c8",
+  "tool_sha256": "8b2535084281babcd83537adfc526d2fb43ca7748f2c03956cf5c704589f4d0e"
+}

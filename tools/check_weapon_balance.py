@@ -14,6 +14,16 @@ def clamp(value, low, high):
     return min(high, max(low, value))
 
 
+def luck_chance(config, luck):
+    return min(max(0, luck) * config["model"]["luck_proc_per_point"], config["model"]["luck_proc_max"])
+
+
+def full_guard_chance(defense, luck, incoming_attack):
+    defense, luck = max(0, defense), max(0, luck)
+    return clamp(.02 + .12 * defense / (defense + max(1, incoming_attack) * 2)
+                 + .10 * luck / (luck + 80), .02, .24)
+
+
 def validate(config):
     expected = {
         "sword": {"attack": 1, "crit_damage": 1},
@@ -66,13 +76,19 @@ def parameters(config, build, enemy, loadout, scale, attack_policy):
     attack_multiplier = m["strong_damage"] if attack_policy == "strong" else 1
     hit = m["strong_hit"] if attack_policy == "strong" else m["normal_hit"]
     outgoing = player["attack"] * attack_multiplier * constant / (constant + enemy["defense"] * scale)
-    incoming = enemy["attack"] * scale * constant / (constant + player["defense"])
+    enemy_attack = enemy["attack"] * scale
+    incoming = enemy_attack * enemy_attack / (enemy_attack + player["defense"])
     dodge = clamp(m["dodge_base"] + (player["agility"] / scale - enemy["precision"]) * m["dodge_per_agility_gap"], m["dodge_min"], m["dodge_max"])
     guard = m["guard_reduction"] + (config["shield"]["guard_bonus"] if loadout["shield"] else 0)
     # Choose the lower expected damage defense. Dodge variance remains in simulation.
-    defense = "dodge" if dodge > guard else "guard"
-    expected_out = outgoing * hit * (1 + player["crit_chance"] * (player["crit_damage"] - 1))
-    expected_in = incoming * (1 + enemy["crit_chance"] * (enemy["crit_damage"] - 1)) * (1 - max(dodge, guard))
+    block = full_guard_chance(player["defense"], player.get("luck", 0), enemy_attack)
+    expected_guard = 1 - (1 - guard) * (1 - block)
+    defense = "dodge" if dodge > expected_guard else "guard"
+    proc = luck_chance(config, player.get("luck", 0))
+    boosted_crit = min(m["crit_chance_max"], player["crit_chance"] + m["luck_crit_bonus"])
+    expected_crit = player["crit_chance"] + proc * (boosted_crit - player["crit_chance"])
+    expected_out = outgoing * (1 + proc * m["luck_attack_bonus"]) * hit * (1 + expected_crit * (player["crit_damage"] - 1))
+    expected_in = incoming * (1 + enemy["crit_chance"] * (enemy["crit_damage"] - 1)) * (1 - max(dodge, expected_guard))
     return player, outgoing, incoming, hit, dodge, guard, defense, expected_out / expected_in
 
 
@@ -85,15 +101,21 @@ def simulate(config, build, enemy, loadout, scale, policy, seed, trials):
         health, target = player["hp"], enemy["hp"] * scale
         for turn in range(1, config["model"]["max_turns"] + 1):
             # Fixed random draws per turn allow loadouts to share comparable streams.
-            r_hit, r_critical, r_evade, r_enemy_critical = (rng.random() for _ in range(4))
+            r_hit, r_critical, r_evade, r_enemy_critical, r_block, r_luck_attack, r_luck_critical = (rng.random() for _ in range(7))
             if r_hit < hit:
-                target -= outgoing * (player["crit_damage"] if r_critical < player["crit_chance"] else 1)
+                proc = luck_chance(config, player.get("luck", 0))
+                multiplier = 1 + config["model"]["luck_attack_bonus"] if r_luck_attack < proc else 1
+                crit = min(config["model"]["crit_chance_max"], player["crit_chance"] +
+                           (config["model"]["luck_crit_bonus"] if r_luck_critical < proc else 0))
+                target -= outgoing * multiplier * (player["crit_damage"] if r_critical < crit else 1)
             if target <= 0:
                 wins += 1
                 break
             damage = incoming * (enemy["crit_damage"] if r_enemy_critical < enemy["crit_chance"] else 1)
             if defense == "guard":
                 damage *= 1 - guard
+                if r_block < full_guard_chance(player["defense"], player.get("luck", 0), enemy["attack"] * scale):
+                    damage = 0
             elif r_evade < dodge:
                 damage = 0
             health -= damage

@@ -13,7 +13,7 @@ object Equipment {
         var result = Stats.zero()
         val gear = equipped(state)
         for (stat in Stat.entries) {
-            val flat = gear.sumOf { it.flat.value(stat) }
+            val flat = gear.sumOf { it.flatValue(stat) }
             val percent = gear.sumOf { it.percent.value(stat) }
             var value = (state.base.value(stat) + flat) * (1 + percent)
             value =
@@ -81,6 +81,37 @@ object Equipment {
             )
         }
 
+    fun quickSlot(state: State, item: Gear): Slot? {
+        val slots = when {
+            item.weapon -> listOf(Slot.RIGHT, Slot.LEFT)
+            item.kind == Kind.SHIELD -> listOf(Slot.LEFT, Slot.RIGHT)
+            else -> allowedSlots(item)
+        }
+        return slots.firstOrNull { state.equipment[it] == null } ?: slots.firstOrNull()
+    }
+
+    /** Compare complete raw loadouts, including penalties and displaced two-handed gear. */
+    fun isUpgrade(state: State, item: Gear, targetSlot: Slot? = null): Boolean {
+        if (item.kind == Kind.POTION || item.id in state.equipment.values) return false
+        val slots = targetSlot?.let { listOf(it) } ?: allowedSlots(item)
+        fun raw(s: State, stat: Stat): Double {
+            val gear = equipped(s)
+            return (s.base.value(stat) + gear.sumOf { it.flatValue(stat) }) *
+                (1 + gear.sumOf { it.percent.value(stat) })
+        }
+        return slots.filter { it in allowedSlots(item) }.any { slot ->
+            val worn = state.inventory.find { it.id == state.equipment[slot] }
+            if (worn == null || worn.kind != item.kind || worn.charm != item.charm) false
+            else {
+                val preview = state.copy(inventory = state.inventory.toMutableList(), equipment = state.equipment.toMutableMap())
+                if (preview.inventory.none { it.id == item.id }) preview.inventory.add(item)
+                equip(preview, item.id, slot)
+                val delta = Stat.entries.map { raw(preview, it) - raw(state, it) }
+                delta.all { it >= -1e-7 } && delta.any { it > 1e-7 }
+            }
+        }
+    }
+
     fun equip(state: State, id: Long, slot: Slot): Boolean {
         val item = state.inventory.find { it.id == id } ?: return false
         if (slot !in allowedSlots(item)) return false
@@ -119,12 +150,17 @@ object Equipment {
 
     fun equippedLabel(state: State, id: Long): String {
         val slots = Slot.entries.filter { state.equipment[it] == id }
-        return if (slots.isEmpty()) "" else " [장착 중: ${slots.joinToString("·") { it.label }}]"
+        return if (slots.isEmpty()) "" else " [착용중] · ${slots.joinToString("·") { it.label }}"
     }
 }
 
 object ItemFactory {
-    fun create(s: State, kind: Kind? = null, floor: Int = max(1, s.floor)): Gear {
+    fun create(
+        s: State,
+        kind: Kind? = null,
+        floor: Int = max(1, s.floor),
+        variantId: String? = null,
+    ): Gear {
         val k = kind ?: Kind.entries[s.nextInt(Kind.entries.size)]
         val tier = (1 + (floor - 1) / 10 + s.nextInt(2)).coerceAtMost(7)
         val t = tier.toDouble()
@@ -132,12 +168,20 @@ object ItemFactory {
         var p = Stats.zero()
         var charm = Charm.NONE
         var title = k.label
+        var variant: WeaponVariant? = null
         when (k) {
             Kind.SWORD,
             Kind.SPEAR,
             Kind.HAMMER,
             Kind.CLAW,
-            Kind.WHIP -> f = GameBalance.weapon(k, t)
+            Kind.WHIP -> {
+                val variants = WeaponCatalog.of(k)
+                variant =
+                    if (variantId == null) variants[s.nextInt(variants.size)]
+                    else variants.first { it.id == variantId }
+                f = variant.stats(tier)
+                title = variant.name
+            }
             Kind.SHIELD -> f = f.copy(defense = GameBalance.shield("defense") * t)
 
             Kind.HEAD,
@@ -195,6 +239,38 @@ object ItemFactory {
             p,
             charm,
             price = if (k == Kind.POTION) 25 else 35 * tier,
+            variantId = variant?.id,
+        )
+    }
+
+    /** A guaranteed weapon with preserved base stats and distinct, additive rolled affixes. */
+    fun bossWeapon(s: State, floor: Int = max(1, s.floor)): Gear {
+        val variant = WeaponCatalog.all[s.nextInt(WeaponCatalog.all.size)]
+        val normal = create(s, variant.kind, floor, variant.id)
+        val pool = Stat.entries.toMutableList()
+        val count = (2 + (floor.coerceIn(1, 50) - 1) / 20).coerceAtMost(4)
+        val options =
+            List(count) {
+                val stat = pool.removeAt(s.nextInt(pool.size))
+                val roll = .8 + s.random() * .4
+                val t = normal.tier.toDouble()
+                val amount =
+                    when (stat) {
+                        Stat.HP -> kotlin.math.round(18 * t * roll)
+                        Stat.ATTACK -> kotlin.math.round(5 * t * roll)
+                        Stat.DEFENSE -> kotlin.math.round(4 * t * roll)
+                        Stat.AGILITY -> kotlin.math.round(3 * t * roll)
+                        Stat.LUCK -> kotlin.math.round(3 * t * roll)
+                        Stat.CRIT -> kotlin.math.round((.015 + .003 * t) * roll * 1000) / 1000
+                        Stat.CRIT_DAMAGE -> kotlin.math.round((.08 + .012 * t) * roll * 1000) / 1000
+                    }
+                WeaponAffix(stat, amount)
+            }
+        return normal.copy(
+            name = "수문장의 ${normal.name}",
+            bossOriginFloor = floor,
+            affixes = options,
+            price = normal.price * 2,
         )
     }
 }

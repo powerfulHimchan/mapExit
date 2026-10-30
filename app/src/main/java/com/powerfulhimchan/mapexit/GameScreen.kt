@@ -31,7 +31,6 @@ import com.powerfulhimchan.mapexit.core.*
 import com.powerfulhimchan.mapexit.core.State
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 internal val ink = Color(0xFF090F18)
 internal val panel = Color(0xFF121E2A)
@@ -58,7 +57,9 @@ fun MapExitScreen(vm: GameModel) {
                     if (vm.active) {
                         vm.tick(((now - previous) / 1_000_000).coerceAtMost(100))
                     }
-                    val uptime = SystemClock.uptimeMillis()
+                    previous = now
+                } else if (previous == 0L) previous = now
+                val uptime = SystemClock.uptimeMillis()
                     if (
                         vm.active ||
                             vm.battleVisual?.let {
@@ -66,8 +67,6 @@ fun MapExitScreen(vm: GameModel) {
                             } == true
                     )
                         clock = uptime
-                    previous = now
-                } else if (previous == 0L) previous = now
             }
         }
     }
@@ -76,63 +75,111 @@ fun MapExitScreen(vm: GameModel) {
         delay(2600)
         vm.clearImpact(event.serial)
     }
+    LaunchedEffect(vm.goldNoticeSerial) {
+        val serial = vm.goldNoticeSerial
+        if (vm.goldNoticeVisible) {
+            delay(2000)
+            vm.clearGoldNotice(serial)
+        }
+    }
     BackHandler(s.mode == Mode.MENU) { vm.back() }
     MaterialTheme(
         colorScheme =
             darkColorScheme(background = ink, surface = panel, onSurface = pale, primary = mint)
     ) {
-        Column(
-            Modifier.fillMaxSize()
-                .background(ink)
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Row(
-                Modifier.fillMaxWidth().height(if (canRetreat) 48.dp else 34.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                Modifier.fillMaxSize()
+                    .background(ink)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text(
-                    "MAP / EXIT",
-                    color = mint,
-                    fontSize = 15.sp,
-                    letterSpacing = 3.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    if (s.debug) "TEST"
-                    else "${s.cycle}회차 · ${if (s.floor == 0) "지상" else "B${s.floor}"}",
-                    color = amber,
-                    fontSize = 12.sp,
-                )
-                if (canRetreat)
-                    TextButton(
-                        onClick = {
-                            if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
-                            confirmRetreat = true
-                        }
-                    ) {
-                        Text("지상으로", color = red, fontSize = 12.sp)
+                Row(
+                    Modifier.fillMaxWidth().height(34.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "MAP / EXIT",
+                        color = mint,
+                        fontSize = if (s.enemy != null) 12.sp else 15.sp,
+                        letterSpacing = if (s.enemy != null) 1.sp else 3.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (s.enemy != null && s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND))
+                        CombatShortcuts(vm)
+                    else {
+                        Text(
+                            if (s.debug) "TEST"
+                            else "${s.cycle}회차 · ${if (s.floor == 0) "지상" else "B${s.floor}"}",
+                            color = amber,
+                            fontSize = 12.sp,
+                        )
                     }
-            }
-            if (vm.loadError != null) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                    Text(vm.loadError!!, color = red)
-                    Spacer(Modifier.height(20.dp))
-                    Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
                 }
-            } else if (s.mode == Mode.RUN_RESULT) {
-                RunResultScreen(vm, Modifier.weight(1f))
-            } else if (s.mode in listOf(Mode.SURFACE, Mode.MENU, Mode.INHERIT)) {
-                if (s.mode == Mode.SURFACE && vm.currentImpact?.target == ImpactTarget.PLAYER) {
-                    Text("받은 피해 ${vm.currentImpact!!.label()}", color = red, fontSize = 16.sp)
+                ExperienceMeter(s)
+                if (s.training)
+                    Row(
+                        Modifier.fillMaxWidth().height(34.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = vm::trainingMenu) {
+                            Text("테스트 목록", color = mint, fontSize = 12.sp)
+                        }
+                        TextButton(onClick = vm::exitTraining) {
+                            Text("테스트 종료", color = red, fontSize = 12.sp)
+                        }
+                    }
+                if (
+                    s.dungeon != null &&
+                        s.mode in listOf(Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR)
+                )
+                    DungeonToolbar(vm) {
+                        if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
+                        confirmRetreat = true
+                    }
+                if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode != Mode.MENU)
+                    LevelUpBanner(s.levelUpNotice!!, s.points, vm::openLevelUpGrowth)
+                if (vm.loadError != null) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                        Text(vm.loadError!!, color = red)
+                        Spacer(Modifier.height(20.dp))
+                        Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
+                    }
+                } else if (s.mode == Mode.RUN_RESULT) {
+                    RunResultScreen(vm, Modifier.weight(1f))
+                } else if (s.mode in listOf(Mode.SURFACE, Mode.MENU, Mode.INHERIT)) {
+                    if (s.mode == Mode.SURFACE && vm.currentImpact?.target == ImpactTarget.PLAYER) {
+                        Text("받은 피해 ${vm.currentImpact!!.label()}", color = red, fontSize = 16.sp)
+                    }
+                    PreparationScreen(vm, Modifier.weight(1f))
+                } else {
+                    DungeonScreen(vm, clock, Modifier.weight(1f))
                 }
-                PreparationScreen(vm, Modifier.weight(1f))
-            } else {
-                DungeonScreen(vm, clock, Modifier.weight(1f))
+                vm.saveError?.let { Text(it, color = red, fontSize = 11.sp) }
             }
-            vm.saveError?.let { Text(it, color = red, fontSize = 11.sp) }
+            if (vm.goldNoticeVisible)
+                Snackbar(
+                    modifier =
+                        Modifier.align(Alignment.Center)
+                            .widthIn(max = 260.dp)
+                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .padding(16.dp),
+                    containerColor = panel,
+                    contentColor = red,
+                ) {
+                    Text(
+                        "골드부족",
+                        Modifier.fillMaxWidth(),
+                        fontSize = 18.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
         }
+        if (s.mode == Mode.MENU && s.menu?.type == "shopItem") ShopDetail(vm)
         if (confirmRetreat && canRetreat)
             AlertDialog(
                 onDismissRequest = { confirmRetreat = false },
@@ -203,10 +250,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
             it.active(clock.takeIf { time -> time > 0 } ?: SystemClock.uptimeMillis())
         }
     val buttons =
-        vm.engine.controls.buttons().map {
-            if (vm.battleBusy()) it.copy(enabled = false, holdChoice = null, holdLabel = null)
-            else it
-        }
+        vm.engine.controls.buttons().map { if (vm.battleBusy()) it.copy(enabled = false) else it }
     BoxWithConstraints(modifier) {
         val compact = maxHeight < 560.dp
         Column(
@@ -215,9 +259,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
         ) {
             ScenePresentation(vm, clock, Modifier.fillMaxWidth().weight(1f))
             Text(
-                if (motion != null)
-                    "${if (motion.impact.target == ImpactTarget.ENEMY) "공격 중" else "적 반격"} · ${s.message}"
-                else sceneMessage(s),
+                sceneMessage(s),
                 color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
                 fontSize = if (compact) 13.sp else 14.sp,
                 lineHeight = if (compact) 18.sp else 20.sp,
@@ -264,22 +306,28 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                                 .background(if (s.hp < p.hp * .3) red else mint)
                         )
                     }
-                    Text(
-                        "공격 ${p.attack.toInt()} · 방어 ${p.defense.toInt()} · 회복약 ${s.inventory.count { it.kind == Kind.POTION }}",
-                        color = muted,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp,
-                    )
-                    if (!compact)
+                    if (
+                        s.enemy != null && s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND)
+                    ) {
+                        CombatTurnStrip(s, motion, compact)
+                    } else {
                         Text(
-                            s.quest?.let { "의뢰 ${it.progress}/${it.target} · ${it.title}" }
-                                ?: "${directionHint(s)} · 길게 누르기 기능은 버튼 아래 표시",
+                            "공격 ${p.attack.toInt()} · 방어 ${p.defense.toInt()} · 회복약 ${s.inventory.count { it.kind == Kind.POTION }}",
                             color = muted,
                             fontSize = 10.sp,
                             lineHeight = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
+                        if (!compact)
+                            Text(
+                                s.quest?.let { "의뢰 ${it.progress}/${it.target} · ${it.title}" }
+                                    ?: "${directionHint(s)} · 상단 메뉴에서 가방과 기록 확인",
+                                color = muted,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                    }
                 }
             }
             Row(
@@ -295,65 +343,38 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
 
 @Composable
 private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: Modifier) {
-    var held by remember { mutableStateOf(false) }
-    var longReady by remember { mutableStateOf(false) }
-    val coroutine = rememberCoroutineScope()
-    val trap = vm.engine.state.mode == Mode.TRAP
+    var pressed by remember { mutableStateOf(false) }
     val inputKey = vm.engine.controls.inputToken()
     Column(
         modifier
             .fillMaxHeight()
-            .background(if (held) Color(0xFF294C49) else panel, RoundedCornerShape(10.dp))
+            .background(if (pressed) Color(0xFF294C49) else panel, RoundedCornerShape(10.dp))
             .border(
-                if (held) 2.dp else 1.dp,
+                if (pressed) 2.dp else 1.dp,
                 if (b.enabled) mint else line,
                 RoundedCornerShape(10.dp),
             )
             .semantics {
                 role = Role.Button
-                contentDescription = "${if (index == 0) "A" else "B"} ${b.label}"
-                if (!b.enabled && b.holdChoice == null) disabled()
+                contentDescription = b.label
+                if (!b.enabled) disabled()
                 if (b.enabled)
                     onClick {
                         vm.down(index)
                         vm.up(index)
                         true
                     }
-                if (b.holdChoice != null)
-                    onLongClick(label = b.holdLabel) {
-                        vm.down(index)
-                        vm.up(index, held = true)
-                        true
-                    }
             }
-            .pointerInput(vm, index, if (trap) vm.engine.state.trap else inputKey, b.enabled) {
-                if (b.enabled || b.holdChoice != null)
+            .pointerInput(vm, index, inputKey, b.enabled) {
+                if (b.enabled)
                     detectTapGestures(
                         onPress = {
-                            held = true
-                            longReady = false
-                            val start = SystemClock.uptimeMillis()
+                            pressed = true
                             vm.down(index)
-                            val job =
-                                coroutine.launch {
-                                    delay(550)
-                                    longReady = true
-                                }
-                            var released = false
                             try {
-                                released = tryAwaitRelease()
+                                vm.up(index, released = tryAwaitRelease())
                             } finally {
-                                job.cancel()
-                                held = false
-                                longReady = false
-                                vm.up(
-                                    index,
-                                    released,
-                                    held =
-                                        !trap &&
-                                            b.holdChoice != null &&
-                                            SystemClock.uptimeMillis() - start >= 550,
-                                )
+                                pressed = false
                             }
                         }
                     )
@@ -362,16 +383,13 @@ private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: 
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            if (longReady) b.holdLabel ?: b.label else b.label,
+            b.label,
             fontSize = 16.sp,
             lineHeight = 21.sp,
             color = if (b.enabled) pale else muted,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
-        b.holdLabel?.let { hint ->
-            Text("길게: $hint", fontSize = 10.sp, lineHeight = 14.sp, color = mint)
-        }
     }
 }
 
@@ -395,12 +413,16 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             when (menu) {
                 "equipment" -> "장비 장착"
                 "inventory" -> "가방"
+                "slotInventory" -> "${Slot.entries[s.menu!!.argument.toInt()].label} 장비 선택"
+                "shopItem" -> "상점"
                 "shop" -> "상점"
                 "sell" -> "아이템 판매"
                 "quantity" -> "소모품 구매 수량"
                 "growth" -> "능력치 성장"
                 "bank" -> "골드 보관소"
                 "help" -> "탐험 기록"
+                "training" -> "테스트 메뉴"
+                "trainingTraps" -> "장애물 선택"
                 "item" -> "장비 / 아이템 상세"
                 else -> "${if (s.debug) "개발용 테스트" else "준비 메뉴"}"
             }
@@ -431,15 +453,34 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             }
             if (surface || s.mode == Mode.INHERIT)
                 item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
-            if (surface) item { PreparationMenuGrid(vm) }
+            if (surface) {
+                item { PreparationMenuGrid(vm) }
+                item {
+                    ExpeditionButton("테스트 메뉴", "장애물·전투·상인·미션 NPC", "level") {
+                        vm.choose(Choice("테스트 메뉴", "training"))
+                    }
+                }
+            }
             if (menu == "equipment")
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("장비를 누르면 상세 정보, 빈 부위를 누르면 가방이 열립니다.", color = muted, fontSize = 12.sp)
+                        Text("빈 부위를 누르면 해당 장비만 표시하며, 선택하면 바로 장착합니다.", color = muted, fontSize = 12.sp)
                         EquipmentOverview(vm)
                     }
                 }
-            if (menu !in listOf("growth", "shop", "sell", "quantity", "help")) item { Summary(e) }
+            if (
+                menu !in
+                    listOf(
+                        "growth",
+                        "shop",
+                        "sell",
+                        "quantity",
+                        "help",
+                        "training",
+                        "trainingTraps",
+                    )
+            )
+                item { Summary(e) }
             if (surface || s.mode == Mode.INHERIT)
                 item {
                     Text(
@@ -455,24 +496,18 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 items(e.choices().filter { it.action == "enter" && it.argument != 1L }) { c ->
                     ExpeditionButton(c.label, "이동 장치로 출발", "enter") { vm.choose(c) }
                 }
-                if (BuildConfig.DEBUG)
-                    item {
-                        TextButton(
-                            onClick = {
-                                e.choices().firstOrNull { it.action == "debug" }?.let(vm::choose)
-                            }
-                        ) {
-                            Text("개발용 테스트 · 별도 저장", color = muted, fontSize = 11.sp)
-                        }
-                    }
             } else {
                 if (menu == "growth") growthCards(vm)
-                if (menu in listOf("shop", "sell", "quantity")) tradeCards(vm, menu!!)
+                if (menu in listOf("shop", "sell")) tradeCards(vm, menu!!)
                 if (menu == "item") item { ItemComparison(e) }
+                if (menu == "slotInventory" && menuChoices.none { it.action=="item" }) item {
+                    Text("이 부위에 장착할 수 있는 장비가 없습니다.",color=muted,fontSize=13.sp)
+                }
                 if (menu == "help") item { ExplorationRecord(s) }
                 items(
                     menuChoices.filterNot {
-                        (menu == "help") ||
+                        (menu in listOf("help", "shopItem")) ||
+                            (menu in listOf("training", "trainingTraps") && it.action == "back") ||
                             (menu == "equipment" && it.action == "slotItem") ||
                             (menu == "growth" && it.action == "stat") ||
                             (menu in listOf("growth", "shop", "sell", "quantity") &&
@@ -485,6 +520,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     val gear =
                         when (menu) {
                             "shop" -> shopItems.find { it.id == c.argument }
+                            "slotInventory",
                             "inventory",
                             "sell" -> ownedItems.find { it.id == c.argument }
                             "equipment" ->
@@ -522,7 +558,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         Column(Modifier.weight(1f)) {
                             Text(
                                 c.label,
-                                color = if (enabled) pale else muted,
+                                color = if (!enabled) muted else if (gear != null && Equipment.isUpgrade(s,gear,if(menu == "slotInventory") Slot.entries[s.menu!!.argument.toInt()] else null)) Color(0xff86df87) else pale,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                             )
@@ -543,8 +579,6 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                                     modifier = Modifier.padding(top = 5.dp),
                                 )
                             }
-                            if (c.action == "buy" && !enabled)
-                                Text("골드가 부족합니다", color = red, fontSize = 10.sp)
                         }
                     }
                 }
@@ -583,7 +617,7 @@ private fun ItemComparison(e: GameEngine) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ItemArt(gear.kind, Modifier.size(60.dp))
-            Text(gear.name, color = amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(gear.name, color = if(Equipment.isUpgrade(s,gear)) Color(0xff86df87) else amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Text(gear.summary(), color = pale, fontSize = 12.sp)
         Equipment.allowedSlots(gear).forEach { slot ->
@@ -619,7 +653,5 @@ private fun sceneMessage(s: State): String =
         s.mode == Mode.TRAP_GUIDE -> s.trap?.cue() ?: "곧 시작"
         s.mode == Mode.VICTORY -> "전투 종료 · 보상을 확인하고 계속하세요"
         s.mode == Mode.TRAP -> s.trap?.prompt() ?: "함정"
-        s.enemy != null ->
-            "${if (s.mode == Mode.COMBAT_ATTACK) "공격 차례" else "방어 차례"} · ${s.message}"
         else -> s.message
     }
