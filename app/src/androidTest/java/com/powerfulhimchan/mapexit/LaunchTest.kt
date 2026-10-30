@@ -19,6 +19,13 @@ import org.junit.runner.RunWith
 class LaunchTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
+    // The game animates continuously. Waiting for global idleness also waits
+    // for short-lived damage/notice animations to disappear before inspecting them.
+    private fun settleFrames() {
+        instrumentation.runOnMainSync { }
+        SystemClock.sleep(32)
+    }
+
     private fun find(node: AccessibilityNodeInfo?, label: String): Rect? {
         if (node == null) return null
         if (node.contentDescription?.toString() == label || node.text?.toString() == label)
@@ -40,7 +47,7 @@ class LaunchTest {
     private fun bounds(label: String, allowScroll: Boolean = false): Rect {
         val deadline = SystemClock.uptimeMillis() + 10000
         while (SystemClock.uptimeMillis() < deadline) {
-            instrumentation.waitForIdleSync()
+            settleFrames()
             val root = instrumentation.uiAutomation.rootInActiveWindow
             find(root, label)?.let { if (it.width() > 0 && it.height() > 0) return it }
             if (allowScroll) scroll(root)
@@ -65,12 +72,12 @@ class LaunchTest {
         event(MotionEvent.ACTION_DOWN, now)
         SystemClock.sleep(if (held) 700 else 60)
         event(MotionEvent.ACTION_UP, SystemClock.uptimeMillis())
-        instrumentation.waitForIdleSync()
+        settleFrames()
         if (label in listOf("일반 공격", "강공격", "방어", "회피")) SystemClock.sleep(800)
     }
 
     private fun capture(name: String) {
-        instrumentation.waitForIdleSync()
+        settleFrames()
         SystemClock.sleep(250)
         // Accessibility may be ready before the cold-launch window has been replaced by a frame.
         var blank = true
@@ -2002,7 +2009,7 @@ class LaunchTest {
             capture("fine-inventory-top")
             repeat(3) {
                 scroll(instrumentation.uiAutomation.rootInActiveWindow)
-                instrumentation.waitForIdleSync()
+                settleFrames()
                 SystemClock.sleep(150)
             }
             capture("fine-inventory-bottom")

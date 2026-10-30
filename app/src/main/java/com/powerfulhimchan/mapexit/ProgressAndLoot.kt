@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Snackbar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +60,7 @@ internal fun ShopDetail(vm: GameModel) {
     var count by remember(gear.id) { mutableIntStateOf(1) }
     val price=Equipment.buyPrice(s,gear)*count
     Dialog(onDismissRequest=vm::back) {
+      Box(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().heightIn(max=600.dp)
             .background(panel,RoundedCornerShape(10.dp))
             .border(1.dp,mint,RoundedCornerShape(10.dp))
@@ -85,5 +87,14 @@ internal fun ShopDetail(vm: GameModel) {
                 TextButton(onClick={ vm.purchase(gear.id,count) },modifier=Modifier.weight(1f).border(1.dp,mint,RoundedCornerShape(8.dp))) { Text("구매",color=mint) }
             }
         }
+        // A Dialog owns a separate window, so the screen-level notice is behind it.
+        if(vm.goldNoticeVisible) Snackbar(
+            modifier=Modifier.align(Alignment.Center).padding(16.dp),
+            containerColor=panel,contentColor=red,
+        ) {
+            Text("골드부족",Modifier.fillMaxWidth(),fontSize=18.sp,
+                textAlign=androidx.compose.ui.text.style.TextAlign.Center,fontWeight=FontWeight.Bold)
+        }
+      }
     }
 }
