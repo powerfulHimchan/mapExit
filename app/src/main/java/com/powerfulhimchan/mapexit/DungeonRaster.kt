@@ -63,7 +63,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Texture(PixelMaterials.wall(Color(theme.ceiling), 8, theme)),
                 Texture(PixelMaterials.floor(theme)))
         }
-        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
+        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + cell.npcRole.ordinal * 43 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
         if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme) return image
         val dx = cos(camera.angle)
         val dy = sin(camera.angle)
@@ -155,7 +155,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         DungeonFixtures.visible(map,camera).forEach { fixture ->
             val name = when(fixture.event) {
                 Event.HEAL -> "heal"; Event.CHEST -> "chest"; Event.MERCHANT -> "merchant"
-                Event.NPC -> "npc"
+                Event.NPC -> map.cell(fixture.x,fixture.y).npcRole.sprite
                 Event.MONSTER -> MonsterCatalog.find(map.cell(fixture.x,fixture.y).monsterId)?.sprite
                     ?: MonsterCatalog.forFloor(theme.ordinal * 10 + 1)[(fixture.x + fixture.y) % 6].sprite
                 Event.ELITE -> MonsterCatalog.special(theme.ordinal * 10 + 1, false).sprite

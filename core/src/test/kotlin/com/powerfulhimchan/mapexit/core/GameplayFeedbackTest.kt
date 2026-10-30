@@ -104,12 +104,12 @@ class GameplayFeedbackTest {
     }
 
     @Test
-    fun trainingHasOnlyFourCategoriesAndRestoresNormalProgress() {
+    fun trainingIncludesSupportNpcsAndRestoresNormalProgress() {
         val e = GameEngine(State(gold = 57, points = 8))
         val original = SaveCodec.encode(e.state)
         choose(e, "training")
         assertEquals(
-            listOf("trainingTraps", "trainBattle", "trainMerchant", "trainNpc", "back"),
+            listOf("trainingTraps", "trainBattle", "trainMerchant", "trainNpc", "trainBeggar", "trainHealer", "trainHerbalist", "back"),
             e.choices().map { it.action },
         )
         for (action in listOf("trainBattle", "trainMerchant", "trainNpc")) {

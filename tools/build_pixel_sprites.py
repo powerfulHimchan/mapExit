@@ -349,6 +349,26 @@ for band in range(5):
    a.line(8,7,13,11,40);a.line(24,7,19,11,40);a.dots([(7,5),(25,5)],42)
   sprites[f'monster_{band}_{family}']=a
 
+# Additional NPC roles share the same scale and have distinct clothing and props.
+for role in ['beggar','healer','herbalist']:
+ a=copy.deepcopy(sprites['npc'])
+ mapping = {'beggar': {31:12,32:13,33:14}, 'healer': {31:4,32:5,33:6}, 'herbalist': {31:26,32:27,33:28}}[role]
+ a.p=[[mapping.get(v,v) for v in row] for row in a.p]
+ if role=='beggar':
+  a.rect(10,25,5,4,3);a.line(10,25,14,28,5)
+  a.poly([(21,29),(31,29),(30,34),(23,35)],1);a.rect(22,29,8,2,4);a.rect(24,31,5,2,23)
+  a.rect(9,34,3,3,12);a.rect(20,33,3,3,12)
+ elif role=='healer':
+  a.rect(13,22,7,2,35);a.rect(15,20,3,6,35)
+  a.rect(28,12,2,33,13);a.rect(28,12,1,33,24)
+  a.poly([(29,6),(32,11),(29,16),(26,11)],40);a.rect(28,9,2,4,42)
+ else:
+  a.poly([(23,25),(31,25),(31,37),(23,37)],12);a.rect(24,27,7,8,14)
+  for x,y in [(23,19),(27,16),(30,21)]:
+   a.line(x+1,y+2,27,29,26);a.poly([(x,y),(x+3,y-3),(x+3,y+2),(x,y+3)],28)
+  a.rect(24,31,7,1,23);a.rect(24,34,7,1,23)
+ sprites['npc_'+role]=a
+
 header='''package com.powerfulhimchan.mapexit
 
 import android.graphics.Bitmap

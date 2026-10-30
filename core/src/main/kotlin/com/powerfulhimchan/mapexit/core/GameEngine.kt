@@ -75,7 +75,7 @@ class GameEngine(
         controls.reset()
     }
 
-    private fun beginTraining(activity: String, trapType: Int = 0) {
+    private fun beginTraining(activity: String, trapType: Int = 0, npcRole: NpcRole = NpcRole.QUEST) {
         if (!state.training) {
             val normal =
                 state.copy(
@@ -100,6 +100,10 @@ class GameEngine(
             "npc" -> {
                 val event = if (activity == "merchant") Event.MERCHANT else Event.NPC
                 state.dungeon!!.here().event = event
+                if (event == Event.NPC) {
+                    state.dungeon!!.here().npcRole = npcRole
+                    if (npcRole == NpcRole.HEALER) state.hp = stats().hp * .4
+                }
                 beginEncounter(event)
             }
         }
@@ -109,12 +113,16 @@ class GameEngine(
     private fun beginEncounter(event: Event) {
         val s = state
         if (event !in listOf(Event.CHEST, Event.NPC, Event.MERCHANT)) return
+        val currentCell = s.dungeon?.here() ?: return
+        if (currentCell.event != event || currentCell.resolved) return
         s.encounter = event
         s.mode = Mode.ENCOUNTER
         s.selection = 0
         if (event == Event.NPC) {
             s.dungeon?.here()?.let { cell ->
-                if (!cell.offerChecked && s.quest == null) {
+                if (cell.npcRole == NpcRole.BEGGAR && cell.npcGift == null)
+                    cell.npcGift = NpcInteractions.giftFor(s.visitorSeed ?: s.rng, s.floor)
+                if (cell.npcRole == NpcRole.QUEST && !cell.offerChecked && s.quest == null) {
                     cell.questOffer = createQuestOffer()
                     cell.offerChecked = true
                 }
@@ -123,7 +131,7 @@ class GameEngine(
         s.note(
             when (event) {
                 Event.CHEST -> "상자를 열까요?"
-                Event.NPC -> "여행자를 만났습니다"
+                Event.NPC -> if (NpcInteractions.role(s) == NpcRole.QUEST) "여행자를 만났습니다" else "${NpcInteractions.role(s).title}를 만났습니다"
                 else -> "상인을 만났습니다"
             }
         )
@@ -232,19 +240,23 @@ class GameEngine(
                     when (s.encounter) {
                         Event.CHEST -> add(c("열기", "chest"))
                         Event.MERCHANT -> add(c("거래하기", "shop"))
-                        Event.NPC ->
-                            when {
+                        Event.NPC -> {
+                            val role = NpcInteractions.role(s)
+                            if (role != NpcRole.QUEST) {
+                                if (!NpcInteractions.used(s)) add(c(NpcInteractions.actionLabel(role), role.action))
+                            } else when {
                                 s.quest?.complete == true -> add(c("보상 받기", "claim"))
                                 s.quest != null -> Unit
                                 s.dungeon?.here()?.questOffer != null -> add(c("수락", "questAccept"))
                                 else -> Unit
                             }
+                        }
                         else -> Unit
                     }
                     add(
                         c(
                             if (
-                                s.encounter == Event.NPC &&
+                                s.encounter == Event.NPC && NpcInteractions.role(s) == NpcRole.QUEST &&
                                     s.quest == null &&
                                     s.dungeon?.here()?.questOffer != null
                             )
@@ -346,6 +358,9 @@ class GameEngine(
                         c("전투", "trainBattle"),
                         c("상인", "trainMerchant"),
                         c("미션 NPC 대화", "trainNpc"),
+                        c("구걸 NPC 대화", "trainBeggar"),
+                        c("치료사 대화", "trainHealer"),
+                        c("약초 수집가 대화", "trainHerbalist"),
                     )
                 "trainingTraps" ->
                     listOf("뜨거운 물 솥", "바닥 칼날", "좁혀오는 벽", "기억 석판", "천장 나무봉").mapIndexed { i, name ->
@@ -536,6 +551,10 @@ class GameEngine(
             }
             "encounter" -> beginEncounter(Event.entries[c.argument.toInt()])
             "encounterLeave" -> leaveEncounter("탐험을 계속합니다")
+            "npcDonate", "npcHeal", "npcPotion" -> {
+                val result = NpcInteractions.use(s, c.action)
+                if (result.success) leaveEncounter(result.message) else s.note(result.message)
+            }
             "questAccept" -> {
                 if (s.quest != null) return
                 val offer = s.dungeon?.here()?.questOffer ?: return
@@ -673,6 +692,9 @@ class GameEngine(
             "trainBattle" -> beginTraining("battle")
             "trainMerchant" -> beginTraining("merchant")
             "trainNpc" -> beginTraining("npc")
+            "trainBeggar" -> beginTraining("npc", npcRole = NpcRole.BEGGAR)
+            "trainHealer" -> beginTraining("npc", npcRole = NpcRole.HEALER)
+            "trainHerbalist" -> beginTraining("npc", npcRole = NpcRole.HERBALIST)
             "debug" -> {
                 if (!s.debug) debugBackup = SaveCodec.encode(s)
                 s.debug = true
@@ -1282,6 +1304,7 @@ class GameEngine(
         s.equipment.clear()
         s.cycle++
         s.visitorSeed = null
+        s.npcServicesUsed.clear()
         s.clears++
         s.level = 1
         s.chestLoot = null

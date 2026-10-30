@@ -66,6 +66,11 @@ object MapGenerator {
         val species = MonsterCatalog.forFloor(floor)
         map.cells.forEachIndexed { index, cell ->
             if (cell.event == Event.MONSTER) cell.monsterId = species[(index + floor) % species.size].id
+            if (cell.event == Event.NPC) {
+                cell.npcRole = NpcInteractions.roleFor(visitorSeed, floor)
+                if (cell.npcRole == NpcRole.BEGGAR) cell.npcGift = NpcInteractions.giftFor(visitorSeed, floor)
+                if (cell.npcRole != NpcRole.QUEST && floor in s.npcServicesUsed) cell.resolved = true
+            }
         }
         map.reveal()
         return map

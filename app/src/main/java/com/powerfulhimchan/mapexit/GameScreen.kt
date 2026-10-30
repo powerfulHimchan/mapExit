@@ -457,7 +457,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             if (surface) {
                 item { PreparationMenuGrid(vm) }
                 item {
-                    ExpeditionButton("테스트 메뉴", "장애물·전투·상인·미션 NPC", "level") {
+                    ExpeditionButton("테스트 메뉴", "장애물·전투·상인·다양한 NPC", "level") {
                         vm.choose(Choice("테스트 메뉴", "training"))
                     }
                 }
