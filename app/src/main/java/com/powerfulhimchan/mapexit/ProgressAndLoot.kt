@@ -54,6 +54,7 @@ internal fun LootRewardRow(vm: GameModel, gear: Gear, showSummary: Boolean = tru
 
 @Composable
 internal fun LootEquipButton(vm: GameModel, gear: Gear) {
+    vm.revision // Refresh eligibility and worn state even when the row retains the same item instance.
     val s=vm.engine.state
     val worn=gear.id in s.equipment.values
     val enabled=gear.id in s.quickEquipIds && s.inventory.any { it.id==gear.id } && !worn
