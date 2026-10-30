@@ -1831,7 +1831,10 @@ class LaunchTest {
             bounds("장착 현황 · 0/9 부위")
             capture("equipment-empty")
             tap("머리: 비어 있음", allowScroll = true)
-            scenario.onActivity { assertEquals("inventory", it.game.engine.state.menu?.type) }
+            scenario.onActivity {
+                assertEquals("slotInventory", it.game.engine.state.menu?.type)
+                assertEquals(Slot.HEAD.ordinal.toLong(), it.game.engine.state.menu?.argument)
+            }
             scenario.onActivity {
                 val e = GameEngine()
                 val spear = ItemFactory.create(e.state, Kind.SPEAR)
