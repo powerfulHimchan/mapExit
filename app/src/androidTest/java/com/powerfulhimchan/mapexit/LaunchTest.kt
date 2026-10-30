@@ -1063,7 +1063,7 @@ class LaunchTest {
     }
 
     @Test
-    fun levelUpBannerAppearsAfterFinalStrikeAndCanBeDismissed() {
+    fun levelUpBannerAppearsAfterFinalStrikeAndOpensGrowthWithoutLosingVictory() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity {
                 val e = GameEngine(State(experience = 79))
@@ -1082,8 +1082,16 @@ class LaunchTest {
             assertTrue(banner.bottom <= bounds("메인 장면").top)
             bounds("성장 포인트 +3P · 보유 3P")
             capture("level-up")
-            tap("레벨업 알림 닫기")
-            scenario.onActivity { assertNull(it.game.engine.state.levelUpNotice) }
+            tap("성장 배분 열기")
+            bounds("능력치 성장")
+            scenario.onActivity {
+                assertNull(it.game.engine.state.levelUpNotice)
+                assertEquals("growth", it.game.engine.state.menu?.type)
+                assertNotNull(it.game.engine.state.battleResult)
+            }
+            tap("돌아가기")
+            bounds("결과 확인 · 계속")
+            scenario.onActivity { assertEquals(Mode.VICTORY, it.game.engine.state.mode) }
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "레벨 업 LV.1에서 LV.2"))
             capture("level-up-dismissed")
         }
