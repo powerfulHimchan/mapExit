@@ -393,6 +393,7 @@ class LaunchTest {
                 tap("던전 진입")
                 scenario.onActivity {
                     it.game.engine.startBattle(false)
+                    it.game.engine.state.enemy!!.intent = EnemyIntent.STRIKE
                     it.game.refresh()
                 }
                 val a = bounds("A 일반 공격")
@@ -1517,6 +1518,117 @@ class LaunchTest {
                 it.game.refresh()
             }
             bounds("회피 성공")
+        }
+    }
+
+    @Test
+    fun enemyTellShieldBreakAndOpeningWorkThroughExistingButtonsAndPersist() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val e = GameEngine()
+                e.enterFloor(1)
+                e.startBattle(false)
+                e.state.enemy =
+                    e.state.enemy!!.copy(
+                        name = "녹슨 기사",
+                        maxHp = 10000.0,
+                        hp = 10000.0,
+                        intent = EnemyIntent.GUARD,
+                        round = 0,
+                    )
+                e.state.rng = 0
+                e.state.impactSequence += 100
+                it.game.engine = e
+                it.game.active = false
+                it.game.refresh()
+            }
+            bounds("적 행동 예고 방패를 세웁니다")
+            capture("tactic-guard")
+            tap("B 강공격")
+            scenario.onActivity {
+                assertEquals(Mode.COMBAT_ATTACK, it.game.engine.state.mode)
+                assertEquals(EnemyIntent.HEAVY, it.game.engine.state.enemy!!.intent)
+                assertTrue(it.game.engine.state.enemy!!.opening)
+                assertEquals("방패 파괴", it.game.engine.state.lastImpact!!.tactic)
+                it.game.save(blocking = true)
+                val cold = GameModel(it.application)
+                assertEquals(it.game.engine.state.enemy, cold.engine.state.enemy)
+            }
+            bounds("적 행동 예고 검을 높이 들어 올립니다")
+            bounds("빈틈 공격 기회")
+            capture("tactic-break")
+            tap("A 일반 공격")
+            scenario.onActivity {
+                assertEquals(Mode.COMBAT_DEFEND, it.game.engine.state.mode)
+                assertFalse(it.game.engine.state.enemy!!.opening)
+                assertEquals("빈틈 공격", it.game.engine.state.lastImpact!!.tactic)
+                it.game.engine.state.rng = 0
+            }
+            tap("B 회피")
+            bounds("빈틈 공격 기회")
+            bounds("적 행동 예고 짧은 연속 공격을 준비합니다")
+            capture("tactic-opening")
+        }
+    }
+
+    @Test
+    fun enemyTellsStayReadableOnCompactScreenAndHaveDifferentRenderedPoses() {
+        val descriptor = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                for ((name, intent, id) in
+                    listOf(
+                        Triple("동굴 슬라임", EnemyIntent.HEAVY, "slime"),
+                        Triple("심연 박쥐", EnemyIntent.FLURRY, "bat"),
+                        Triple("심연 박쥐", EnemyIntent.RECOVER, "recover"),
+                    )) {
+                    var cue = ""
+                    scenario.onActivity {
+                        val e = GameEngine()
+                        e.enterFloor(1)
+                        e.startBattle(false)
+                        e.state.enemy = e.state.enemy!!.copy(name = name, intent = intent)
+                        cue = "적 행동 예고 ${CombatTactics.cue(e.state.enemy!!)}"
+                        it.game.engine = e
+                        it.game.active = false
+                        it.game.refresh()
+                    }
+                    val tell = bounds(cue)
+                    val scene = bounds("메인 장면")
+                    val actions = bounds("A 일반 공격")
+                    assertTrue(scene.contains(tell))
+                    assertTrue(tell.bottom < actions.top)
+                    capture("tactic-$id-compact")
+                }
+            }
+            val bitmap = androidx.compose.ui.graphics.ImageBitmap(480, 640)
+            val scope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+            val e = GameEngine()
+            e.startBattle(false)
+            val frames = mutableListOf<IntArray>()
+            for (intent in EnemyIntent.entries) {
+                e.state.enemy = e.state.enemy!!.copy(name = "녹슨 기사", intent = intent)
+                val saved = SaveCodec.encode(e.state)
+                scope.draw(
+                    androidx.compose.ui.unit.Density(1f),
+                    androidx.compose.ui.unit.LayoutDirection.Ltr,
+                    androidx.compose.ui.graphics.Canvas(bitmap),
+                    androidx.compose.ui.geometry.Size(480f, 640f),
+                ) {
+                    drawScene(e.state, 1000)
+                }
+                val frame = bitmap.asAndroidBitmap()
+                val pixels = IntArray(480 * 640)
+                frame.getPixels(pixels, 0, 480, 0, 0, 480, 640)
+                assertFalse(frames.any { it.contentEquals(pixels) })
+                frames.add(pixels)
+                assertEquals(saved, SaveCodec.encode(e.state))
+                exportBitmap("tell-${intent.name.lowercase()}", frame)
+            }
+        } finally {
+            val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
+            ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
         }
     }
 

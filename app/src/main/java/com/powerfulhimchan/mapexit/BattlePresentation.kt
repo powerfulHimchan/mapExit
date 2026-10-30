@@ -105,6 +105,28 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     lineHeight = 17.sp,
                     modifier = Modifier.semantics { contentDescription = health },
                 )
+                val plan = motion?.scene?.enemy ?: enemy
+                Text(
+                    "다음 행동 · ${CombatTactics.cue(plan)}",
+                    color = amber,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier =
+                        Modifier.semantics {
+                            contentDescription = "적 행동 예고 ${CombatTactics.cue(plan)}"
+                        },
+                )
+                Text(CombatTactics.hint(plan), color = muted, fontSize = 10.sp, lineHeight = 14.sp)
+                if (plan.opening)
+                    Text(
+                        "빈틈! 다음 공격 피해 +35% · 강공격 명중률 +20%p",
+                        color = mint,
+                        fontSize = 10.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.semantics { contentDescription = "빈틈 공격 기회" },
+                    )
                 Box(Modifier.fillMaxWidth().height(4.dp).background(line)) {
                     Box(
                         Modifier.fillMaxWidth((enemy.hp / enemy.maxHp).toFloat().coerceIn(0f, 1f))
@@ -293,6 +315,8 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Black,
                                 )
+                            if (impact.tactic.isNotEmpty())
+                                Text(impact.tactic, color = mint, fontSize = 10.sp)
                             if (impact.luckyAttack)
                                 Text("행운 · 공격 강화", color = mint, fontSize = 10.sp)
                             if (impact.luckyCritical)

@@ -846,6 +846,7 @@ class GameEngine(
                 10.0 + floor * .3,
                 boss,
             )
+        s.enemy!!.let { it.intent = CombatTactics.pattern(it).first() }
         s.encounter = null
         s.battleId++
         s.battleResult = null
@@ -860,19 +861,32 @@ class GameEngine(
         if (s.mode != Mode.COMBAT_ATTACK) return
         val enemy = s.enemy ?: return
         val p = stats()
+        val opening = enemy.opening
+        enemy.opening = false
         var damage = 0.0
         val criticalRoll = s.random()
         val hit =
             s.random() <
-                (if (strong) GameBalance.model("strong_hit") else GameBalance.model("normal_hit"))
+                ((if (strong) GameBalance.model("strong_hit")
+                else GameBalance.model("normal_hit")) + if (strong && opening) .20 else 0.0)
         val lucky = if (hit) Luck.roll(s, p) else AttackLuck()
         val critical = criticalRoll < Luck.criticalChance(p.crit, lucky)
         if (hit)
             damage =
                 p.attack *
                     Luck.attackMultiplier(lucky) *
+                    (if (opening || enemy.intent == EnemyIntent.RECOVER) 1.35 else 1.0) *
+                    (if (enemy.intent == EnemyIntent.GUARD && !strong) .55 else 1.0) *
                     (if (strong) GameBalance.model("strong_damage") else 1.0) *
                     100 / (100 + enemy.defense) * (if (critical) p.critDamage else 1.0)
+        val guardBreak = hit && strong && enemy.intent == EnemyIntent.GUARD
+        val tactic =
+            when {
+                guardBreak -> "방패 파괴"
+                hit && (opening || enemy.intent == EnemyIntent.RECOVER) -> "빈틈 공격"
+                hit && enemy.intent == EnemyIntent.GUARD -> "적 방패에 경감"
+                else -> ""
+            }
         val previousHp = enemy.hp
         enemy.hp = max(0.0, enemy.hp - damage)
         impact(
@@ -882,17 +896,23 @@ class GameEngine(
             critical && damage > 0,
             lucky.attackBoost,
             lucky.criticalBoost,
+            tactic,
         )
         s.note(
             if (damage == 0.0) "공격이 빗나갔습니다"
             else
-                "${if(lucky.attackBoost) "행운 공격 강화 · " else ""}${if(lucky.criticalBoost) "행운 치명 확률 강화 · " else ""}${if(critical)"치명타! " else ""}${damage.roundToInt()} 피해"
+                "${if(tactic.isNotEmpty()) "$tactic · " else ""}${if(lucky.attackBoost) "행운 공격 강화 · " else ""}${if(lucky.criticalBoost) "행운 치명 확률 강화 · " else ""}${if(critical)"치명타! " else ""}${damage.roundToInt()} 피해"
         )
         if (enemy.hp <= 0) {
             victory()
             return
         }
-        s.mode = Mode.COMBAT_DEFEND
+        if (guardBreak || enemy.intent == EnemyIntent.RECOVER) {
+            enemy.opening = guardBreak
+            CombatTactics.advance(enemy)
+            s.mode = Mode.COMBAT_ATTACK
+            s.note(s.message + if (guardBreak) " · 적 공격 취소 · 다음 공격 강화" else " · 적은 숨을 고릅니다")
+        } else s.mode = Mode.COMBAT_DEFEND
         s.selection = 0
     }
 
@@ -901,22 +921,43 @@ class GameEngine(
         if (s.mode != Mode.COMBAT_DEFEND) return
         val e = s.enemy ?: return
         val p = stats()
+        if (e.intent == EnemyIntent.RECOVER) {
+            CombatTactics.advance(e)
+            s.mode = Mode.COMBAT_ATTACK
+            s.selection = 0
+            s.note("적은 숨을 고릅니다 · 공격 기회")
+            return
+        }
         val chance =
             (GameBalance.model("dodge_base") +
-                    (p.agility - e.precision) * GameBalance.model("dodge_per_agility_gap"))
-                .coerceIn(GameBalance.model("dodge_min"), GameBalance.model("dodge_max"))
+                    (p.agility - e.precision) * GameBalance.model("dodge_per_agility_gap") +
+                    when (e.intent) {
+                        EnemyIntent.HEAVY -> .25
+                        EnemyIntent.FLURRY -> -.15
+                        else -> 0.0
+                    })
+                .coerceIn(
+                    GameBalance.model("dodge_min"),
+                    if (e.intent == EnemyIntent.HEAVY) .80 else GameBalance.model("dodge_max"),
+                )
         val shield = Equipment.equipped(s).any { it.kind == Kind.SHIELD }
         val critical = s.random() < .10
-        var damage = Defense.damageAfterArmor(e.attack, p.defense) * (if (critical) 1.5 else 1.0)
+        val incoming = e.attack * CombatTactics.incomingMultiplier(e.intent)
+        var damage = Defense.damageAfterArmor(incoming, p.defense) * (if (critical) 1.5 else 1.0)
         if (dodge) {
             if (s.random() < chance) damage = 0.0
         } else
             damage *=
                 1.0 -
-                    GameBalance.model("guard_reduction") -
+                    (if (e.intent == EnemyIntent.FLURRY) .60
+                    else GameBalance.model("guard_reduction")) -
                     (if (shield) GameBalance.shield("guard_bonus") else 0.0)
-        val fullGuard = !dodge && s.random() < Defense.zeroDamageChance(p, e.attack)
+        val fullGuard = !dodge && s.random() < Defense.zeroDamageChance(p, incoming)
         if (fullGuard) damage = 0.0
+        val createsOpening =
+            (dodge && damage == 0.0 && e.intent == EnemyIntent.HEAVY) ||
+                (!dodge && e.intent == EnemyIntent.FLURRY)
+        val tactic = if (createsOpening) "빈틈 발생 · 다음 공격 강화" else ""
         val previousHp = s.hp
         s.hp = max(0.0, s.hp - damage)
         impact(
@@ -926,16 +967,20 @@ class GameEngine(
             else if (damage == 0.0) ImpactOutcome.DODGE
             else if (!dodge) ImpactOutcome.GUARD else ImpactOutcome.DAMAGE,
             critical && damage > 0,
+            tactic = tactic,
         )
         s.note(
-            if (fullGuard) "완전 방어! 피해를 받지 않았습니다"
+            (if (fullGuard) "완전 방어! 피해를 받지 않았습니다"
             else if (damage == 0.0) "회피 성공!"
-            else "${if(dodge)"회피 실패 · " else "방어 · "}${damage.roundToInt()} 피해"
+            else "${if(dodge)"회피 실패 · " else "방어 · "}${damage.roundToInt()} 피해") +
+                if (createsOpening) " · $tactic" else ""
         )
         if (s.hp <= 0) {
             die()
             return
         }
+        e.opening = createsOpening
+        CombatTactics.advance(e)
         s.mode = Mode.COMBAT_ATTACK
         s.selection = 0
     }
@@ -947,6 +992,7 @@ class GameEngine(
         critical: Boolean = false,
         luckyAttack: Boolean = false,
         luckyCritical: Boolean = false,
+        tactic: String = "",
     ) {
         val s = state
         s.impactSequence++
@@ -959,6 +1005,7 @@ class GameEngine(
                 critical,
                 luckyAttack,
                 luckyCritical,
+                tactic,
             )
     }
 

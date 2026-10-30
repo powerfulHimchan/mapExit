@@ -23,6 +23,26 @@ object BattleAnimation {
 
     data class DefensePose(val retreat: Float, val crouch: Float, val lean: Float, val guard: Float)
 
+    data class TellPose(
+        val lean: Float,
+        val bob: Float,
+        val squash: Float,
+        val weaponAngle: Float,
+        val guard: Float,
+    )
+
+    fun tell(intent: EnemyIntent, clock: Long): TellPose {
+        val breath = sin((clock % 2400) * PI / 1200).toFloat()
+        return when (intent) {
+            EnemyIntent.HEAVY -> TellPose(-14f, breath * .015f, .16f, -120f, 0f)
+            EnemyIntent.FLURRY ->
+                TellPose(-8f, sin((clock % 600) * PI / 300).toFloat() * .025f, .03f, -55f, 0f)
+            EnemyIntent.GUARD -> TellPose(5f, breath * .005f, 0f, -10f, 1f)
+            EnemyIntent.RECOVER -> TellPose(18f, breath * .01f, .10f, 35f, 0f)
+            EnemyIntent.STRIKE -> TellPose(0f, breath * .008f, 0f, -25f, 0f)
+        }
+    }
+
     fun defense(action: String, elapsed: Long): DefensePose {
         if (elapsed !in 0 until DURATION_MS) return DefensePose(0f, 0f, 0f, 0f)
         val envelope =

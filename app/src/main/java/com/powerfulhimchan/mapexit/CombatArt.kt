@@ -58,7 +58,14 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
     val defending = motion != null && !attacking
     val kind = Equipment.equipped(scene).firstOrNull { it.weapon }?.kind
     val pose = BattleAnimation.pose(kind, elapsed, motion?.action == "strong")
-    val monsterPose = BattleAnimation.pose(if (enemy.boss) Kind.HAMMER else Kind.SWORD, elapsed)
+    val monsterPose =
+        BattleAnimation.pose(
+            if (enemy.boss) Kind.HAMMER else Kind.SWORD,
+            elapsed,
+            enemy.intent == EnemyIntent.HEAVY,
+        )
+    val tell = BattleAnimation.tell(enemy.intent, clock)
+    val showingTell = motion == null && s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND)
     val playerDamage = defending && motion!!.impact.amount > 0
     val enemyDamage = attacking && motion!!.impact.outcome != ImpactOutcome.MISS
     val w = size.width
@@ -180,7 +187,9 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
         if (defending && type in listOf("slime", "boss") && elapsed <= BattleAnimation.HIT_MS)
             sin(elapsed.toFloat() / BattleAnimation.HIT_MS * PI).toFloat() * h * .10f
         else 0f
-    val baseline = h * (if (type == "bat") .57f else .73f) + advance * h * .14f - jump
+    val baseline =
+        h * (if (type == "bat") .57f else .73f) + advance * h * .14f - jump +
+            if (showingTell) tell.bob * h else 0f
     val ey = baseline - spriteHeight(type, enemyWidth)
     val dead = s.mode == Mode.VICTORY && (motion == null || elapsed >= 590)
     contactShadow(ex, h * .74f + advance * h * .14f, unit * 32)
@@ -191,7 +200,17 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
             else null
         withTransform({
             val pivot = Offset(ex + unit * 16, baseline)
-            rotate(if (defending) -monsterPose.lean else recoil * 12, pivot)
+            rotate(
+                if (defending) -monsterPose.lean else if (showingTell) tell.lean else recoil * 12,
+                pivot,
+            )
+            if (showingTell && type == "slime") scale(1f + tell.squash, 1f - tell.squash, pivot)
+            if (showingTell && type == "bat")
+                scale(
+                    if (enemy.intent == EnemyIntent.HEAVY) .78f else 1f + abs(tell.bob) * 5,
+                    1f,
+                    pivot,
+                )
             if (type == "slime" && defending)
                 scale(1f + monsterPose.impact * .2f, 1f - monsterPose.impact * .18f, pivot)
             if (type == "bat" && defending)
@@ -205,6 +224,8 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
                 flash = tint,
                 articulated = type in listOf("knight", "boss"),
             )
+            if (showingTell && tell.guard > 0f && type in listOf("knight", "boss"))
+                sprite("shield", ex - unit * 2, ey + unit * 17, unit * 25)
             if (type in listOf("knight", "boss")) {
                 val hand = Offset(ex + unit * 8 - advance * unit * 4, ey + unit * 28)
                 arm(Offset(ex + unit * 12, ey + unit * 22), hand, unit)
@@ -212,13 +233,25 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
                     if (type == "boss") Kind.HAMMER else Kind.SWORD,
                     hand,
                     unit,
-                    if (defending) -monsterPose.angle else -25f,
+                    if (defending) -monsterPose.angle
+                    else if (showingTell) tell.weaponAngle else -25f,
                 )
             }
         }
     } else {
         pixelRect(Color(0xff3c524a), ex, baseline - 5, unit * 32, 5f)
         sprite("coin", ex + unit * 12, baseline - 35, 32f)
+    }
+    if (defending && enemy.intent == EnemyIntent.FLURRY) {
+        for (i in 0..2) drawLine(
+            amber.copy(alpha = monsterPose.impact * .8f),
+            Offset(heroX + heroWidth * .8f, heroBase - heroWidth * .65f + i * 12),
+            Offset(heroX + heroWidth * 1.2f, heroBase - heroWidth * .45f + i * 12),
+            3f,
+        )
+    }
+    if (showingTell && enemy.opening) {
+        for (i in 0..2) pixelRect(mint, ex + unit * (10 + i * 6), ey - unit * 5, unit * 2, unit * 3)
     }
     if (enemyDamage)
         burst(

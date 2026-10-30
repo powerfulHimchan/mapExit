@@ -232,6 +232,15 @@ data class Dungeon(
 }
 
 @Serializable
+enum class EnemyIntent {
+  STRIKE,
+  HEAVY,
+  FLURRY,
+  GUARD,
+  RECOVER,
+}
+
+@Serializable
 data class Enemy(
     val name: String,
     val maxHp: Double,
@@ -240,6 +249,9 @@ data class Enemy(
     val defense: Double,
     val precision: Double,
     val boss: Boolean = false,
+    var intent: EnemyIntent = EnemyIntent.STRIKE,
+    var round: Int = 0,
+    var opening: Boolean = false,
 )
 
 @Serializable
@@ -266,6 +278,7 @@ data class BattleImpact(
     val critical: Boolean = false,
     val luckyAttack: Boolean = false,
     val luckyCritical: Boolean = false,
+    val tactic: String = "",
 ) {
   fun label(): String {
     val base =
@@ -280,6 +293,7 @@ data class BattleImpact(
         listOfNotNull(
             if (luckyAttack) "행운 공격 강화" else null,
             if (luckyCritical) "행운 치명 확률 강화" else null,
+            tactic.takeIf { it.isNotEmpty() },
         )
     return if (effects.isEmpty()) base else "$base · ${effects.joinToString(" · ")}"
   }
