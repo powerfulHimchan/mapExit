@@ -13,6 +13,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -289,10 +290,14 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                             ?.takeIf { it.impact.serial == impact.serial }
                             ?.let { it.startedAt + BattleAnimation.HIT_MS } ?: time
                     var visible by remember { mutableStateOf(time >= hitTime) }
+                    var animatePopup by remember { mutableStateOf(true) }
                     LaunchedEffect(Unit) {
+                        animatePopup = (coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f) > 0f
                         delay((hitTime - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0))
                         visible = true
-                        rise.animateTo(1f, tween(1200))
+                        if (animatePopup) rise.animateTo(1f, tween(1200))
+                        else delay(1200)
+                        visible = false
                     }
                     var popupHeight by remember { mutableStateOf(0.dp) }
                     val enemyHit = impact.target == ImpactTarget.ENEMY
@@ -302,7 +307,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     val popupColor =
                         if (avoided) mint
                         else if (!enemyHit) red else if (impact.critical) amber else pale
-                    if (visible && rise.value < 1f)
+                    if (visible)
                         Column(
                             modifier =
                                 Modifier.onSizeChanged {
@@ -321,9 +326,9 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                                 ),
                                     )
                                     .graphicsLayer {
-                                        alpha=if(rise.value<.72f)1f else ((1-rise.value)/.28f).coerceIn(0f,1f)
+                                        alpha=if(!animatePopup || rise.value<.72f)1f else ((1-rise.value)/.28f).coerceIn(0f,1f)
                                         val punch=kotlin.math.sin(rise.value.coerceIn(0f,1f)*kotlin.math.PI).toFloat()
-                                        scaleX=.84f+.16f*BattleAnimation.smooth(rise.value/.12f)+if(impact.critical)punch*.1f else 0f
+                                        scaleX=if(animatePopup) .84f+.16f*BattleAnimation.smooth(rise.value/.12f)+if(impact.critical)punch*.1f else 0f else 1f
                                         scaleY=scaleX
                                     }
                                     .widthIn(max = maxWidth * .50f)

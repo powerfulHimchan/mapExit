@@ -1921,11 +1921,15 @@ class LaunchTest {
                 }
                 awaitGame(scenario) { it.trap?.phase == TrapPhase.ACTIVE }
                 if (type == 0) {
+                    // Keep the 900 ms result visible while slow accessibility taps return.
+                    // The timeout case below still runs on the live game clock.
+                    scenario.onActivity { it.game.active = false }
                     for (b in pattern) tap(if (b == 0) "왼쪽 동작" else "오른쪽 동작")
                 }
                 awaitGame(scenario) { it.trap?.phase == TrapPhase.RESULT }
                 scenario.onActivity { assertEquals(type == 0, it.game.engine.state.trap!!.success) }
                 capture(if (type == 0) "trap-auto-success" else "trap-auto-failure")
+                scenario.onActivity { it.game.active = true }
                 awaitGame(scenario) { it.mode == Mode.EXPLORE }
                 scenario.onActivity {
                     assertNull(it.game.engine.state.trap)
