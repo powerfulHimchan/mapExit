@@ -501,18 +501,18 @@ class LaunchTest {
         return e
     }
 
-    private fun awaitGame(scenario: ActivityScenario<MainActivity>, condition: (State) -> Boolean) {
+    private fun awaitGame(activity: MainActivity, condition: (State) -> Boolean) {
         val deadline = SystemClock.uptimeMillis() + 10000
         while (SystemClock.uptimeMillis() < deadline) {
             var matched = false
-            scenario.onActivity { matched = condition(it.game.engine.state) }
+            instrumentation.runOnMainSync { matched = condition(activity.game.engine.state) }
             if (matched) return
             SystemClock.sleep(40)
         }
         var detail = ""
-        scenario.onActivity {
-            val s = it.game.engine.state
-            detail = "mode=${s.mode}, active=${it.game.active}, trap=${s.trap}"
+        instrumentation.runOnMainSync {
+            val s = activity.game.engine.state
+            detail = "mode=${s.mode}, active=${activity.game.active}, trap=${s.trap}"
         }
         fail("Timed out waiting for the automatic game transition: $detail")
     }
@@ -1932,41 +1932,46 @@ class LaunchTest {
     @Test
     fun trapsUseLiveTimersAndReturnWithoutConfirmation() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            lateinit var activity: MainActivity
+            scenario.onActivity { activity = it; it.game.active = false }
             for (type in 0..1) {
                 var pattern = emptyList<Int>()
-                scenario.onActivity {
+                instrumentation.runOnMainSync {
                     val e = encounterEngine(Event.TRAP)
                     e.press(0)
                     e.state.trap = Traps.create(e.state, type)
                     pattern = e.state.trap!!.pattern
-                    it.game.engine = e
-                    it.game.active = true
-                    it.game.refresh()
+                    activity.game.engine = e
+                    activity.game.active = true
+                    activity.game.refresh()
                 }
-                awaitGame(scenario) { it.trap?.phase == TrapPhase.ACTIVE }
+                awaitGame(activity) { it.trap?.phase == TrapPhase.ACTIVE }
                 if (type == 0) {
                     // Keep the 900 ms result visible while slow accessibility taps return.
                     // The timeout case below still runs on the live game clock.
-                    scenario.onActivity { it.game.active = false }
+                    instrumentation.runOnMainSync { activity.game.active = false }
                     for ((index, b) in pattern.withIndex()) {
                         val label = if (b == 0) "왼쪽 동작" else "오른쪽 동작"
                         bounds(label)
                         assertTrue("Trap action must be delivered: $label",
                             clickSemantic(instrumentation.uiAutomation.rootInActiveWindow, label))
-                        scenario.onActivity {
-                            assertEquals(index + 1, it.game.engine.state.trap!!.progress)
+                        instrumentation.runOnMainSync {
+                            assertEquals(index + 1, activity.game.engine.state.trap!!.progress)
                         }
                     }
                 }
-                awaitGame(scenario) { it.trap?.phase == TrapPhase.RESULT }
-                scenario.onActivity { assertEquals(type == 0, it.game.engine.state.trap!!.success) }
+                awaitGame(activity) { it.trap?.phase == TrapPhase.RESULT }
+                instrumentation.runOnMainSync {
+                    activity.game.active = false
+                    assertEquals(type == 0, activity.game.engine.state.trap!!.success)
+                }
                 capture(if (type == 0) "trap-auto-success" else "trap-auto-failure")
-                scenario.onActivity { it.game.active = true }
-                awaitGame(scenario) { it.mode == Mode.EXPLORE }
-                scenario.onActivity {
-                    assertNull(it.game.engine.state.trap)
-                    assertTrue(it.game.engine.state.dungeon!!.here().resolved)
-                    it.game.active = false
+                instrumentation.runOnMainSync { activity.game.active = true }
+                awaitGame(activity) { it.mode == Mode.EXPLORE }
+                instrumentation.runOnMainSync {
+                    assertNull(activity.game.engine.state.trap)
+                    assertTrue(activity.game.engine.state.dungeon!!.here().resolved)
+                    activity.game.active = false
                 }
             }
         }
