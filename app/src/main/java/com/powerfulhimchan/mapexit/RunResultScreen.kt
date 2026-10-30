@@ -39,7 +39,7 @@ internal fun RunResultScreen(vm: GameModel, modifier: Modifier) {
             ) {
                 ResultLine(if (result.retreated) "귀환한 위치" else "사망한 위치", "지하 ${result.floor}층")
                 ResultLine("최대 도달 층", "지하 ${result.deepestFloor}층")
-                ResultLine("처치한 적", "${result.kills}명")
+                ResultLine("처치한 몬스터", "${result.kills}명")
                 ResultLine("연 상자", "${result.chests}개")
                 ResultLine("피한 함정", "${result.traps}개")
                 ResultLine("탐험 시간", "${seconds / 60}분 ${seconds % 60}초")

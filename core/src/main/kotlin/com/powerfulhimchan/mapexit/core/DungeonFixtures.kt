@@ -29,6 +29,24 @@ object DungeonFixtures {
         return x+MapGenerator.dx[d] to y+MapGenerator.dy[d]
     }
 
+    fun doorOnFace(map: Dungeon, wallX: Int, wallY: Int, fromX: Int, fromY: Int): Boolean {
+        val entrance = map.cell(fromX, fromY)
+        return !entrance.wall && !entrance.resolved && entrance.event == Event.EXIT &&
+            doorWall(map, fromX, fromY) == (wallX to wallY)
+    }
+
+    fun spriteSpan(event: Event, focal: Float, depth: Float, width: Int, height: Int, aspect: Float): Float {
+        val worldHeight = when (event) {
+            Event.CHEST -> .32f
+            Event.MONSTER -> .46f
+            Event.MERCHANT, Event.NPC, Event.ELITE -> .64f
+            Event.HEAL -> .60f
+            Event.TRAP -> .12f
+            else -> .60f
+        }
+        return minOf(worldHeight * focal / depth.coerceAtLeast(.12f), height * .56f, width * .56f / aspect)
+    }
+
     fun visible(map: Dungeon, camera: DungeonViewPose): List<VisibleFixture> {
         val dx=cos(camera.angle);val dy=sin(camera.angle)
         return map.cells.mapIndexedNotNull { index,c ->

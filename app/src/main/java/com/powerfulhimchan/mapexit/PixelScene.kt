@@ -28,7 +28,7 @@ internal fun DrawScope.pixelRect(color: Color, x: Float, y: Float, w: Float, h: 
 internal fun spriteUnit(width: Float) = (width / 32).toInt().coerceAtLeast(1).toFloat()
 
 internal fun spriteHeight(type: String, width: Float) =
-    (FineSprites.all[type]?.height ?: 48) * spriteUnit(width)
+    (GearSprites.get(type)?.height ?: 48) * spriteUnit(width)
 
 @Suppress("UNUSED_PARAMETER")
 internal fun DrawScope.sprite(
@@ -41,8 +41,8 @@ internal fun DrawScope.sprite(
     articulated: Boolean = false,
     opacity: Float = 1f,
 ) {
-    val art = FineSprites.all[type] ?: FineSprites.all.getValue("npc")
-    val unit = spriteUnit(width)
+    val art = GearSprites.get(type) ?: FineSprites.all.getValue("npc")
+    val unit = if (type.startsWith("gear:")) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
     fun DrawScope.paint() {
         drawImage(
             art.bitmap,
@@ -111,18 +111,30 @@ internal fun DrawScope.adventurer(
     if(shadow) contactShadow(x, baseline + 3, actual)
     combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride)
 
+    Equipment.equipped(s).forEach { gear ->
+        val area = when (gear.kind) {
+            Kind.HEAD -> Triple(8f, 0f, 16f)
+            Kind.BODY -> Triple(6f, 14f, 20f)
+            Kind.PANTS -> Triple(8f, 30f, 17f)
+            Kind.BOOTS -> Triple(7f, 38f, 19f)
+            Kind.NECKLACE -> Triple(12f, 20f, 8f)
+            Kind.RING -> if (s.equipment[Slot.RING1] == gear.id) Triple(23f, 30f, 5f) else Triple(4f, 30f, 5f)
+            else -> null
+        }
+        area?.let { (xx, yy, ww) -> sprite(gearSprite(gear), x + xx * unit, y + yy * unit, ww * unit, flash = hitTint) }
+    }
     if (back && armed) {
         val weapon = Equipment.equipped(s).firstOrNull { it.weapon }
         weapon?.let {
-            val type = gearSprite(it.kind)
-            val drawWidth = unit * 26
-            val scale = spriteUnit(drawWidth)
+            val type = gearSprite(it)
+            val drawWidth = unit * 26 * GearAppearance.heldScale(it.kind)
+            val scale = drawWidth / 32
             val gripX = if (it.kind == Kind.WHIP) 7 else 16
             val gripY = if (it.kind == Kind.SPEAR) 40 else if (it.kind == Kind.WHIP) 25 else 27
             sprite(type, x + unit * 27 - gripX * scale, y + unit * 31 - gripY * scale, drawWidth)
         }
-        if (Equipment.equipped(s).any { it.kind == Kind.SHIELD }) {
-            sprite("shield", x - unit * 5, y + unit * 24, unit * 22)
+        Equipment.equipped(s).firstOrNull { it.kind == Kind.SHIELD }?.let { shield ->
+            sprite(gearSprite(shield), x - unit * 5, y + unit * 24, unit * 22)
         }
     }
     return HeroPose(x, y, unit)
@@ -180,7 +192,7 @@ private fun DrawScope.drawCamp(s: State, clock: Long) {
         candidates.forEachIndexed { i, gear ->
             val x = w * (.26f + i * .18f)
             pixelRect(amber.copy(alpha = .20f), x - 4, h * .22f - 4, 40f, 40f)
-            sprite(gearSprite(gear.kind), x, h * .22f, 32f)
+            sprite(gearSprite(gear), x, h * .22f, 32f)
         }
     }
 }

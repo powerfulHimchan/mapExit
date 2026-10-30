@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.powerfulhimchan.mapexit.core.Dungeon
+import com.powerfulhimchan.mapexit.core.MonsterCatalog
 import com.powerfulhimchan.mapexit.core.DungeonFixtures
 import com.powerfulhimchan.mapexit.core.Event
 import com.powerfulhimchan.mapexit.core.DungeonTheme
@@ -62,7 +63,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Texture(PixelMaterials.wall(Color(theme.ceiling), 8, theme)),
                 Texture(PixelMaterials.floor(theme)))
         }
-        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + if (cell.resolved) 37 else 0 }
+        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
         if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme) return image
         val dx = cos(camera.angle)
         val dy = sin(camera.angle)
@@ -90,10 +91,6 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         }
         fun solid(x: Int, y: Int): Boolean =
             x !in 0 until map.width || y !in 0 until map.height || map.cells[y * map.width + x].wall
-        val doors = map.cells.mapIndexedNotNull { index, cell ->
-            if (!cell.resolved && cell.event == Event.EXIT)
-                DungeonFixtures.doorWall(map,index%map.width,index/map.width) else null
-        }.toSet()
         for (x in 0 until width) {
             val rx = rayX[x]
             val ry = rayY[x]
@@ -132,6 +129,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
             val u = hit - floor(hit)
             val light =
                 ((if (side == 0) 232f else 208f) / (1f + distance * .10f)).toInt().coerceAtLeast(65)
+            val isDoor = DungeonFixtures.doorOnFace(map, mx, my, if (side == 0) mx - stepX else mx, if (side == 1) my - stepY else my)
             val hasTorch = ((mx * 31 + my * 17) and 7) == 0
             for (y in start..end) {
                 val v = (y + .5f - top) / span
@@ -144,7 +142,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                         color = if (r > g && g > 60) shade(theme.light, (r + 80).coerceAtMost(256)) else flame
                     }
                 }
-                if ((mx to my) in doors && u in .17f.. .83f && v in .08f..1f) {
+                if (isDoor && u in .17f.. .83f && v in .08f..1f) {
                     val door = assets.getValue("door").sample((u-.17f)/.66f,(v-.08f)/.92f)
                     if (door ushr 24 != 0) color = door
                 }
@@ -157,12 +155,16 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         DungeonFixtures.visible(map,camera).forEach { fixture ->
             val name = when(fixture.event) {
                 Event.HEAL -> "heal"; Event.CHEST -> "chest"; Event.MERCHANT -> "merchant"
-                Event.NPC -> "npc"; Event.MONSTER -> "slime"; Event.ELITE -> "knight"; Event.TRAP -> "trap"
+                Event.NPC -> "npc"
+                Event.MONSTER -> MonsterCatalog.find(map.cell(fixture.x,fixture.y).monsterId)?.sprite
+                    ?: MonsterCatalog.forFloor(theme.ordinal * 10 + 1)[(fixture.x + fixture.y) % 6].sprite
+                Event.ELITE -> MonsterCatalog.special(theme.ordinal * 10 + 1, false).sprite
+                Event.TRAP -> "trap"
                 else -> null
             } ?: return@forEach
             val texture=assets.getValue(name)
             val depth=fixture.depth
-            val span=(if(fixture.event==Event.HEAL).72f else if(fixture.event==Event.TRAP).18f else .82f)*focal/depth
+            val span=DungeonFixtures.spriteSpan(fixture.event,focal,depth,width,height,texture.width.toFloat()/texture.height)
             val spriteWidth=span*texture.width/texture.height
             val center=width/2f+fixture.lateral*focal/depth
             val left=center-spriteWidth/2f

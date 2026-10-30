@@ -68,7 +68,7 @@ internal fun ShopDetail(vm: GameModel) {
             verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text("아이템 상세",color=mint,fontSize=20.sp,fontWeight=FontWeight.Bold)
             Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                ItemArt(gear.kind,Modifier.size(48.dp));Text(gear.name,color=pale,fontSize=18.sp,fontWeight=FontWeight.Bold)
+                ItemArt(gear,Modifier.size(48.dp));Text(gear.name,color=pale,fontSize=18.sp,fontWeight=FontWeight.Bold)
             }
             Text(gear.summary(),color=pale,fontSize=12.sp,lineHeight=18.sp)
             if(gear.kind!=Kind.POTION) ShopComparison(s,gear)

@@ -76,10 +76,8 @@ internal fun EquipmentOverview(vm: GameModel) {
                                     Slot.NECK -> Kind.NECKLACE
                                     else -> Kind.RING
                                 }
-                            ItemArt(
-                                gear?.kind ?: emptyKind,
-                                Modifier.size(40.dp).alpha(if (gear == null) .25f else 1f),
-                            )
+                            if (gear != null) ItemArt(gear, Modifier.size(40.dp))
+                            else ItemArt(emptyKind, Modifier.size(40.dp).alpha(.25f))
                             Text(
                                 gear?.name ?: "비어 있음",
                                 color = if (gear != null) pale else muted,

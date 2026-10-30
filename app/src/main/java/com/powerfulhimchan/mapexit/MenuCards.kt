@@ -99,7 +99,34 @@ internal fun LazyListScope.growthCards(vm: GameModel) {
                     )
                 }
             }
-            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            if (row.last() == Stat.LUCK) {
+                val enabled = points > 0 && s.hp > 0 && s.hp < current.hp
+                Column(
+                    Modifier.weight(1f).fillMaxHeight().card(enabled, "체력 모두 회복 · 1P", compact = true) {
+                        vm.choose(Choice("체력 모두 회복 · 1P", "growthHeal"))
+                    },
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ItemArt(Kind.POTION, Modifier.size(if (narrow) 24.dp else 30.dp))
+                    Text("체력 모두 회복", color = pale, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("${s.hp.roundToInt()} / ${current.hp.roundToInt()}", color = pale, fontSize = 12.sp)
+                    Text(if (s.hp >= current.hp) "체력 가득 참" else "→ 최대 체력", color = if (enabled) mint else muted, fontSize = 10.sp)
+                    Text("사용 1P", color = if (enabled) amber else muted, fontSize = 12.sp)
+                }
+            } else repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+    item(key = "growth-explanations") {
+        Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(8.dp)).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("능력치의 영향", color = amber, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Stat.entries.forEach { stat ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(stat.label, color = mint, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(Growth.description(stat), color = pale, fontSize = 12.sp, lineHeight = 18.sp)
+                }
+            }
+            Text("체력 모두 회복: 성장 포인트 1P를 사용합니다. 체력이 가득 찼을 때는 포인트를 쓰지 않습니다.", color = muted, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
 }
@@ -159,7 +186,7 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                     },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    ItemArt(gear.kind, Modifier.size(if(menu=="shop")36.dp else 48.dp))
+                    ItemArt(gear, Modifier.size(if(menu=="shop")36.dp else 48.dp))
                     Text(gear.name,color=if(menu=="shop" || affordable)pale else red,fontSize=14.sp,fontWeight=FontWeight.Bold,lineHeight=18.sp)
                     if(menu=="sell") {
                         if(gear.id in worn.values) Text("[착용중] · 판매 시 해제",color=mint,fontSize=11.sp)

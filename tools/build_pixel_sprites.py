@@ -231,6 +231,124 @@ for kind in ['sword','spear','hammer','claw','whip','shield','head','body','pant
   a.rect(13,9,7,2,25);a.rect(11,11,3,10,23);a.rect(13,21,7,2,23);a.rect(18,16,3,6,23)
  sprites[kind]=a
 
+# Distinct weapon variants retain their real grips so menus and battle use one asset.
+import copy
+variants = {
+ 'sword': ['longsword','rapier','sabre','falchion'],
+ 'spear': ['longspear','halberd','trident','lance'],
+ 'hammer': ['warhammer','sledgehammer','mace','morningstar'],
+ 'claw': ['knuckle','hookclaw','windclaw','katar'],
+ 'whip': ['leatherwhip','chainwhip','thornwhip','flexiblewhip']}
+for family, names in variants.items():
+ for index, name in enumerate(names):
+  a=copy.deepcopy(sprites[family])
+  if index:
+   if family=='sword':
+    a.rect(8,0,17,23,0)
+    if index==1:
+     a.poly([(16,1),(17,5),(17,23),(15,23),(15,5)],5);a.line(16,3,16,21,6)
+     a.poly([(10,22),(20,22),(23,25),(21,28),(19,25),(10,25)],23)
+    elif index==2:
+     a.poly([(23,1),(23,7),(19,14),(18,23),(13,23),(15,11),(20,5)],1)
+     a.poly([(22,3),(21,8),(17,15),(17,22),(15,22),(17,12)],5)
+    else:
+     a.poly([(16,1),(23,6),(22,15),(18,23),(12,23),(12,10)],1)
+     a.poly([(16,3),(21,7),(20,15),(17,22),(14,22),(14,10)],4);a.line(16,5,16,20,6)
+   elif family=='spear':
+    a.rect(2,0,28,20,0)
+    if index==1:
+     a.poly([(16,0),(19,6),(18,18),(14,18),(14,6)],5)
+     a.poly([(17,5),(26,7),(28,15),(24,18),(18,15)],4);a.line(23,8,26,15,6)
+    elif index==2:
+     for x in [6,15,24]:a.poly([(x,1),(x+2,5),(x+2,13),(x,15),(x-1,5)],5)
+     a.rect(6,13,20,3,23);a.rect(15,12,2,11,13)
+    else:
+     a.poly([(16,0),(22,16),(17,23),(11,16)],1);a.poly([(16,2),(19,16),(16,21),(13,16)],6)
+   elif family=='hammer':
+    a.rect(0,0,32,18,0)
+    if index==1:
+     a.rect(1,2,30,16,1);a.rect(3,4,26,12,3);a.rect(4,4,24,3,5);a.rect(8,4,3,12,23);a.rect(23,4,3,12,23)
+    elif index==2:
+     a.poly([(12,2),(20,2),(24,8),(21,16),(11,16),(8,8)],1)
+     a.rect(12,4,8,10,4);a.rect(15,2,2,14,6);a.rect(9,7,14,2,5)
+    else:
+     a.poly([(16,0),(19,4),(25,3),(24,8),(30,10),(24,13),(25,18),(19,16),(16,20),(13,16),(7,18),(8,13),(2,10),(8,7),(7,3),(13,4)],1)
+     a.poly([(16,4),(22,7),(22,13),(16,16),(10,13),(10,7)],4);a.rect(14,7,4,6,23)
+   elif family=='claw':
+    a.rect(0,0,32,20,0)
+    if index==1:
+     for x in [6,14,22]:a.poly([(x,5),(x+5,1),(x+6,2),(x+2,8),(x+2,18),(x-1,20)],5)
+    elif index==2:
+     for x in [8,15,22]:a.poly([(x+5,1),(x+2,12),(x,20),(x-2,17),(x-1,8)],6)
+    else:
+     a.poly([(16,0),(23,14),(20,22),(12,22),(9,14)],1)
+     a.poly([(16,2),(20,14),(17,22),(14,22),(12,14)],5);a.line(16,5,16,21,6)
+    a.rect(10,19,12,4,13);a.rect(10,23,12,3,3)
+   elif family=='whip':
+    if index==1:
+     for x,y in [(8,13),(10,7),(16,5),(23,6),(27,11),(24,17),(18,16)]:
+      a.rect(x-1,y-1,4,3,4);a.rect(x,y,2,1,6)
+    elif index==2:
+     for x,y in [(8,12),(12,5),(22,5),(27,11),(22,18)]:a.poly([(x,y),(x+4,y-3),(x+2,y+2)],23)
+    else:
+     a.rect(11,2,20,19,0)
+     a.poly([(8,12),(13,4),(21,2),(25,4),(23,6),(15,7),(11,14)],4)
+     a.line(12,6,22,3,6)
+  sprites['weapon_'+name]=a
+for role in range(6):
+ a=copy.deepcopy(sprites['ring']);a.rect(8,0,17,14,0)
+ gems=[35,41,32,24,28,5]
+ a.poly([(16,1),(22,5),(21,11),(11,11),(10,5)],1)
+ a.poly([(16,3),(20,6),(19,9),(13,9),(12,6)],gems[role]);a.rect(14,4,2,2,6)
+ # Each role has a different crown/socket silhouette.
+ for j in range(role+1):a.rect(9+j*2,12+(j%2),1,2,23)
+ sprites['ring_'+str(role)]=a
+for index,role in enumerate(['none','map','chest','merchant','trap','quest']):
+ a=copy.deepcopy(sprites['necklace']);a.rect(9,20,15,12,0)
+ if index%3==0:a.poly([(16,21),(23,26),(16,31),(9,26)],23)
+ elif index%3==1:a.rect(10,21,13,10,23);a.rect(12,23,9,6,38)
+ else:a.poly([(12,21),(20,21),(23,26),(20,31),(12,31),(9,26)],23)
+ a.rect(14,23,4,5,[5,28,24,35,41,32][index]);a.rect(15,23,1,2,6)
+ sprites['necklace_'+role]=a
+# New silhouettes: eight-legged crawler, heavy stone body and floating flame.
+a=Art(32,28)
+for xsign in [-1,1]:
+ for i in range(4):
+  x=16+xsign*6;y=12+i*2
+  a.line(x,y,16+xsign*13,4+i*5,1);a.line(16+xsign*13,4+i*5,16+xsign*15,8+i*6,4)
+a.poly([(11,5),(21,5),(24,12),(21,21),(11,21),(8,12)],1);a.rect(11,8,10,10,13);a.rect(13,7,6,5,14)
+a.rect(10,19,13,7,3);a.dots([(12,20),(15,20),(18,20),(21,20)],35);a.rect(12,25,2,3,6);a.rect(19,25,2,3,6)
+sprites['spider']=a
+a=Art(32,48)
+a.poly([(8,3),(24,3),(27,14),(30,18),(31,36),(25,37),(25,47),(18,47),(16,35),(14,47),(6,47),(6,37),(1,36),(2,18),(6,14)],1)
+a.rect(8,5,16,12,4);a.rect(10,6,12,4,5);a.rect(10,12,4,2,40);a.rect(19,12,4,2,40)
+a.poly([(8,18),(24,18),(27,28),(22,37),(10,37),(5,28)],3);a.rect(10,20,11,12,4);a.rect(14,23,5,5,41)
+a.rect(3,21,4,12,4);a.rect(26,21,4,12,4);a.rect(7,39,6,7,3);a.rect(19,39,6,7,3);a.line(10,22,13,25,1)
+sprites['golem']=a
+a=Art(32,36)
+a.poly([(16,0),(22,8),(24,4),(28,16),(25,27),(18,35),(16,31),(10,35),(4,26),(5,16),(10,8)],1)
+a.poly([(16,3),(20,12),(24,9),(25,20),(22,28),(17,32),(15,27),(10,31),(7,24),(8,16),(12,11)],40)
+a.poly([(16,9),(19,17),(21,14),(23,22),(19,28),(13,27),(10,22),(14,16)],41)
+a.rect(11,19,3,3,1);a.rect(19,19,3,3,1);a.rect(15,25,3,2,6)
+sprites['wisp']=a
+families=['slime','knight','bat','spider','golem','wisp','boss']
+for band in range(5):
+ for family in families:
+  a=copy.deepcopy(sprites[family])
+  ramps=[[26,27,28,29],[37,38,40,41],[31,32,33,42],[34,35,46,47],[2,3,37,40]]
+  ramp=ramps[band]
+  mapping={26:ramp[0],27:ramp[1],28:ramp[2],29:ramp[3],31:ramp[0],32:ramp[1],33:ramp[2]}
+  if family in ['knight','golem','boss']:mapping.update({3:ramp[0],4:ramp[1],5:ramp[2]})
+  if family=='wisp':mapping.update({40:ramp[1],41:ramp[2],42:ramp[3]})
+  a.p=[[mapping.get(v,v) for v in row] for row in a.p]
+  if band==1:a.dots([(7,10),(23,10),(9,a.h-4),(22,a.h-4)],41)
+  elif band==2:a.poly([(16,0),(20,7),(16,11),(12,7)],33);a.line(16,2,16,8,42)
+  elif band==3:
+   for x in [9,21]:a.poly([(x,0),(x+3,4),(x+2,10),(x-1,7)],47)
+  elif band==4:
+   a.line(8,7,13,11,40);a.line(24,7,19,11,40);a.dots([(7,5),(25,5)],42)
+  sprites[f'monster_{band}_{family}']=a
+
 header='''package com.powerfulhimchan.mapexit
 
 import android.graphics.Bitmap

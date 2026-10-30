@@ -16,12 +16,12 @@ private fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float = 1f
     pixelRect(Color(0xffead1ae).copy(alpha=opacity.coerceIn(0f,1f)), b.x - unit, b.y - unit, unit * 3, unit * 3)
 }
 
-private fun DrawScope.heldWeapon(kind: Kind, hand: Offset, unit: Float, angle: Float, opacity: Float = 1f) {
-    val scale = if (kind == Kind.SPEAR) (unit * .8f).toInt().coerceAtLeast(1).toFloat() else unit
+private fun DrawScope.heldWeapon(kind: Kind, hand: Offset, unit: Float, angle: Float, opacity: Float = 1f, gear: Gear? = null) {
+    val scale = unit * GearAppearance.heldScale(kind)
     val gripX = if (kind == Kind.WHIP) 7 else 16
     val gripY = if (kind == Kind.SPEAR) 40 else if (kind == Kind.WHIP) 25 else 27
     withTransform({ rotate(angle, hand) }) {
-        sprite(gearSprite(kind), hand.x - gripX * scale, hand.y - gripY * scale, 32 * scale, opacity=opacity)
+        sprite(gear?.let { gearSprite(it) } ?: gearSprite(kind), hand.x - gripX * scale, hand.y - gripY * scale, 32 * scale, opacity=opacity)
     }
 }
 
@@ -43,7 +43,8 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         motion?.let { (clock - it.startedAt).coerceAtLeast(0) } ?: BattleAnimation.DURATION_MS
     val attacking = motion?.impact?.target == ImpactTarget.ENEMY
     val defending = motion != null && !attacking
-    val kind = Equipment.equipped(scene).firstOrNull { it.weapon }?.kind
+    val weapon = Equipment.equipped(scene).firstOrNull { it.weapon }
+    val kind = weapon?.kind
     val connected=motion?.impact?.outcome !in listOf(ImpactOutcome.MISS,ImpactOutcome.DODGE)
     val poseTime=BattleAnimation.motionTime(elapsed,connected)
     val pose = BattleAnimation.pose(kind, poseTime, motion?.action == "strong")
@@ -113,6 +114,9 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         arm(shoulder, hand, hero.unit)
         if (kind != null) {
             if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
+                val chain = weapon?.variantId == "chainwhip"
+                val thorn = weapon?.variantId == "thornwhip"
+                val whipColor = when { chain -> pale; thorn -> mint; weapon?.variantId == "flexiblewhip" -> muted; else -> amber }
                 val target = Offset(w * .71f, h * .60f)
                 var previous = hand
                 for (i in 1..28) {
@@ -126,22 +130,25 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                                     30 *
                                     sin(t * PI).toFloat(),
                             )
-                    drawLine(amber, previous, end, 3f)
+                    drawLine(whipColor, previous, end, if (chain) 4f else 3f)
+                    if (chain && i % 2 == 0) drawCircle(ink, 1.5f, end)
+                    if (thorn && i % 4 == 0) drawLine(mint, end, end + Offset(4f, -6f), 2f)
                     previous = end
                 }
-                pixelRect(Color(0xff8b6041), hand.x - 3, hand.y - 2, 8f, 14f)
+                heldWeapon(kind, hand, hero.unit, pose.angle, gear = weapon)
             } else
                 heldWeapon(
                     kind,
                     hand,
                     hero.unit,
                     if (attacking) pose.angle else 25f + defense.guard * 65f,
+                    gear = weapon,
                 )
         }
-        if (Equipment.equipped(scene).any { it.kind == Kind.SHIELD }) {
+        Equipment.equipped(scene).firstOrNull { it.kind == Kind.SHIELD }?.let { shield ->
             val guard = defense.guard
             sprite(
-                "shield",
+                gearSprite(shield),
                 hero.x - hero.unit * 4 + guard * hero.unit * 17,
                 hero.y + hero.unit * 24 - guard * hero.unit * 4,
                 hero.unit * 24,
@@ -164,13 +171,9 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             style = androidx.compose.ui.graphics.drawscope.Stroke(4f),
         )
     }
-    val type =
-        when {
-            enemy.boss -> "boss"
-            enemy.name.contains("기사") -> "knight"
-            enemy.name.contains("박쥐") -> "bat"
-            else -> "slime"
-        }
+    val species = MonsterCatalog.describe(enemy, s.floor)
+    val type = species.sprite
+    val family = species.family
     val enemyWidth = min(w * (if (enemy.boss) .34f else .28f), h * (if (enemy.boss) .26f else .20f))
     val unit = spriteUnit(enemyWidth)
     val advance = if (defending) monsterPose.advance else 0f
@@ -178,11 +181,11 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val enemyHome=min(w*.64f,w-32*unit-50)
     val ex=(enemyHome-advance*w*.30f).coerceAtMost(w-32*unit-(if(enemy.boss)50 else 28))+recoil*16
     val jump =
-        if (defending && type in listOf("slime", "boss") && elapsed <= BattleAnimation.HIT_MS)
+        if (defending && family in listOf("slime", "boss") && elapsed <= BattleAnimation.HIT_MS)
             sin(elapsed.toFloat() / BattleAnimation.HIT_MS * PI).toFloat() * h * .10f
         else 0f
     val baseline =
-        h * (if (type == "bat") .57f else .73f) + advance * h * .14f - jump +
+        h * (if (family == "bat") .57f else .73f) + advance * h * .14f - jump +
             if (showingTell) tell.bob * h * tellWeight else 0f
     val ey = baseline - spriteHeight(type, enemyWidth)
     val death=if(s.mode==Mode.VICTORY) if(motion==null)1f else BattleAnimation.smooth((elapsed-BattleAnimation.HIT_MS-80)/360f) else 0f
@@ -201,33 +204,33 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                 pivot,
             )
             scale(1f,1-death*.65f,pivot)
-            if (showingTell && type == "slime") scale(1f + tell.squash*tellWeight, 1f - tell.squash*tellWeight, pivot)
-            if (showingTell && type == "bat")
+            if (showingTell && family == "slime") scale(1f + tell.squash*tellWeight, 1f - tell.squash*tellWeight, pivot)
+            if (showingTell && family == "bat")
                 scale(
                     if (enemy.intent == EnemyIntent.HEAVY) .78f else 1f + abs(tell.bob) * 5,
                     1f,
                     pivot,
                 )
-            if (type == "slime" && defending)
+            if (family == "slime" && defending)
                 scale(1f + monsterPose.impact * .2f, 1f - monsterPose.impact * .18f, pivot)
-            if (type == "bat" && defending)
+            if (family == "bat" && defending)
                 scale(1f + sin(elapsed * .03).toFloat() * .16f, 1f, pivot)
         }) {
-            if(type=="bat") batBody(ex,ey,enemyWidth,clock,tint,opacity)
-            else combatBody(type,ex,ey,enemyWidth,tint,type in listOf("knight","boss"),if(defending)monsterPose.stride else sin(clock*.0026f)*.06f,opacity)
+            if(family=="bat") batBody(ex,ey,enemyWidth,clock,tint,opacity,type)
+            else combatBody(type,ex,ey,enemyWidth,tint,family in listOf("knight","boss"),if(defending)monsterPose.stride else sin(clock*.0026f)*.06f,opacity)
 
-            if (showingTell && tell.guard > 0f && type in listOf("knight", "boss"))
+            if (showingTell && tell.guard > 0f && family in listOf("knight", "boss"))
                 sprite("shield", ex - unit * 2, ey + unit * 17, unit * 25, opacity=opacity*tellWeight)
-            if (type in listOf("knight", "boss")) {
+            if (family in listOf("knight", "boss")) {
                 val hand =
                     Offset(
                         ex + unit * 8 - advance * unit * 4,
                         ey + unit * (28 - if (showingTell) tell.armLift*tellWeight else 0f),
                     )
-                if(defending) weaponTrail(if(type=="boss")Kind.HAMMER else Kind.SWORD,hand,unit,elapsed,enemy.intent==EnemyIntent.HEAVY,-1f)
+                if(defending) weaponTrail(if(family=="boss")Kind.HAMMER else Kind.SWORD,hand,unit,elapsed,enemy.intent==EnemyIntent.HEAVY,-1f)
                 arm(Offset(ex + unit * 12, ey + unit * 22), hand, unit,opacity)
                 heldWeapon(
-                    if (type == "boss") Kind.HAMMER else Kind.SWORD,
+                    if (family == "boss") Kind.HAMMER else Kind.SWORD,
                     hand,
                     unit,
                     if (defending) -monsterPose.angle

@@ -4,6 +4,9 @@ package com.powerfulhimchan.mapexit.core
 object CombatTactics {
     fun pattern(enemy: Enemy): List<EnemyIntent> =
         when {
+            MonsterCatalog.describe(enemy, 1).family == "spider" -> listOf(EnemyIntent.FLURRY, EnemyIntent.HEAVY, EnemyIntent.STRIKE)
+            MonsterCatalog.describe(enemy, 1).family == "golem" -> listOf(EnemyIntent.GUARD, EnemyIntent.HEAVY, EnemyIntent.RECOVER)
+            MonsterCatalog.describe(enemy, 1).family == "wisp" -> listOf(EnemyIntent.FLURRY, EnemyIntent.RECOVER, EnemyIntent.HEAVY)
             enemy.boss ->
                 listOf(
                     EnemyIntent.GUARD,
@@ -33,6 +36,9 @@ object CombatTactics {
             EnemyIntent.HEAVY ->
                 when {
                     enemy.boss -> "망치를 높이 들어 올립니다"
+                    MonsterCatalog.describe(enemy, 1).family == "spider" -> "앞다리를 치켜들고 덮칠 준비를 합니다"
+                    MonsterCatalog.describe(enemy, 1).family == "golem" -> "바위 주먹을 높이 들어 올립니다"
+                    MonsterCatalog.describe(enemy, 1).family == "wisp" -> "불꽃을 모아 큰 공격을 준비합니다"
                     enemy.name.contains("기사") -> "검을 높이 들어 올립니다"
                     enemy.name.contains("박쥐") -> "몸을 낮추고 급강하를 준비합니다"
                     else -> "몸을 부풀려 도약을 준비합니다"

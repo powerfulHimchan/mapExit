@@ -126,7 +126,7 @@ class LaunchTest {
 
     private fun assertVictoryClearsDamage(scenario: ActivityScenario<MainActivity>) {
         var popupLabel = ""
-        scenario.onActivity { popupLabel = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+        scenario.onActivity { popupLabel = "몬스터 피해 ${it.game.engine.state.lastImpact!!.label()}" }
         bounds("전투 종료 · 보상을 확인하고 계속하세요")
         assertNull(
             "Finished combat must not retain the final damage popup",
@@ -325,12 +325,12 @@ class LaunchTest {
                 it.game.refresh()
             }
             bounds("3인칭 전투")
-            bounds("적 HP 2000 / 2000")
+            bounds("몬스터 HP 2000 / 2000")
             SystemClock.sleep(500)
             capture("third-person")
             tap("일반 공격")
             var popup = ""
-            scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+            scenario.onActivity { popup = "몬스터 피해 ${it.game.engine.state.lastImpact!!.label()}" }
             bounds(popup)
             capture("enemy-damage")
             tap("방어")
@@ -679,7 +679,7 @@ class LaunchTest {
                 assertEquals(serial, e.state.impactSequence)
                 assertEquals(Mode.COMBAT_DEFEND, e.state.mode)
                 assertTrue(e.state.lastImpact!!.critical)
-                popup = "적 피해 ${e.state.lastImpact!!.label()}"
+                popup = "몬스터 피해 ${e.state.lastImpact!!.label()}"
             }
             bounds(popup)
             capture("critical-enemy")
@@ -1587,8 +1587,8 @@ class LaunchTest {
                 it.game.active = false
                 it.game.refresh()
             }
-            bounds("적 행동 예고 방패를 세웁니다")
-            bounds("적이 방패를 세웁니다.")
+            bounds("몬스터 행동 예고 방패를 세웁니다")
+            bounds("몬스터가 방패를 세웁니다.")
             capture("tactic-guard")
             tap("강공격")
             scenario.onActivity {
@@ -1600,7 +1600,7 @@ class LaunchTest {
                 val cold = GameModel(it.application)
                 assertEquals(it.game.engine.state.enemy, cold.engine.state.enemy)
             }
-            bounds("적 행동 예고 검을 높이 들어 올립니다")
+            bounds("몬스터 행동 예고 검을 높이 들어 올립니다")
             bounds("빈틈 공격 기회")
             capture("tactic-break")
             tap("일반 공격")
@@ -1612,7 +1612,7 @@ class LaunchTest {
             }
             tap("회피")
             bounds("빈틈 공격 기회")
-            bounds("적 행동 예고 짧은 연속 공격을 준비합니다")
+            bounds("몬스터 행동 예고 짧은 연속 공격을 준비합니다")
             capture("tactic-opening")
         }
     }
@@ -1635,7 +1635,7 @@ class LaunchTest {
                         e.enterFloor(1)
                         e.startBattle(false)
                         e.state.enemy = e.state.enemy!!.copy(name = name, intent = intent)
-                        cue = "적 행동 예고 ${CombatTactics.cue(e.state.enemy!!)}"
+                        cue = "몬스터 행동 예고 ${CombatTactics.cue(e.state.enemy!!)}"
                         it.game.engine = e
                         it.game.active = false
                         it.game.refresh()
@@ -1664,12 +1664,12 @@ class LaunchTest {
                     it.game.engine = e
                     it.game.refresh()
                 }
-                bounds("적 행동 예고 방패를 세웁니다")
+                bounds("몬스터 행동 예고 방패를 세웁니다")
                 tap("강공격")
                 var popup = ""
-                scenario.onActivity { popup = "적 피해 ${it.game.engine.state.lastImpact!!.label()}" }
+                scenario.onActivity { popup = "몬스터 피해 ${it.game.engine.state.lastImpact!!.label()}" }
                 val damage = bounds(popup)
-                val tell = bounds("적 행동 예고 검을 높이 들어 올립니다")
+                val tell = bounds("몬스터 행동 예고 검을 높이 들어 올립니다")
                 val opening = bounds("빈틈 공격 기회")
                 assertTrue(damage.top >= tell.bottom)
                 assertTrue(damage.top >= opening.bottom)
@@ -1739,7 +1739,7 @@ class LaunchTest {
                     assertEquals(crit, e.stats().crit, .0001)
                     assertEquals(seed == 11L, e.state.lastImpact!!.luckyAttack)
                     assertEquals(seed == 11L, e.state.lastImpact!!.luckyCritical)
-                    label = "적 피해 ${e.state.lastImpact!!.label()}"
+                    label = "몬스터 피해 ${e.state.lastImpact!!.label()}"
                 }
                 bounds(label)
                 capture(if (seed == 11L) "luck-active" else "luck-inactive")
@@ -1852,7 +1852,7 @@ class LaunchTest {
             tap("지상으로")
             tap("포기하고 귀환")
             bounds("탐험을 포기했습니다")
-            bounds("처치한 적 9명")
+            bounds("처치한 몬스터 9명")
             bounds("귀환한 위치 지하 7층")
             capture("retreat-result")
             scenario.onActivity {
@@ -1921,7 +1921,7 @@ class LaunchTest {
             }
             bounds("사망했습니다")
             bounds("사망한 위치 지하 4층")
-            bounds("처치한 적 3명")
+            bounds("처치한 몬스터 3명")
             capture("death-result")
             tap("준비 화면으로")
             bounds("출정 준비")
@@ -2057,7 +2057,7 @@ class LaunchTest {
         }
         // Render every authored asset with Android's actual bitmap implementation.
         val atlas =
-            android.graphics.Bitmap.createBitmap(672, 464, android.graphics.Bitmap.Config.ARGB_8888)
+            android.graphics.Bitmap.createBitmap(672, ((FineSprites.all.size + 6) / 7) * 116, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(atlas)
         canvas.drawColor(0xff101a24.toInt())
         val paint =
@@ -2157,6 +2157,88 @@ class LaunchTest {
         val pixels = IntArray(480 * 640)
         original.getPixels(pixels, 0, 480, 0, 0, 480, 640)
         assertArrayEquals(frames.first(), pixels)
+    }
+    @Test fun requestedGrowthHealingBestiaryAndEquipmentBackRenderAndWork() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var name = ""
+            scenario.onActivity { a ->
+                val e=GameEngine(State(points=2));e.enterFloor(1);e.startBattle(false)
+                name=e.state.enemy!!.name
+                e.state.enemy=null;e.state.mode=Mode.EXPLORE;e.state.hp=10.0
+                e.choose(e.choices().first { it.action=="growth" })
+                a.game.engine=e;a.game.active=false;a.game.refresh()
+            }
+            bounds("체력 모두 회복 · 1P", allowScroll=true)
+            capture("growth-heal-before")
+            tap("체력 모두 회복 · 1P",allowScroll=true)
+            scenario.onActivity { a ->
+                assertEquals(1,a.game.engine.state.points)
+                assertEquals(a.game.engine.stats().hp,a.game.engine.state.hp,0.0)
+            }
+            capture("growth-heal-after")
+            bounds("능력치의 영향",allowScroll=true)
+            capture("growth-stat-explanations")
+            scenario.onActivity { a ->
+                val e=a.game.engine;e.navigateBack();e.openDungeonPanel("bestiary");a.game.refresh()
+            }
+            bounds("발견한 몬스터 1종");bounds(name)
+            capture("bestiary-discovered")
+            scenario.onActivity { a ->
+                assertEquals(1,a.game.engine.state.bestiary.values.single().encounters)
+                val e=a.game.engine;e.navigateBack();e.openDungeonPanel("equipment");a.game.refresh()
+            }
+            bounds("돌아가기",allowScroll=true)
+            capture("equipment-back-fixed")
+            tap("돌아가기")
+            scenario.onActivity { assertEquals(Mode.EXPLORE,it.game.engine.state.mode) }
+        }
+    }
+
+    @Test fun actualDoorPixelsAreAbsentFromTheBackFaceAndSideFaces() {
+        for (d in 0..3) for(h in listOf(200,640)) {
+            val map=Dungeon(11,11,MutableList(121){Cell()},5,5,d)
+            map.here().wall=false;map.here().event=Event.EXIT
+            map.cell(5-MapGenerator.dx[d],5-MapGenerator.dy[d]).wall=false
+            val wx=5+MapGenerator.dx[d];val wy=5+MapGenerator.dy[d]
+            val raster=DungeonRaster(480,h)
+            for(face in 0..3) {
+                val fromX=wx+MapGenerator.dx[face];val fromY=wy+MapGenerator.dy[face]
+                map.cell(fromX,fromY).wall=false
+                val angle=kotlin.math.atan2((wy-fromY).toFloat(),(wx-fromX).toFloat())
+                val view=DungeonViewPose(fromX+.5f,fromY+.5f,angle)
+                val withDoor=raster.render(map,view).asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888,false)
+                map.here().resolved=true
+                val without=raster.render(map,view).asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888,false)
+                if(face==(d+2)%4) assertFalse(withDoor.sameAs(without)) else assertTrue(withDoor.sameAs(without))
+                map.here().resolved=false
+                if(face!=(d+2)%4) map.cell(fromX,fromY).wall=true
+                if(d==0 && face==0) exportBitmap("door-back-$h",withDoor)
+            }
+        }
+    }
+
+    @Test fun allEquipmentIdentitiesAndRegionMonsterArtAreDistinctAndBattleUsesThem() {
+        val seed=State()
+        val arts=WeaponCatalog.all.map { variant ->
+            val item=ItemFactory.create(seed,variant.kind,1,variant.id).copy(tier=1)
+            requireNotNull(GearSprites.get(gearSprite(item))).rows
+        }
+        assertEquals(20,arts.distinct().size)
+        assertEquals(30,MonsterCatalog.all.map { FineSprites.all.getValue(it.sprite).rows }.distinct().size)
+        val e=GameEngine();e.enterFloor(1);e.startBattle(false)
+        val image=androidx.compose.ui.graphics.ImageBitmap(480,640)
+        val scope=androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+        val frames=WeaponCatalog.of(Kind.CLAW).map { variant ->
+            val gear=ItemFactory.create(e.state,Kind.CLAW,1,variant.id)
+            e.state.inventory.clear();e.state.equipment.clear();e.state.inventory.add(gear);Equipment.equip(e.state,gear.id,Slot.RIGHT)
+            val saved=SaveCodec.encode(e.state)
+            scope.draw(androidx.compose.ui.unit.Density(1f),androidx.compose.ui.unit.LayoutDirection.Ltr,
+                androidx.compose.ui.graphics.Canvas(image),androidx.compose.ui.geometry.Size(480f,640f)) { drawScene(e.state,1000) }
+            assertEquals(saved,SaveCodec.encode(e.state))
+            exportBitmap("claw-${variant.id}",image.asAndroidBitmap())
+            IntArray(480*640).also { image.asAndroidBitmap().getPixels(it,0,480,0,0,480,640) }.toList()
+        }
+        assertEquals(4,frames.distinct().size)
     }
 
 }
