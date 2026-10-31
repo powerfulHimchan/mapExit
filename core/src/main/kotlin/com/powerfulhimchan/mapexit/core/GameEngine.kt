@@ -893,7 +893,7 @@ class GameEngine(
                     s.note(
                         when (cell.event) {
                             Event.CHEST -> "아이템 상자를 발견했습니다"
-                            Event.HEAL -> "회복의 수정를 발견했습니다"
+                            Event.HEAL -> "회복의 수정을 발견했습니다"
                             Event.MERCHANT -> "상인을 만났습니다"
                             Event.NPC -> "미션 NPC를 만났습니다"
                             else -> ""
