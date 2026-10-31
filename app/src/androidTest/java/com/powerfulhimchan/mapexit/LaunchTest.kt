@@ -2549,4 +2549,272 @@ class LaunchTest {
         }
     }
 
+    private fun challengeGame(kind: ChallengeKind): GameEngine {
+        val seed = (1L..1000L).first { ChallengeStages.kindFor(it, ChallengeStages.floors(it).first()) == kind }
+        val e = GameEngine(State(visitorSeed = seed, challengeProgress = ChallengeProgress(seed = seed), hp = 100.0))
+        e.enterFloor(ChallengeStages.floors(seed).first())
+        val m = e.state.dungeon!!; val portal = m.cells.indexOfFirst { it.event == Event.PORTAL }
+        m.x = portal % m.width; m.y = portal / m.width
+        val incoming = (0..3).first { !m.cell(m.x + MapGenerator.dx[it], m.y + MapGenerator.dy[it]).wall }
+        m.direction = (incoming + 2) % 4; m.arrivalDirection = m.direction
+        return e
+    }
+
+    private fun challengeAction(e: GameEngine, action: String, argument: Long? = null) {
+        e.choose(e.choices().first { it.action == action && (argument == null || it.argument == argument) })
+    }
+
+    private fun openChallenge(e: GameEngine) {
+        challengeAction(e, "challengeEnter"); challengeAction(e, "challengeStart")
+        if (e.state.challenge!!.phase == ChallengePhase.PREVIEW) challengeAction(e, "challengeRemember")
+    }
+
+    private fun walkChallenge(e: GameEngine, target: Int) {
+        var guard = 0
+        while (e.state.dungeon!!.let { it.y * it.width + it.x } != target && e.state.challenge!!.phase != ChallengePhase.RESULT) {
+            check(guard++ < 300)
+            val c = e.state.challenge!!; val m = e.state.dungeon!!
+            if (c.phase == ChallengePhase.HAZARD) {
+                while (!ChallengeStages.hazardSafe(m.here().challengeMark, c.hazardMs)) challengeAction(e, "challengeWait")
+                challengeAction(e, "challengeCross")
+            }
+            if (c.kind == ChallengeKind.TORCH && m.here().event == Event.CHALLENGE && !m.here().resolved) challengeAction(e, "challengeUse")
+            val next = ChallengeStages.path(m, target)[1]
+            val d = (0..3).first { m.x + MapGenerator.dx[it] == next % m.width && m.y + MapGenerator.dy[it] == next / m.width }
+            challengeAction(e, "move", d.toLong())
+        }
+    }
+
+    @Test fun challengePortalStartsPausesRestoresAndReturnsToTheSameDungeonWithARecord() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var host: Triple<Int,Int,Int>? = null
+            scenario.onActivity { a ->
+                val e = challengeGame(ChallengeKind.LOST)
+                host = e.state.dungeon!!.let { Triple(it.x, it.y, it.direction) }
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            bounds("특별 도전 살펴보기"); capture("challenge-portal")
+            tap("특별 도전 살펴보기")
+            bounds("도전 안내"); capture("challenge-intro")
+            tap("도전 시작")
+            bounds("도전 잔여 제한"); assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "주변 미니맵"))
+            capture("challenge-lost-active")
+            tap("일시정지"); bounds("도전 일시정지")
+            scenario.onActivity { a ->
+                val before = a.game.engine.state.challenge!!.elapsedMs
+                repeat(20) { a.game.engine.tick(250) }
+                assertEquals(before, a.game.engine.state.challenge!!.elapsedMs)
+                a.game.save(blocking = true)
+            }
+            scenario.recreate(); scenario.onActivity { it.game.active = false }
+            bounds("도전 일시정지"); tap("도전 계속")
+            scenario.onActivity { a ->
+                val e = a.game.engine; walkChallenge(e, e.state.dungeon!!.cells.indexOfFirst { it.event == Event.EXIT })
+                a.game.refresh()
+            }
+            bounds("도전 성공"); capture("challenge-success")
+            tap("던전으로 복귀")
+            scenario.onActivity { a ->
+                assertEquals(host, a.game.engine.state.dungeon!!.let { Triple(it.x, it.y, it.direction) })
+                assertEquals(1, a.game.engine.state.challengeProgress.records.getValue(ChallengeKind.LOST).clears)
+                assertEquals(100.0, a.game.engine.state.hp, .0)
+                a.game.engine.openDungeonPanel("help"); a.game.refresh()
+            }
+            tap("특별 도전 기록", allowScroll = true)
+            bounds("도전 1회 · 성공 1회", allowScroll = true); capture("challenge-records")
+        }
+    }
+
+    @Test fun memoryPreviewHidesAfterSevenSecondsAndStepPlanningHasItsOwnBudget() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val e = challengeGame(ChallengeKind.MEMORY); challengeAction(e, "challengeEnter")
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            tap("도전 시작"); bounds("기억 지도 공개"); bounds("도전 계획도")
+            capture("challenge-memory-preview")
+            scenario.onActivity { a -> repeat(28) { a.game.engine.tick(250) }; a.game.refresh() }
+            bounds("도전 잔여 제한")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "도전 계획도"))
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "주변 미니맵"))
+            capture("challenge-memory-hidden")
+            scenario.onActivity { a ->
+                val e = challengeGame(ChallengeKind.STEPS); challengeAction(e, "challengeEnter")
+                a.game.engine = e; a.game.refresh()
+            }
+            bounds("도전 계획도", allowScroll = true); capture("challenge-steps-plan")
+            tap("도전 시작"); bounds("도전 잔여 제한")
+            scenario.onActivity { a ->
+                val e = a.game.engine; repeat(400) { e.tick(250) }
+                assertEquals(ChallengePhase.ACTIVE, e.state.challenge!!.phase)
+                assertEquals(0, e.state.challenge!!.steps)
+            }
+            capture("challenge-steps-active")
+        }
+    }
+
+    @Test fun allSevenChallengeScenesRemainUsableNormallyAndOnCompactScreens() {
+        for (compact in listOf(false, true)) {
+            if (compact) {
+                val resize = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
+                ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
+            }
+            try {
+                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    for (kind in ChallengeKind.entries) {
+                        scenario.onActivity { a ->
+                            val e = challengeGame(kind); openChallenge(e)
+                            if (kind == ChallengeKind.HAZARDS) walkChallenge(e, e.state.dungeon!!.cells.indexOfFirst { it.challengeMark == ChallengeStages.BLADE })
+                            a.game.engine = e; a.game.active = false; a.game.refresh()
+                        }
+                        bounds(kind.title); bounds("일시정지")
+                        assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "주변 미니맵"))
+                        assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "회복약 사용"))
+                        capture("challenge-${kind.name.lowercase()}-${if (compact) "compact" else "normal"}")
+                        val pause = bounds("일시정지")
+                        val scene = bounds("메인 장면")
+                        assertTrue(scene.height() >= 100)
+                        assertTrue(pause.bottom <= scene.top)
+                        val screen = instrumentation.uiAutomation.takeScreenshot()!!
+                        val buttons = scenario.let { holder ->
+                            var labels = listOf<String>()
+                            holder.onActivity { labels = it.game.engine.controls.buttons().map { b -> b.label } }
+                            labels
+                        }
+                        buttons.forEach { label -> assertTrue(bounds(label).bottom < screen.height) }
+                        screen.recycle()
+                    }
+                }
+            } finally {
+                if (compact) {
+                    val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
+                    ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
+                }
+            }
+        }
+    }
+
+    @Test fun sealsUseTheirRememberedOrderAndTorchFuelActuallyDimsTheDungeon() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var first = 0
+            scenario.onActivity { a ->
+                val e = challengeGame(ChallengeKind.SEALS); openChallenge(e)
+                first = e.state.challenge!!.sealOrder.first()
+                walkChallenge(e, e.state.dungeon!!.cells.indexOfFirst { it.challengeMark == first })
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            tap("${ChallengeStages.runeNames[first - 1]} 제단 작동")
+            bounds("작동한 제단 1 / 3"); capture("challenge-seal-activated")
+            scenario.onActivity { a -> assertEquals(1, a.game.engine.state.challenge!!.seals) }
+            scenario.onActivity { a ->
+                val e = challengeGame(ChallengeKind.TORCH); openChallenge(e)
+                a.game.engine = e; a.game.refresh()
+            }
+            val scene = bounds("메인 장면")
+            fun brightness(): Long {
+                settleFrames(); SystemClock.sleep(100)
+                val image = instrumentation.uiAutomation.takeScreenshot()!!
+                var total = 0L
+                for (y in scene.top + scene.height() / 4 until scene.bottom - 4 step 5) for (x in scene.left + 4 until scene.right - 4 step 5) {
+                    val p = image.getPixel(x, y)
+                    total += android.graphics.Color.red(p) + android.graphics.Color.green(p) + android.graphics.Color.blue(p)
+                }
+                image.recycle(); return total
+            }
+            val bright = brightness(); capture("challenge-torch-bright")
+            scenario.onActivity { a -> a.game.engine.state.challenge!!.torchMs = 3000; a.game.refresh() }
+            val dim = brightness(); capture("challenge-torch-dim")
+            assertTrue("Torch visibility must change real scene lighting", dim < bright * .8)
+            scenario.onActivity { a ->
+                val e = a.game.engine
+                walkChallenge(e, e.state.dungeon!!.cells.indexOfFirst { it.challengeMark == ChallengeStages.BRAZIER })
+                a.game.refresh()
+            }
+            tap("횃불 보충")
+            scenario.onActivity { a -> assertEquals(22000L, a.game.engine.state.challenge!!.torchMs) }
+        }
+    }
+
+    @Test fun physicalChallengeGatesUseWaitAndCrossButtonsForAllThreeMechanisms() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for (mark in listOf(ChallengeStages.BLADE, ChallengeStages.FALLING, ChallengeStages.WALL)) {
+                scenario.onActivity { a ->
+                    val e = challengeGame(ChallengeKind.HAZARDS); openChallenge(e)
+                    walkChallenge(e, e.state.dungeon!!.cells.indexOfFirst { it.challengeMark == mark })
+                    e.state.challenge!!.hazardMs = if (mark == ChallengeStages.WALL) 2000 else 0
+                    a.game.engine = e; a.game.active = false; a.game.refresh()
+                }
+                bounds("대기 · 0.5초"); bounds("통과")
+                capture("challenge-mechanism-$mark-danger")
+                tap("통과")
+                scenario.onActivity { a ->
+                    assertEquals(1, a.game.engine.state.challenge!!.mistakes)
+                    repeat(4) { a.game.engine.tick(250) }
+                    a.game.refresh()
+                }
+                var safe = false
+                repeat(8) {
+                    scenario.onActivity { a -> safe = ChallengeStages.hazardSafe(mark, a.game.engine.state.challenge!!.hazardMs) }
+                    if (!safe) tap("대기 · 0.5초")
+                }
+                scenario.onActivity { a -> assertTrue(ChallengeStages.hazardSafe(mark, a.game.engine.state.challenge!!.hazardMs)) }
+                capture("challenge-mechanism-$mark-safe")
+                tap("통과")
+                scenario.onActivity { a ->
+                    assertEquals(ChallengePhase.ACTIVE, a.game.engine.state.challenge!!.phase)
+                    assertTrue(a.game.engine.state.dungeon!!.here().resolved)
+                }
+            }
+        }
+    }
+
+    @Test fun challengeWeaponRewardsEquipAndFailureReturnsWithoutNormalDeathLoss() {
+        val resize = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
+        ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                var gear: Gear? = null
+                var label = ""
+                scenario.onActivity { a ->
+                    val e = challengeGame(ChallengeKind.COLLAPSE); openChallenge(e)
+                    walkChallenge(e, e.state.dungeon!!.cells.indexOfFirst { it.event == Event.EXIT })
+                    gear = e.state.challenge!!.rewards.first { it.kind != Kind.POTION }
+                    label = "바로 장착 · ${Equipment.quickSlot(e.state, gear!!)!!.label} · ${gear!!.name}"
+                    a.game.engine = e; a.game.active = false; a.game.refresh()
+                }
+                bounds("도전 성공"); tap(label, allowScroll = true)
+                bounds("[착용중] · ${gear!!.name}", allowScroll = true); capture("challenge-reward-equipped-compact")
+                scenario.onActivity { a ->
+                    assertTrue(gear!!.id in a.game.engine.state.equipment.values)
+                    a.game.save(blocking = true)
+                }
+                scenario.recreate(); scenario.onActivity { a ->
+                    a.game.active = false
+                    assertEquals(1, a.game.engine.state.inventory.count { it.id == gear!!.id })
+                }
+                tap("던전으로 복귀")
+                scenario.onActivity { a ->
+                    val e = challengeGame(ChallengeKind.STEPS); openChallenge(e)
+                    val m = e.state.dungeon!!; val route = ChallengeStages.path(m)
+                    val spawn = route[0]; val next = route[1]
+                    while (e.state.challenge!!.phase == ChallengePhase.ACTIVE) {
+                        val target = if (m.y * m.width + m.x == spawn) next else spawn
+                        val d = (0..3).first { m.x + MapGenerator.dx[it] == target % m.width && m.y + MapGenerator.dy[it] == target / m.width }
+                        challengeAction(e, "move", d.toLong())
+                    }
+                    a.game.engine = e; a.game.refresh()
+                }
+                bounds("도전 실패"); capture("challenge-failure-compact"); tap("던전으로 복귀")
+                scenario.onActivity { a ->
+                    assertEquals(100.0, a.game.engine.state.hp, .0)
+                    assertTrue(a.game.engine.state.inventory.isNotEmpty())
+                    assertEquals(Mode.EXPLORE, a.game.engine.state.mode)
+                }
+            }
+        } finally {
+            val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
+            ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
+        }
+    }
+
 }

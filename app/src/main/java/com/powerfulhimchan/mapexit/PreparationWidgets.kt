@@ -99,7 +99,7 @@ internal fun MenuArt(action: String, modifier: Modifier = Modifier) {
                     ".#.#.#..",
                     "########",
                 )
-            "help", "bestiary", "achievements" ->
+            "help", "bestiary", "achievements", "challengeRecords", "trainingChallenges" ->
                 listOf(
                     ".######.",
                     ".#....#.",

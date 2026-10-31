@@ -72,6 +72,7 @@ object MapGenerator {
                 if (cell.npcRole != NpcRole.QUEST && floor in s.npcServicesUsed) cell.resolved = true
             }
         }
+        ChallengeStages.placePortal(s, map, floor)
         map.reveal()
         return map
     }

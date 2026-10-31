@@ -108,7 +108,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun resetDirections() {
-        if (engine.state.mode != Mode.EXPLORE) return
+        if (engine.state.mode !in listOf(Mode.EXPLORE, Mode.CHALLENGE)) return
         engine.controls.resetDirections()
         refresh()
     }
@@ -285,7 +285,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         if (!active || loadError != null) return
         val animate =
             engine.state.mode == Mode.MOVING ||
-                engine.state.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE)
+                engine.state.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE, Mode.CHALLENGE)
         engine.tick(delta)
         saveClock += delta
         if (saveClock >= 1500) {
