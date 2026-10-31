@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -31,6 +32,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
     val s = vm.engine.state.copy()
     val c = s.challenge ?: return
     val phase = c.phase
+    val resultMapHeight = if (LocalConfiguration.current.screenHeightDp < 600) 160.dp else 230.dp
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -78,7 +80,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 if (!c.success) {
                     val map = s.dungeon!!
                     Text("전체 지도 · 마지막 위치", color = amber, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    ChallengePlan(map, Modifier.fillMaxWidth().height(230.dp), result = c)
+                    ChallengePlan(map, Modifier.fillMaxWidth().height(resultMapHeight), result = c)
                     Text("민트: 시작 · 흰색: 출구 · 빨강 ●: 종료 위치 · 화살표: 바라보던 방향", color = pale, fontSize = 12.sp, lineHeight = 18.sp)
                     if (c.collapsedCells.isNotEmpty()) Text("갈색 ×: 무너진 통로", color = amber, fontSize = 12.sp)
                     Text("종료 위치: 가로 ${map.x + 1} · 세로 ${map.y + 1} · ${listOf("북쪽", "동쪽", "남쪽", "서쪽")[map.direction]}", color = pale, fontSize = 13.sp,
@@ -150,8 +152,8 @@ private fun ChallengePlan(map: Dungeon, modifier: Modifier, result: ChallengeRun
                     drawLine(amber, point + Offset(unit - inset, inset), point + Offset(inset, unit - inset), 2f)
                 }
             }
-            if (result != null && cell.event == Event.EXIT)
-                drawRect(amber, point + Offset(1f, 1f), Size(unit - 3, unit - 3), style = Stroke(2f))
+            if (result != null && (cell.event == Event.EXIT || i == map.width + 1))
+                drawRect(if (cell.event == Event.EXIT) amber else mint, point + Offset(1f, 1f), Size(unit - 3, unit - 3), style = Stroke(2f))
         }
         if (result != null) {
             val center = Offset(left + (map.x + .5f) * unit, top + (map.y + .5f) * unit)

@@ -2870,8 +2870,19 @@ class LaunchTest {
                         a.game.engine = e; a.game.active = false; a.game.refresh(); a.game.save(blocking = true)
                     }
                     bounds("도전 실패"); capture("challenge-failure-${if (compact) "compact" else "normal"}")
-                    bounds("도전 결과 전체 지도", allowScroll = true)
                     bounds("도전 종료 위치", allowScroll = true)
+                    fun revealMap(node: AccessibilityNodeInfo?): Boolean {
+                        if (node == null) return false
+                        if (node.contentDescription?.toString() == "도전 결과 전체 지도")
+                            return node.performAction(AccessibilityNodeInfo.ACTION_SHOW_ON_SCREEN)
+                        for (i in 0 until node.childCount) if (revealMap(node.getChild(i))) return true
+                        return false
+                    }
+                    assertTrue(revealMap(instrumentation.uiAutomation.rootInActiveWindow))
+                    settleFrames(); SystemClock.sleep(400)
+                    val mapBounds = bounds("도전 결과 전체 지도")
+                    val expectedHeight = (if (compact) 160 else 230) * instrumentation.targetContext.resources.displayMetrics.density
+                    assertTrue("Full map must fit the viewport: $mapBounds vs $expectedHeight", mapBounds.height() >= expectedHeight - 4)
                     capture("challenge-failure-map-${if (compact) "compact" else "normal"}")
                     scenario.recreate()
                     scenario.onActivity { a ->
