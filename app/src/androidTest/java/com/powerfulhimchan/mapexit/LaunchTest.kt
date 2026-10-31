@@ -2874,7 +2874,7 @@ class LaunchTest {
                     fun revealMap(node: AccessibilityNodeInfo?): Boolean {
                         if (node == null) return false
                         if (node.contentDescription?.toString() == "도전 결과 전체 지도")
-                            return node.performAction(AccessibilityNodeInfo.ACTION_SHOW_ON_SCREEN)
+                            return node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.id)
                         for (i in 0 until node.childCount) if (revealMap(node.getChild(i))) return true
                         return false
                     }
