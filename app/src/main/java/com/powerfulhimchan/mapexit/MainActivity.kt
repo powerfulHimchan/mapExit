@@ -85,12 +85,6 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
-    fun dismissChestLoot() {
-        engine.state.chestLoot = null
-        save()
-        refresh()
-    }
-
     fun trainingMenu() {
         engine.trainingMenu()
         battleVisual = null
@@ -241,6 +235,11 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         }
         engine.purchase(itemId,count)
         save(); refresh()
+    }
+
+    fun openLootInventory() {
+        if (loadError != null || battleBusy()) return
+        if (engine.openLootInventory()) { save(); refresh() }
     }
 
     fun openLevelUpGrowth() {

@@ -56,17 +56,21 @@ class PhysicalTrapTest {
     }
 
     @Test
-    fun earlyCrouchRemainsSafeAndTheBeamContinuesPastTheLoweredBody() {
+    fun earlyCrouchFailsWhileApproachingCrouchLetsTheBeamPass() {
         val t = trap(4, 0)
         Traps.tick(t, 250)
         assertTrue(t.beamDescent() > 0f)
         Traps.tap(t, 1)
-        assertTrue(t.success)
-        val before = t.beamDescent()
-        Traps.tick(t, 650)
-        assertTrue(t.beamDescent() > before)
-        assertEquals(1f, t.beamDescent(), .0001f)
-        assertEquals(TrapPhase.RESULT, t.phase)
+        assertFalse(t.success)
+        assertTrue(t.result.contains("너무 일찍"))
+        val safe = trap(4, 1000)
+        Traps.tap(safe, 1)
+        assertTrue(safe.success)
+        val before = safe.beamDescent()
+        Traps.tick(safe, 650)
+        assertTrue(safe.beamDescent() > before)
+        assertEquals(1f, safe.beamDescent(), .0001f)
+        assertEquals(TrapPhase.RESULT, safe.phase)
     }
 
     @Test
@@ -109,4 +113,37 @@ class PhysicalTrapTest {
             assertEquals(Mode.EXPLORE, restored.state.mode)
         }
     }
+    @Test fun beamTimingScalesWithDepthAndCharmAndChecksBothBoundaries() {
+        for (floor in listOf(1, 11, 30, 50)) for (charm in listOf(false, true)) {
+            val s = State(floor = floor)
+            if (charm) {
+                val necklace = ItemFactory.create(s, Kind.NECKLACE).copy(charm = Charm.TRAP)
+                s.inventory.add(necklace); Equipment.equip(s, necklace.id, Slot.NECK)
+            }
+            val template = Traps.create(s, 4).copy(phase = TrapPhase.ACTIVE)
+            val first = template.beamCrouchStartMs
+            for (time in listOf(0L, first - 1, first, template.limitMs - 1, template.limitMs)) {
+                val t = template.copy(elapsedMs = time)
+                Traps.tap(t, 1)
+                assertEquals("floor=$floor charm=$charm time=$time", time >= first && time < t.limitMs, t.success)
+                assertEquals(time, t.actionAtMs)
+            }
+        }
+    }
+
+    @Test fun earlyBeamFailureAppliesDamageOnlyOnceAndRestoresItsFailurePose() {
+        val e = GameEngine(); e.enterFloor(1)
+        e.state.mode = Mode.TRAP; e.state.trap = trap(4, 100)
+        val before = e.state.hp
+        e.press(1)
+        assertFalse(e.state.trap!!.success); assertTrue(e.state.hp < before)
+        assertTrue(e.state.message.contains("너무 일찍"))
+        val cold = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
+        val after = cold.state.hp
+        cold.press(1); cold.press(0)
+        repeat(4) { cold.tick(250) }
+        assertEquals(after, cold.state.hp, .001)
+        assertEquals(Mode.EXPLORE, cold.state.mode)
+    }
+
 }

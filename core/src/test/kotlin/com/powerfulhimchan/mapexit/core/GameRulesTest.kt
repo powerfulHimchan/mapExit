@@ -416,13 +416,13 @@ class GameRulesTest {
     }
 
     @Test
-    fun beamAcceptsOneCrouchBeforeImpactAndRejectsJumpOrTimeout() {
-        for (time in listOf(0L, 500L, 1500L, 1999L)) {
+    fun beamAcceptsApproachingCrouchAndRejectsEarlyJumpOrTimeout() {
+        for (time in listOf(0L, 500L, 799L, 800L, 1500L, 1999L)) {
             val t = Traps.create(state(), 4)
             tick(t, Traps.PREPARE_MS)
             tick(t, time)
             Traps.tap(t, 1)
-            assertTrue("crouch at $time", t.success)
+            assertEquals("crouch at $time", time >= 800L, t.success)
             assertEquals(TrapPhase.RESULT, t.phase)
         }
         val jump = Traps.create(state(), 4)

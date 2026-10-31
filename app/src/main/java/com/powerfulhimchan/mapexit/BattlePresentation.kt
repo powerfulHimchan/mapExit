@@ -212,6 +212,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                             fontWeight = FontWeight.Black,
                             modifier = Modifier.semantics { contentDescription = "전투 승리" },
                         )
+                        LootBagButton(vm)
                         Text(
                             "${result.enemy.name} 격파",
                             color = pale,
@@ -279,7 +280,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
             }
         }
         if (s.mode == Mode.EXPLORE && s.chestLoot != null)
-            ChestLootCard(s.chestLoot!!, vm, Modifier.align(Alignment.Center).padding(16.dp))
+            ChestLootCard(s.chestLoot!!, vm, Modifier.align(Alignment.Center).padding(16.dp), (maxHeight - 32.dp).coerceAtLeast(80.dp))
         vm.currentImpact
             ?.takeIf {
                 s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND) || vm.battleBusy(time)
@@ -409,11 +410,11 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
 }
 
 @Composable
-private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifier) {
+private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifier, availableHeight: androidx.compose.ui.unit.Dp) {
     Column(
         modifier
             .fillMaxWidth()
-            .heightIn(max = 300.dp)
+            .heightIn(max = minOf(300.dp, availableHeight))
             .background(ink.copy(alpha = .97f), RoundedCornerShape(8.dp))
             .border(2.dp, amber, RoundedCornerShape(8.dp))
             .verticalScroll(rememberScrollState())
@@ -427,6 +428,7 @@ private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifi
             lineHeight = 28.sp,
             fontWeight = FontWeight.Black,
         )
+        LootBagButton(vm)
         loot.items.forEach { gear -> LootRewardRow(vm, gear) }
         Text(
             "+${loot.gold} G",
@@ -435,8 +437,6 @@ private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifi
             lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
         )
-        GameButton(onClick = vm::dismissChestLoot, modifier = Modifier.align(Alignment.End)) {
-            Text("획득 확인", color = mint)
-        }
+        Text("아래 이동 버튼으로 탐험을 계속하세요", color = muted, fontSize = 11.sp, lineHeight = 16.sp)
     }
 }

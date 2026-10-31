@@ -95,11 +95,11 @@ class GameplayFeedbackTest {
     @Test
     fun beamChallengeUsesOneCrouchWithoutAnEngageOrReleaseStep() {
         val t = Traps.create(State(), 4).copy(phase = TrapPhase.ACTIVE)
-        Traps.tick(t, 550)
+        Traps.tick(t, 950)
         Traps.tap(t, 1)
         assertTrue(t.success)
         assertEquals(1, t.action)
-        assertEquals(550L, t.actionAtMs)
+        assertEquals(950L, t.actionAtMs)
         assertEquals(TrapPhase.RESULT, t.phase)
     }
 

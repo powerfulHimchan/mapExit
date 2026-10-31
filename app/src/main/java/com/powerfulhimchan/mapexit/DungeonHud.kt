@@ -100,11 +100,11 @@ internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Uni
         Modifier.fillMaxWidth()
             .padding(bottom = 6.dp)
             .gameClickable(onClick = onOpen)
-            .padding(start = 10.dp),
+            .padding(start = 10.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MenuArt("level", Modifier.size(30.dp))
-        Column(Modifier.weight(1f).padding(start = 8.dp, top = 8.dp, bottom = 8.dp)) {
+        Column(Modifier.weight(1f).padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)) {
             Text(
                 "레벨 업! LV.${notice.from} → LV.${notice.to}",
                 color = amber,

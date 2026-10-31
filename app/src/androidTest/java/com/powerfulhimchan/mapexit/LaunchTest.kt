@@ -1110,7 +1110,9 @@ class LaunchTest {
                 assertEquals(LevelUpNotice(1, 2, 3), e.state.levelUpNotice)
             }
             val banner = bounds("레벨 업 LV.1에서 LV.2")
-            assertTrue(banner.bottom <= bounds("메인 장면").top)
+            val scene = bounds("메인 장면")
+            assertTrue(banner.bottom <= scene.top)
+            assertTrue(scene.right - bounds("성장 배분 열기").right >= (10 * instrumentation.targetContext.resources.displayMetrics.density).toInt())
             bounds("성장 포인트 +3P · 보유 3P")
             capture("level-up")
             tap("성장 배분 열기")
@@ -1325,9 +1327,16 @@ class LaunchTest {
             val scene = bounds("메인 장면")
             assertTrue(loot.top > scene.top && loot.bottom < scene.bottom)
             capture("chest-loot")
-            tap("획득 확인")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "획득 확인"))
+            tap("가방 열기")
+            scenario.onActivity { assertEquals("inventory", it.game.engine.state.menu!!.type); assertNotNull(it.game.engine.state.chestLoot) }
+            tap("돌아가기")
+            scenario.onActivity { a ->
+                val e = a.game.engine
+                e.choose(e.choices().first { it.action == "move" }); a.game.refresh()
+                assertNull(e.state.chestLoot)
+            }
             scenario.onActivity {
-                assertNull(it.game.engine.state.chestLoot)
                 val e = GameEngine(State(base = Stats(defense = 400.0, luck = 200.0)))
                 e.enterFloor(1)
                 e.startBattle(false)
@@ -2916,6 +2925,117 @@ class LaunchTest {
                     bounds("메인 장면"); capture("obstacle-sequence-$type-$label")
                 }
             }
+        }
+    }
+
+    @Test fun rewardBagAndEquippedComparisonWorkForChestAndVictoryOnCompactScreens() {
+        for (compact in listOf(false, true)) {
+            if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+            try {
+                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    for (victory in listOf(false, true)) {
+                        var current: Gear? = null
+                        scenario.onActivity { a ->
+                            val e = GameEngine(); e.enterFloor(1)
+                            current = ItemFactory.create(e.state, Kind.BODY, 1).copy(name = "현재 갑옷")
+                            val reward = ItemFactory.create(e.state, Kind.BODY, 21).copy(name = "획득 갑옷")
+                            e.state.inventory.addAll(listOf(current!!, reward)); Equipment.equip(e.state, current!!.id, Slot.BODY)
+                            e.state.quickEquipIds = listOf(reward.id)
+                            if (victory) {
+                                e.state.mode = Mode.VICTORY
+                                e.state.battleResult = BattleResult(Enemy("시험 몬스터", 100.0, 0.0, 10.0, 1.0, 1.0), 24, 30, listOf(reward.name), Mode.EXPLORE, listOf(reward))
+                            } else e.state.chestLoot = ChestLootNotice(listOf(reward), 20)
+                            a.game.engine = e; a.game.active = false; a.game.refresh()
+                        }
+                        bounds("가방 열기")
+                        assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "획득 확인"))
+                        tap("가방 열기"); bounds("가방")
+                        scenario.onActivity { a -> assertEquals("inventory", a.game.engine.state.menu!!.type) }
+                        tap("돌아가기")
+                        bounds("몸통 교체 비교", allowScroll = true)
+                        bounds("현재: 현재 갑옷", allowScroll = true)
+                        bounds("현재 장비 아이콘 · 현재 갑옷", allowScroll = true)
+                        bounds(current!!.summary(), allowScroll = true)
+                        capture("loot-comparison-${if (victory) "victory" else "chest"}-${if (compact) "compact" else "normal"}")
+                        scenario.onActivity { a ->
+                            val e = a.game.engine
+                            assertEquals(if (victory) Mode.VICTORY else Mode.EXPLORE, e.state.mode)
+                            assertEquals(current!!.id, e.state.equipment[Slot.BODY])
+                            a.game.save(blocking = true)
+                        }
+                        scenario.recreate()
+                        scenario.onActivity { a -> a.game.active = false; assertTrue(a.game.engine.canOpenLootInventory()) }
+                    }
+                }
+            } finally {
+                if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+            }
+        }
+    }
+
+    @Test fun potionOnlyReceiptsHaveNeitherBagEntryNorConfirmationButton() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for (victory in listOf(false, true)) {
+                scenario.onActivity { a ->
+                    val e = GameEngine(); e.enterFloor(1)
+                    val potion = ItemFactory.potion(e.state, PotionGrade.GREATER); e.state.inventory.add(potion)
+                    if (victory) {
+                        e.state.mode = Mode.VICTORY
+                        e.state.battleResult = BattleResult(Enemy("시험 몬스터", 100.0, 0.0, 10.0, 1.0, 1.0), 24, 30, listOf(potion.name), Mode.EXPLORE, listOf(potion))
+                    } else e.state.chestLoot = ChestLootNotice(listOf(potion), 20)
+                    a.game.engine = e; a.game.active = false; a.game.refresh()
+                }
+                bounds("획득 아이템 아이콘 · 상급 회복약")
+                assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "가방 열기"))
+                assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "획득 확인"))
+                capture("loot-potion-only-${if (victory) "victory" else "chest"}")
+            }
+        }
+    }
+
+    @Test fun earlyBeamCrouchFailsAndHealingCrystalUsesItsNewName() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val e = GameEngine(); e.enterFloor(1); e.state.mode = Mode.TRAP
+                e.state.trap = Traps.create(e.state, 4).copy(phase = TrapPhase.ACTIVE, elapsedMs = 100)
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            tap("몸 숙이기"); bounds("회피 실패")
+            capture("beam-too-early")
+            scenario.onActivity { a ->
+                assertFalse(a.game.engine.state.trap!!.success)
+                assertTrue(a.game.engine.state.hp < Equipment.stats(a.game.engine.state).hp)
+                assertTrue(a.game.engine.state.message.contains("너무 일찍"))
+                val e = GameEngine(State(hp = 100.0)); e.enterFloor(1)
+                e.state.dungeon!!.here().event = Event.HEAL; e.state.dungeon!!.here().resolved = false
+                a.game.engine = e; a.game.refresh()
+            }
+            bounds("회복의 수정 사용"); capture("recovery-crystal")
+            tap("회복의 수정 사용")
+            scenario.onActivity { a ->
+                assertTrue(a.game.engine.state.hp > 100.0)
+                assertTrue(a.game.engine.state.message.startsWith("회복의 수정"))
+                assertTrue(a.game.engine.state.dungeon!!.here().resolved)
+            }
+        }
+    }
+
+    @Test fun levelUpGrowthButtonKeepsAnInsetOnCompactScreens() {
+        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { a ->
+                    val e = GameEngine(); e.enterFloor(1)
+                    e.state.levelUpNotice = LevelUpNotice(1,2,3); e.state.points = 3
+                    a.game.engine = e; a.game.active = false; a.game.refresh()
+                }
+                val button = bounds("성장 배분 열기"); val scene = bounds("메인 장면")
+                assertTrue(scene.right - button.right >= (10 * instrumentation.targetContext.resources.displayMetrics.density).toInt())
+                capture("level-up-inset-compact")
+                tap("성장 배분 열기"); bounds("능력치 성장")
+            }
+        } finally {
+            ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
         }
     }
 
