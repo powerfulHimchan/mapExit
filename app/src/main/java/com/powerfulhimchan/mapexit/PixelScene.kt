@@ -248,6 +248,7 @@ internal fun DrawScope.drawMap(s: State) {
                     Event.NPC -> Color(0xFF9AC3E4)
                     Event.EXIT -> Color.White
                     Event.TRAP -> Color(0xFFE6A36A)
+                    Event.PORTAL -> Color(0xFFBA9DDA)
                     else -> null
                 }
             if (color != null)

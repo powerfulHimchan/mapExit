@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.powerfulhimchan.mapexit.core.Dungeon
+import com.powerfulhimchan.mapexit.core.ChallengeStages
 import com.powerfulhimchan.mapexit.core.MonsterCatalog
 import com.powerfulhimchan.mapexit.core.DungeonFixtures
 import com.powerfulhimchan.mapexit.core.Event
@@ -50,6 +51,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
     private var lastMap: Dungeon? = null
     private var lastCamera: DungeonViewPose? = null
     private var lastGeometry = 0
+    private var lastVisibility = 12f
 
     private fun shade(color: Int, light: Int): Int =
         (0xff shl 24) or
@@ -57,14 +59,15 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
             ((((color ushr 8) and 255) * light / 256) shl 8) or
             ((color and 255) * light / 256)
 
-    fun render(map: Dungeon, camera: DungeonViewPose, theme: DungeonTheme = DungeonTheme.MOSS): ImageBitmap {
+    fun render(map: Dungeon, camera: DungeonViewPose, theme: DungeonTheme = DungeonTheme.MOSS, visibility: Float = 12f): ImageBitmap {
+        fun fog(light: Int, distance: Float): Int = if (visibility >= 12f) light else (light * (1f - distance / visibility).coerceIn(0f, 1f)).toInt()
         val textures = materials.getOrPut(theme) {
             Materials(Texture(PixelMaterials.wall(Color(theme.wall), theme = theme)),
                 Texture(PixelMaterials.wall(Color(theme.ceiling), 8, theme)),
                 Texture(PixelMaterials.floor(theme)))
         }
-        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + cell.npcRole.ordinal * 43 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
-        if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme) return image
+        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + cell.challengeMark * 67 + cell.npcRole.ordinal * 43 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
+        if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme && lastVisibility == visibility) return image
         val dx = cos(camera.angle)
         val dy = sin(camera.angle)
         val focal = DungeonFixtures.focal(map,width,height)
@@ -86,7 +89,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
             for (x in 0 until width) {
                 val worldX = camera.x + rayX[x] * distance
                 val worldY = camera.y + rayY[x] * distance
-                pixels[y * width + x] = shade(material.at(worldX / 2, worldY / 2), light)
+                pixels[y * width + x] = shade(material.at(worldX / 2, worldY / 2), fog(light, distance))
             }
         }
         fun solid(x: Int, y: Int): Boolean =
@@ -148,7 +151,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 }
                 // One contact edge at the actual floor, rather than a projecting lip per tile.
                 val edge = if (bottom - y < 2f || y - top < 1f) light * 2 / 3 else light
-                pixels[y * width + x] = shade(color, edge)
+                pixels[y * width + x] = shade(color, fog(edge, distance))
             }
         }
         // Back-to-front world billboards share wall depth and the floor contact plane.
@@ -159,11 +162,14 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Event.MONSTER -> MonsterCatalog.find(map.cell(fixture.x,fixture.y).monsterId)?.sprite
                     ?: MonsterCatalog.forFloor(theme.ordinal * 10 + 1)[(fixture.x + fixture.y) % 6].sprite
                 Event.ELITE -> MonsterCatalog.special(theme.ordinal * 10 + 1, false).sprite
+                Event.PORTAL -> "challenge_portal"
+                Event.CHALLENGE -> ChallengeStages.featureSprite(map.cell(fixture.x, fixture.y))
                 Event.TRAP -> "trap"
                 else -> null
             } ?: return@forEach
             val texture=assets.getValue(name)
             val depth=fixture.depth
+            if (visibility < 12f && depth >= visibility) return@forEach
             val span=DungeonFixtures.spriteSpan(fixture.event,focal,depth,width,height,texture.width.toFloat()/texture.height)
             val spriteWidth=span*texture.width/texture.height
             val center=width/2f+fixture.lateral*focal/depth
@@ -183,7 +189,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 for(xx in max(0,ceil(left).toInt())..min(width-1,floor(left+spriteWidth).toInt())) {
                     if(depth>=wallDepth[xx]) continue
                     val color=texture.sample((xx+.5f-left)/spriteWidth,(yy+.5f-top)/span)
-                    if(color ushr 24 !=0) pixels[yy*width+xx]=shade(color,light)
+                    if(color ushr 24 !=0) pixels[yy*width+xx]=shade(color,fog(light,depth))
                 }
             }
         }
@@ -192,6 +198,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         lastMap = map
         lastCamera = camera
         lastGeometry = geometry
+        lastVisibility = visibility
         return image
     }
 }

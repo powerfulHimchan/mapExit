@@ -28,7 +28,7 @@ class GameEngine(
         if (
             !state.training &&
                 state.mode == Mode.MENU &&
-                state.menu?.type in listOf("training", "trainingTraps")
+                state.menu?.type in listOf("training", "trainingTraps", "trainingChallenges")
         ) {
             state.mode = state.menu?.returnMode ?: Mode.SURFACE
             state.menu = null
@@ -41,6 +41,7 @@ class GameEngine(
         if (state.shop.none { it.kind == Kind.POTION && it.potionGrade == PotionGrade.GREATER })
             state.shop.add(ItemFactory.potion(state, PotionGrade.GREATER))
         Achievements.initialize(state)
+        if (state.challenge == null) state.dungeon?.let { ChallengeStages.placePortal(state, it) }
         if (state.mode == Mode.TRAP_GUIDE) state.mode = Mode.TRAP
         // Saves from before expedition records can still report their current depth.
         if (state.dungeon != null) state.runDeepestFloor = max(state.runDeepestFloor, state.floor)
@@ -57,6 +58,7 @@ class GameEngine(
 
     fun trainingMenu() {
         if (!state.training) return
+        state.challenge?.let { state.dungeon = it.hostDungeon; state.challenge = null }
         state.enemy = null
         state.trap = null
         state.battleResult = null
@@ -97,6 +99,11 @@ class GameEngine(
             "trap" -> {
                 state.trap = Traps.create(state, trapType)
                 state.mode = Mode.TRAP
+            }
+            "challenge" -> {
+                state.dungeon!!.here().event = Event.PORTAL
+                state.dungeon!!.here().resolved = false
+                ChallengeStages.open(state, ChallengeKind.entries[trapType])
             }
             "battle" -> startBattle(false)
             "merchant",
@@ -212,6 +219,7 @@ class GameEngine(
                                 add(c("상인 만나기", "encounter", Event.MERCHANT.ordinal.toLong()))
                             Event.NPC -> add(c("NPC 만나기", "encounter", Event.NPC.ordinal.toLong()))
                             Event.EXIT -> add(c("출구로 이동", "exit"))
+                            Event.PORTAL -> add(c("특별 도전 살펴보기", "challengeEnter"))
                             else -> Unit
                         }
                     MapGenerator.directions(m).forEach { d ->
@@ -268,6 +276,7 @@ class GameEngine(
                         )
                     )
                 }
+            Mode.CHALLENGE -> ChallengeStages.choices(s)
             Mode.TRAP_GUIDE -> emptyList()
             Mode.FLOOR_CLEAR ->
                 if (s.floor == 50) listOf(c("50층 엔딩 · 계승 장비 선택", "ending"))
@@ -352,7 +361,9 @@ class GameEngine(
                     if (item == null) listOf(c("취소", "back"))
                     else listOf(c("구매", "purchase", item.id), c("취소", "back"))
                 }
-                "help" -> listOf(c("몬스터 도감", "bestiary"), c("업적", "achievements"))
+                "help" -> listOf(c("몬스터 도감", "bestiary"), c("업적", "achievements"), c("특별 도전 기록", "challengeRecords"))
+                "challengeRecords" -> emptyList()
+                "trainingChallenges" -> ChallengeKind.entries.map { c(it.title, "trainChallenge", it.ordinal.toLong()) }
                 "achievements" -> buildList {
                     Achievements.all.forEachIndexed { index, a ->
                         if (a.id in s.achievements.unlocked && a.id !in s.achievements.claimed)
@@ -366,6 +377,7 @@ class GameEngine(
                 "training" ->
                     listOf(
                         c("장애물 피하기", "trainingTraps"),
+                        c("특별 도전 7종", "trainingChallenges"),
                         c("전투", "trainBattle"),
                         c("상인", "trainMerchant"),
                         c("미션 NPC 대화", "trainNpc"),
@@ -407,13 +419,20 @@ class GameEngine(
 
     /** Touch menus and tests invoke current choices directly, without selection cycling. */
     fun choose(choice: Choice) {
-        (choices() + if (state.mode in listOf(Mode.EXPLORE, Mode.VICTORY) || state.menu?.type in listOf("shop", "achievements")) lootChoices() else emptyList())
+        (choices() + if (state.mode in listOf(Mode.EXPLORE, Mode.VICTORY) || state.menu?.type in listOf("shop", "achievements") || state.mode == Mode.CHALLENGE && state.challenge?.phase == ChallengePhase.RESULT) lootChoices() else emptyList())
             .firstOrNull { it.action == choice.action && it.argument == choice.argument }
             ?.let(::execute)
     }
 
     fun navigateBack() {
-        if (state.mode == Mode.MENU) back() else controls.reset()
+        if (state.mode == Mode.CHALLENGE) {
+            when (state.challenge?.phase) {
+                ChallengePhase.INTRO, ChallengePhase.RESULT -> ChallengeStages.leave(state)
+                ChallengePhase.PAUSED -> ChallengeStages.resume(state)
+                else -> ChallengeStages.pause(state)
+            }
+            controls.reset()
+        } else if (state.mode == Mode.MENU) back() else controls.reset()
     }
 
     fun rawDown(button: Int) {
@@ -434,6 +453,7 @@ class GameEngine(
     }
 
     fun pause() {
+        if (state.mode == Mode.CHALLENGE) ChallengeStages.pause(state)
         state.trap?.let(Traps::pause)
     }
 
@@ -442,6 +462,7 @@ class GameEngine(
         val delta = deltaMs.coerceIn(0L, 250L)
         s.playMs += delta
         if (s.dungeon != null && s.mode != Mode.RUN_RESULT) s.runElapsedMs += delta
+        if (s.mode == Mode.CHALLENGE) { ChallengeStages.tick(s, delta); return }
         if (s.mode == Mode.MOVING) {
             s.movementMs += delta
             if (s.movementMs >= 600) {
@@ -489,7 +510,7 @@ class GameEngine(
 
     fun turnBack() {
         val map = state.dungeon ?: return
-        if (state.mode != Mode.EXPLORE) return
+        if (state.mode != Mode.EXPLORE && !(state.mode == Mode.CHALLENGE && state.challenge?.phase == ChallengePhase.ACTIVE)) return
         map.direction = (map.direction + 2) % 4
         controls.skipCurrentEvent()
     }
@@ -542,7 +563,12 @@ class GameEngine(
 
     private fun execute(c: Choice) {
         val s = state
+        if (s.mode == Mode.CHALLENGE && c.action != "equipLoot") {
+            ChallengeStages.execute(s, c)
+            return
+        }
         when (c.action) {
+            "challengeEnter" -> { ChallengeStages.open(s); controls.reset() }
             "retreat" -> endRun(retreated = true)
             "runContinue" -> {
                 s.runResult = null
@@ -602,6 +628,7 @@ class GameEngine(
             "bank",
             "bestiary",
             "achievements",
+            "challengeRecords",
             "help" -> {
                 if (c.action == "growth") s.levelUpNotice = null
                 open(c.action)
@@ -706,6 +733,8 @@ class GameEngine(
             "back" -> back()
             "training" -> open("training")
             "trainingTraps" -> open("trainingTraps")
+            "trainingChallenges" -> open("trainingChallenges")
+            "trainChallenge" -> beginTraining("challenge", c.argument.toInt())
             "trainTrap" -> beginTraining("trap", c.argument.toInt())
             "trainBattle" -> beginTraining("battle")
             "trainMerchant" -> beginTraining("merchant")
@@ -779,6 +808,7 @@ class GameEngine(
 
     fun enterFloor(floor: Int) {
         require(floor in 1..50)
+        if (state.challenge != null) return
         val s = state
         if (s.dungeon == null) {
             s.runKills = 0
@@ -843,6 +873,7 @@ class GameEngine(
                 Event.NPC,
                 Event.MERCHANT -> beginEncounter(cell.event)
                 Event.EXIT -> exitFloor()
+                Event.PORTAL -> { s.note("특별 도전 포털 · 살펴보거나 지나갈 수 있습니다") }
                 else ->
                     s.note(
                         when (cell.event) {
@@ -915,6 +946,7 @@ class GameEngine(
     }
 
     fun startBattle(boss: Boolean, elite: Boolean = false) {
+        if (state.challenge != null) return
         val s = state
         val floor = max(1, s.floor)
         val hp = (300 + floor * 26.0) * (if (boss) 1.7 else if (elite) 1.4 else 1.0)
@@ -1260,6 +1292,11 @@ class GameEngine(
     }
 
     fun die() {
+        if (state.challenge != null) {
+            if (state.challenge?.phase == ChallengePhase.INTRO) ChallengeStages.leave(state)
+            else ChallengeStages.finish(state, false, "도전이 중단되었습니다")
+            return
+        }
         if (state.mode == Mode.RUN_RESULT) return
         state.enemy?.let { MonsterCatalog.record(state, it, death = 1) }
         state.chestLoot = null
@@ -1317,6 +1354,7 @@ class GameEngine(
     }
 
     fun beginInheritance() {
+        if (state.challenge != null) return
         val s = state
         if (s.inventory.none { !it.inherited && it.kind != Kind.POTION })
             s.inventory.add(ItemFactory.create(s, Kind.SWORD, 50))
@@ -1328,6 +1366,7 @@ class GameEngine(
     }
 
     fun newCycle(id: Long) {
+        if (state.challenge != null) return
         val s = state
         val chosen =
             s.inventory.find { it.id == id && !it.inherited && it.kind != Kind.POTION } ?: return
@@ -1337,6 +1376,9 @@ class GameEngine(
         s.cycle++
         s.visitorSeed = null
         s.npcServicesUsed.clear()
+        s.challengeProgress.seed = null
+        s.challengeProgress.usedFloors.clear()
+        s.challenge = null
         s.clears++
         s.level = 1
         s.chestLoot = null

@@ -21,6 +21,7 @@ enum class Mode {
   MENU,
   NOTICE,
   RUN_RESULT,
+  CHALLENGE,
 }
 
 @Serializable
@@ -34,6 +35,8 @@ enum class Event {
   EXIT,
   TRAP,
   ELITE,
+  PORTAL,
+  CHALLENGE,
 }
 
 @Serializable
@@ -216,6 +219,7 @@ data class Cell(
     var monsterId: String? = null,
     var npcRole: NpcRole = NpcRole.QUEST,
     var npcGift: Boolean? = null,
+    var challengeMark: Int = 0,
 )
 
 @Serializable
@@ -410,6 +414,8 @@ data class State(
     var bestiary: MutableMap<String, MonsterRecord> = mutableMapOf(),
     var npcServicesUsed: MutableSet<Int> = mutableSetOf(),
     val achievements: AchievementProgress = AchievementProgress(),
+    val challengeProgress: ChallengeProgress = ChallengeProgress(),
+    var challenge: ChallengeRun? = null,
 ) {
   val experienceRequired: Int get() = level * 80
   val experienceRemaining: Int get() = (experienceRequired - experience).coerceAtLeast(0)

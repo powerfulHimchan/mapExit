@@ -10,7 +10,7 @@ class ContextControls(private val engine: GameEngine) {
 
     fun token(): String {
         val s = engine.state
-        return "${s.mode}:${s.floor}:${s.dungeon?.x}:${s.dungeon?.y}:${s.dungeon?.direction}:${s.enemy?.hp}:${s.dungeon?.here()?.resolved}:${s.menu}:${s.gold}:${s.points}"
+        return "${s.mode}:${s.floor}:${s.dungeon?.x}:${s.dungeon?.y}:${s.dungeon?.direction}:${s.enemy?.hp}:${s.dungeon?.here()?.resolved}:${s.menu}:${s.gold}:${s.points}:${s.challenge?.phase}:${s.challenge?.seals}:${s.challenge?.mistakes}:${s.challenge?.navigationRevision}"
     }
 
     fun inputToken(): String {
@@ -51,6 +51,16 @@ class ContextControls(private val engine: GameEngine) {
         fun b(label: String, action: String, arg: Long = 0) =
             ContextButton(label, Choice(label, action, arg))
         return when (s.mode) {
+            Mode.CHALLENGE -> {
+                val c = s.challenge
+                if (c?.phase == ChallengePhase.ACTIVE) explorationButtons()
+                else if (c?.phase == ChallengePhase.HAZARD) listOf(
+                    b("대기 · 0.5초", "challengeWait"),
+                    ContextButton("통과", Choice("통과", "challengeCross"), c.hazardCooldownMs <= 0),
+                ) else engine.choices().filter { it.action != "challengePause" }.map { ContextButton(it.label, it) }.let {
+                    if (it.size == 1) listOf(ContextButton("특별 도전", enabled = false), it.single()) else it
+                }
+            }
             Mode.COMBAT_ATTACK -> listOf(b("일반 공격", "attack"), b("강공격", "strong"))
             Mode.VICTORY ->
                 listOf(ContextButton("전투 승리", enabled = false), b("결과 확인 · 계속", "battleContinue"))
@@ -68,43 +78,7 @@ class ContextControls(private val engine: GameEngine) {
             Mode.TRAP_GUIDE -> List(2) { ContextButton("곧 시작", enabled = false) }
             Mode.COMBAT_DEFEND -> listOf(b("방어", "guard"), b("회피", "dodge"))
             Mode.MOVING -> listOf(ContextButton("이동 중", enabled = false), b("멈추기", "stop"))
-            Mode.EXPLORE -> {
-                val all = engine.choices()
-                val event = all.firstOrNull { it.action in setOf("encounter", "heal", "exit") }
-                if (event != null && !eventSkipped)
-                    listOf(ContextButton(event.label, event), b("지나가기", "_skip"))
-                else {
-                    val m = s.dungeon
-                    val available =
-                        all.filter { it.action == "move" }
-                            .sortedBy {
-                                listOf(0, 2, 3, 1)
-                                    .indexOf((it.argument.toInt() - (m?.direction ?: 0) + 4) % 4)
-                            }
-                    val moves = routes ?: available
-                    val result =
-                        when {
-                            moves.isEmpty() ->
-                                listOf(
-                                    ContextButton("막힌 길", enabled = false),
-                                    ContextButton("막힌 길", enabled = false),
-                                )
-                            moves.size == 1 -> {
-                                val relative=(moves[0].argument.toInt()-(m?.direction ?: 0)+4)%4
-                                val turn=b("뒤로 돌기", "_turnBack")
-                                if(relative in listOf(1,2)) listOf(turn,moveButton(moves[0]))
-                                else listOf(moveButton(moves[0]),turn)
-                            }
-                            moves.size == 2 -> moves.sortedBy {
-                                listOf(3,0,2,1).indexOf((it.argument.toInt()-(m?.direction ?: 0)+4)%4)
-                            }.map(::moveButton)
-                            moves.size == 4 ->
-                                listOf(b("앞 / 뒤 방향", "_pair", 0), b("좌 / 우 방향", "_pair", 1))
-                            else -> listOf(moveButton(moves.first()), b("다른 방향 ›", "_routes"))
-                        }
-                    result
-                }
-            }
+            Mode.EXPLORE -> explorationButtons()
             Mode.FLOOR_CLEAR ->
                 engine
                     .choices()
@@ -140,12 +114,57 @@ class ContextControls(private val engine: GameEngine) {
         }
     }
 
+    private fun explorationButtons(): List<ContextButton> {
+        val s = engine.state
+        fun b(label: String, action: String, arg: Long = 0) = ContextButton(label, Choice(label, action, arg))
+        return run {
+                val all = engine.choices()
+                val event = all.firstOrNull { it.action in setOf("encounter", "heal", "exit", "challengeEnter", "challengeUse") }
+                if (event != null && !eventSkipped)
+                    listOf(ContextButton(event.label, event), ContextButton("지나가기", Choice("지나가기", "_skip")))
+                else {
+                    val m = s.dungeon
+                    val available =
+                        all.filter { it.action == "move" }
+                            .sortedBy {
+                                listOf(0, 2, 3, 1)
+                                    .indexOf((it.argument.toInt() - (m?.direction ?: 0) + 4) % 4)
+                            }
+                    val moves = routes ?: available
+                    val result =
+                        when {
+                            moves.isEmpty() ->
+                                listOf(
+                                    ContextButton("막힌 길", enabled = false),
+                                    ContextButton("막힌 길", enabled = false),
+                                )
+                            moves.size == 1 -> {
+                                val relative=(moves[0].argument.toInt()-(m?.direction ?: 0)+4)%4
+                                val turn=b("뒤로 돌기", "_turnBack")
+                                if(relative in listOf(1,2)) listOf(turn,moveButton(moves[0]))
+                                else listOf(moveButton(moves[0]),turn)
+                            }
+                            moves.size == 2 -> moves.sortedBy {
+                                listOf(3,0,2,1).indexOf((it.argument.toInt()-(m?.direction ?: 0)+4)%4)
+                            }.map(::moveButton)
+                            moves.size == 4 ->
+                                listOf(b("앞 / 뒤 방향", "_pair", 0), b("좌 / 우 방향", "_pair", 1))
+                            else -> listOf(moveButton(moves.first()), b("다른 방향 ›", "_routes"))
+                        }
+                    result
+                }
+        }
+    }
+
     private fun moveButton(choice: Choice): ContextButton {
         val m = engine.state.dungeon ?: return ContextButton("이동 불가", enabled = false)
         val label =
             listOf("↑ 앞으로 이동", "→ 오른쪽 길", "↓ 뒤로 이동", "← 왼쪽 길")[
                 (choice.argument.toInt() - m.direction + 4) % 4]
-        return ContextButton(label, choice)
+        val c = engine.state.challenge
+        val nx = m.x + MapGenerator.dx[choice.argument.toInt()]; val ny = m.y + MapGenerator.dy[choice.argument.toInt()]
+        val suffix = if (c?.kind == ChallengeKind.COLLAPSE) " · ${ChallengeStages.rune(ny * m.width + nx)}" else ""
+        return ContextButton(label + suffix, choice)
     }
 
     fun press(button: Int) {

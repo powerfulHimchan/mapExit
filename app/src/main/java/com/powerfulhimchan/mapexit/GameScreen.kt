@@ -82,7 +82,7 @@ fun MapExitScreen(vm: GameModel) {
             vm.clearGoldNotice(serial)
         }
     }
-    BackHandler(s.mode == Mode.MENU) { vm.back() }
+    BackHandler(s.mode in listOf(Mode.MENU, Mode.CHALLENGE)) { vm.back() }
     MaterialTheme(
         colorScheme =
             darkColorScheme(background = ink, surface = panel, onSurface = pale, primary = mint)
@@ -119,7 +119,7 @@ fun MapExitScreen(vm: GameModel) {
                         )
                     }
                 }
-                ExperienceMeter(s)
+                if (s.mode != Mode.CHALLENGE) ExperienceMeter(s)
                 AchievementNotice(vm)
                 if (s.training)
                     Row(
@@ -141,7 +141,7 @@ fun MapExitScreen(vm: GameModel) {
                         if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
                         confirmRetreat = true
                     }
-                if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode != Mode.MENU)
+                if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode !in listOf(Mode.MENU, Mode.CHALLENGE))
                     LevelUpBanner(s.levelUpNotice!!, s.points, vm::openLevelUpGrowth)
                 if (vm.loadError != null) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
@@ -149,6 +149,8 @@ fun MapExitScreen(vm: GameModel) {
                         Spacer(Modifier.height(20.dp))
                         Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
                     }
+                } else if (s.mode == Mode.CHALLENGE) {
+                    ChallengeScreen(vm, clock, Modifier.weight(1f))
                 } else if (s.mode == Mode.RUN_RESULT) {
                     RunResultScreen(vm, Modifier.weight(1f))
                 } else if (s.mode in listOf(Mode.SURFACE, Mode.MENU, Mode.INHERIT)) {
@@ -343,7 +345,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
 }
 
 @Composable
-private fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: Modifier) {
+internal fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier: Modifier) {
     var pressed by remember { mutableStateOf(false) }
     val inputKey = vm.engine.controls.inputToken()
     Column(
@@ -426,6 +428,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "help" -> "탐험 기록"
                 "bestiary" -> "몬스터 도감"
                 "achievements" -> "업적"
+                "challengeRecords" -> "특별 도전 기록"
+                "trainingChallenges" -> "특별 도전 연습"
                 "training" -> "테스트 메뉴"
                 "trainingTraps" -> "장애물 선택"
                 "item" -> "장비 / 아이템 상세"
@@ -461,7 +465,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             if (surface) {
                 item { PreparationMenuGrid(vm) }
                 item {
-                    ExpeditionButton("테스트 메뉴", "장애물·전투·상인·다양한 NPC", "level") {
+                    ExpeditionButton("테스트 메뉴", "장애물·전투·NPC·특별 도전 7종", "level") {
                         vm.choose(Choice("테스트 메뉴", "training"))
                     }
                 }
@@ -483,6 +487,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         "help",
                         "bestiary",
                         "achievements",
+                        "challengeRecords",
+                        "trainingChallenges",
                         "training",
                         "trainingTraps",
                     )
@@ -517,14 +523,16 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         val ready = s.achievements.unlocked.size - s.achievements.claimed.size
                         Text("업적${if (ready > 0) " · 보상 $ready" else ""}", color = mint)
                     } }
+                    item { OutlinedButton(onClick = { vm.choose(Choice("특별 도전 기록", "challengeRecords")) }, modifier = Modifier.fillMaxWidth()) { Text("특별 도전 기록", color = mint) } }
                 }
+                if (menu == "challengeRecords") challengeRecordCards(s)
                 if (menu == "bestiary") bestiaryCards(s)
                 if (menu == "achievements") achievementCards(vm)
                 items(
                     menuChoices.filterNot {
                         (menu in listOf("help", "shopItem")) ||
                             (menu == "achievements" && it.action != "back") ||
-                            (menu in listOf("training", "trainingTraps") && it.action == "back") ||
+                            (menu in listOf("training", "trainingTraps", "trainingChallenges", "challengeRecords") && it.action == "back") ||
                             (menu == "equipment" && it.action == "slotItem") ||
                             (menu == "growth" && it.action in listOf("stat", "growthHeal")) ||
                             (menu in listOf("growth", "shop", "sell", "quantity") &&

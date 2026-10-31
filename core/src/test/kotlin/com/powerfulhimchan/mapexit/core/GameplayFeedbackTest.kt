@@ -109,7 +109,7 @@ class GameplayFeedbackTest {
         val original = SaveCodec.encode(e.state)
         choose(e, "training")
         assertEquals(
-            listOf("trainingTraps", "trainBattle", "trainMerchant", "trainNpc", "trainBeggar", "trainHealer", "trainHerbalist", "back"),
+            listOf("trainingTraps", "trainingChallenges", "trainBattle", "trainMerchant", "trainNpc", "trainBeggar", "trainHealer", "trainHerbalist", "back"),
             e.choices().map { it.action },
         )
         for (action in listOf("trainBattle", "trainMerchant", "trainNpc")) {
