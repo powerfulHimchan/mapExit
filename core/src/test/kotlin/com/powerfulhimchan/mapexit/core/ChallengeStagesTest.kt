@@ -5,8 +5,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ChallengeStagesTest {
-    private fun choose(e: GameEngine, action: String, arg: Long? = null) =
+    private fun choose(e: GameEngine, action: String, arg: Long? = null) {
         e.choose(e.choices().first { it.action == action && (arg == null || it.argument == arg) })
+        // Cell-by-cell fixtures use the same stop action as the player; auto-walk has separate tests.
+        if (action == "move" && e.state.challenge?.autoMoving == true)
+            e.choose(e.choices().first { it.action == "challengeStop" })
+    }
 
     private fun fixture(kind: ChallengeKind): GameEngine {
         val seed = (1L..1000L).first { ChallengeStages.kindFor(it, ChallengeStages.floors(it).first()) == kind }
@@ -367,6 +371,7 @@ class ChallengeStagesTest {
             assertTrue(button >= 0); e.press(button)
             assertNotEquals(before, e.state.dungeon!!.let { it.x to it.y })
             assertEquals(1, e.state.challenge!!.steps)
+            if (e.state.challenge!!.autoMoving) choose(e, "challengeStop")
             val direction = e.state.dungeon!!.direction
             e.turnBack()
             assertEquals((direction + 2) % 4, e.state.dungeon!!.direction)
@@ -385,6 +390,108 @@ class ChallengeStagesTest {
         assertFalse(e.state.challenge!!.success); assertEquals(inventory, e.state.inventory)
         choose(e, "challengeLeave"); assertNull(e.state.challenge)
         assertEquals(Mode.EXPLORE, e.state.mode); assertEquals(inventory, e.state.inventory)
+    }
+
+    private fun corridor(kind: ChallengeKind = ChallengeKind.LOST, marker: Int? = null): GameEngine {
+        val e = fixture(kind); start(e)
+        val m = Dungeon(9, 9, MutableList(81) { Cell() }, x = 1, y = 1, direction = 1)
+        for ((x,y) in listOf(1 to 1, 2 to 1, 3 to 1, 3 to 2, 3 to 3, 2 to 3, 1 to 3, 4 to 3, 5 to 3))
+            m.cell(x,y).wall = false
+        m.cell(5,3).event = Event.EXIT
+        if (marker != null) { m.cell(3,1).event = Event.CHALLENGE; m.cell(3,1).challengeMark = marker }
+        e.state.dungeon = m; e.controls.reset()
+        return e
+    }
+
+    private fun go(e: GameEngine, direction: Int = 1) =
+        e.choose(e.choices().first { it.action == "move" && it.argument == direction.toLong() })
+
+    @Test fun everyChallengeAutoFollowsCornersAndStopsAtTheFirstJunction() {
+        for (kind in ChallengeKind.entries) {
+            val e = corridor(kind); val m = e.state.dungeon!!
+            go(e); assertEquals(1, e.state.challenge!!.steps)
+            tick(e, 599); assertEquals(2, m.x); assertEquals(1, m.y)
+            tick(e, 1); assertEquals(3, m.x); assertEquals(1, m.y); assertEquals(2, m.direction)
+            tick(e, 1200); assertEquals(3, m.x); assertEquals(3, m.y)
+            assertFalse(e.state.challenge!!.autoMoving); assertEquals(4, e.state.challenge!!.steps)
+            tick(e, 600); assertEquals(4, e.state.challenge!!.steps)
+            assertEquals(Mode.CHALLENGE, e.state.mode)
+        }
+    }
+
+    @Test fun autoMovementStopsAtAltarsBraziersAndAllThreeHazards() {
+        for ((kind, marker) in listOf(ChallengeKind.SEALS to 1, ChallengeKind.TORCH to ChallengeStages.BRAZIER,
+            ChallengeKind.HAZARDS to ChallengeStages.BLADE, ChallengeKind.HAZARDS to ChallengeStages.FALLING,
+            ChallengeKind.HAZARDS to ChallengeStages.WALL)) {
+            val e = corridor(kind, marker); go(e); tick(e, 600)
+            assertEquals(3, e.state.dungeon!!.x); assertEquals(1, e.state.dungeon!!.y)
+            assertFalse(e.state.challenge!!.autoMoving)
+            assertEquals(if (kind == ChallengeKind.HAZARDS) ChallengePhase.HAZARD else ChallengePhase.ACTIVE, e.state.challenge!!.phase)
+            assertTrue(e.choices().any { it.action == if (kind == ChallengeKind.HAZARDS) "challengeCross" else "challengeUse" })
+        }
+    }
+
+    @Test fun stopButtonKeepsItsInputTokenAcrossTilesAndRejectsStaleMoves() {
+        val e = corridor(); go(e)
+        assertEquals(listOf("이동 중", "멈추기"), e.controls.buttons().map { it.label })
+        val token = e.controls.inputToken(); tick(e, 600)
+        assertEquals(token, e.controls.inputToken())
+        val before = e.state.challenge!!.steps
+        e.choose(Choice("stale", "move", 2)); e.turnBack()
+        assertEquals(before, e.state.challenge!!.steps); assertEquals(2, e.state.dungeon!!.direction)
+        e.press(1); assertFalse(e.state.challenge!!.autoMoving)
+        tick(e, 1200); assertEquals(before, e.state.challenge!!.steps)
+    }
+
+    @Test fun pauseStopsAutoMovementAndRestoredMovementRetainsItsStepClock() {
+        val e = corridor(); go(e); tick(e, 200)
+        val cold = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
+        assertTrue(cold.state.challenge!!.autoMoving)
+        tick(cold, 399); assertEquals(1, cold.state.challenge!!.steps)
+        tick(cold, 1); assertEquals(2, cold.state.challenge!!.steps)
+        cold.pause(); val position = cold.state.dungeon!!.let { it.x to it.y }
+        tick(cold, 1000); choose(cold, "challengeResume"); tick(cold, 1000)
+        assertEquals(position, cold.state.dungeon!!.let { it.x to it.y })
+        assertFalse(cold.state.challenge!!.autoMoving)
+    }
+
+    @Test fun automaticStepsRespectExactBudgetAndExitWinsOnTheLastStep() {
+        for (exit in listOf(false, true)) {
+            val e = corridor(ChallengeKind.STEPS)
+            e.state.challenge = e.state.challenge!!.copy(stepLimit = 2)
+            if (exit) e.state.dungeon!!.cell(3,1).event = Event.EXIT
+            go(e); tick(e, 600)
+            assertEquals(ChallengePhase.RESULT, e.state.challenge!!.phase)
+            assertEquals(exit, e.state.challenge!!.success); assertEquals(2, e.state.challenge!!.steps)
+            assertFalse(e.state.challenge!!.autoMoving)
+        }
+    }
+
+    @Test fun failureFreezesTheActualLastTileAndDirectionAcrossSaveAndReload() {
+        val e = corridor(); go(e)
+        e.state.challenge!!.elapsedMs = 89900
+        tick(e, 100)
+        val m = e.state.dungeon!!
+        assertEquals(2 to 1, m.x to m.y); assertEquals(1, m.direction)
+        assertEquals(ChallengePhase.RESULT, e.state.challenge!!.phase)
+        val cold = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
+        val frozen = cold.state.dungeon!!.copy(cells = cold.state.dungeon!!.cells.map { it.copy() }.toMutableList())
+        tick(cold, 5000); cold.choose(Choice("stale", "move", 1))
+        assertEquals(frozen, cold.state.dungeon!!)
+        assertFalse(cold.state.challenge!!.autoMoving)
+    }
+
+    @Test fun collapsedCorridorsRemainAvailableForTheFailureMapAfterReload() {
+        val e = corridor(ChallengeKind.COLLAPSE); go(e); tick(e, 1800)
+        val spawn = 10
+        tick(e, 1200)
+        assertTrue(spawn in e.state.challenge!!.collapsedCells)
+        assertTrue(e.state.dungeon!!.cells[spawn].wall)
+        e.navigateBack(); choose(e, "challengeGiveUp")
+        val cold = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
+        assertTrue(spawn in cold.state.challenge!!.collapsedCells)
+        assertEquals(3 to 3, cold.state.dungeon!!.let { it.x to it.y })
+        assertEquals(ChallengePhase.RESULT, cold.state.challenge!!.phase)
     }
 
 }

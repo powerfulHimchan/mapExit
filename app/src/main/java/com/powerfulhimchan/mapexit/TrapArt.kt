@@ -60,15 +60,7 @@ internal fun DrawScope.drawObstacle(s: State, clock: Long) {
         }
     }
     val heroWidth = min(w * .22f, h * .20f)
-    val lastStep =
-        if (t.type in listOf(0, 3) && t.progress > 0) t.pattern.getOrNull(t.progress - 1) else null
-    val heroX =
-        when {
-            t.phase == TrapPhase.RESULT -> (w - spriteUnit(heroWidth) * 32f) / 2f
-            lastStep == 0 -> w * .16f
-            lastStep == 1 -> w * .64f
-            else -> (w - spriteUnit(heroWidth) * 32f) / 2f
-        }
+    val heroX = w * ObstacleLayout.sequenceHeroCenter(t) - spriteUnit(heroWidth) * 16f
     adventurer(
         s,
         heroX,

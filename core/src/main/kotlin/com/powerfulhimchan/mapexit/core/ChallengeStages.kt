@@ -9,6 +9,7 @@ object ChallengeStages {
     const val BLADE = 20
     const val FALLING = 21
     const val WALL = 22
+    const val MOVE_MS = 600L
 
     private fun stream(seed: Long, salt: Long): State {
         var v = seed xor salt
@@ -149,6 +150,9 @@ object ChallengeStages {
             }
             ChallengePhase.ACTIVE -> buildList {
                 add(choice("일시정지", "challengePause"))
+                if (c.autoMoving) {
+                    add(choice("멈추기", "challengeStop")); return@buildList
+                }
                 val map = s.dungeon ?: return@buildList
                 if (map.here().event == Event.CHALLENGE && !map.here().resolved && c.kind in listOf(ChallengeKind.SEALS, ChallengeKind.TORCH))
                     add(choice(if (c.kind == ChallengeKind.SEALS) "${runeNames[map.here().challengeMark - 1]} 제단 작동" else "횃불 보충", "challengeUse"))
@@ -162,6 +166,7 @@ object ChallengeStages {
     fun execute(s: State, choice: Choice) {
         when (choice.action) {
             "move" -> move(s, choice.argument.toInt())
+            "challengeStop" -> stop(s)
             "challengeStart" -> start(s)
             "challengeRemember" -> s.challenge?.takeIf { it.phase == ChallengePhase.PREVIEW }?.let { it.previewMs = 0; it.phase = ChallengePhase.ACTIVE }
             "challengeLeave" -> leave(s)
@@ -177,6 +182,7 @@ object ChallengeStages {
     fun pause(s: State): Boolean {
         val c = s.challenge ?: return false
         if (c.phase !in listOf(ChallengePhase.ACTIVE, ChallengePhase.HAZARD, ChallengePhase.PREVIEW)) return false
+        stop(s)
         c.pausedFrom = c.phase; c.phase = ChallengePhase.PAUSED
         return true
     }
@@ -186,7 +192,19 @@ object ChallengeStages {
         if (c.phase == ChallengePhase.PAUSED) c.phase = c.pausedFrom
     }
 
+    fun stop(s: State) {
+        s.challenge?.let { it.autoMoving = false; it.movementMs = 0 }
+    }
+
     fun move(s: State, direction: Int) {
+        val c = s.challenge ?: return
+        val map = s.dungeon ?: return
+        if (c.phase != ChallengePhase.ACTIVE || c.autoMoving || direction !in MapGenerator.directions(map)) return
+        c.autoMoving = true; c.movementMs = 0
+        moveOne(s, direction)
+    }
+
+    private fun moveOne(s: State, direction: Int) {
         val c = s.challenge ?: return
         val map = s.dungeon ?: return
         if (c.phase != ChallengePhase.ACTIVE || direction !in MapGenerator.directions(map)) return
@@ -206,8 +224,14 @@ object ChallengeStages {
         }
         if (c.kind == ChallengeKind.STEPS && c.remainingSteps == 0) { finish(s, false, "발걸음을 모두 사용했습니다"); return }
         if (c.kind == ChallengeKind.HAZARDS && cell.event == Event.CHALLENGE && !cell.resolved) {
+            stop(s)
             c.phase = ChallengePhase.HAZARD; c.hazardMs = 0; c.hazardCooldownMs = 0
+            return
         }
+        // Stop at decisions and interactions, including a still-sealed exit.
+        if (cell.event == Event.EXIT || cell.event == Event.CHALLENGE && !cell.resolved) { stop(s); return }
+        val next = MapGenerator.directions(map).filter { it != (direction + 2) % 4 }
+        if (next.size == 1) map.direction = next.single() else stop(s)
     }
 
     fun interact(s: State) {
@@ -276,16 +300,26 @@ object ChallengeStages {
             val map = s.dungeon ?: return
             val current = map.y * map.width + map.x
             for ((cell, deadline) in c.collapseAt.toMap()) if (c.elapsedMs >= deadline) {
+                c.collapsedCells.add(cell)
                 if (cell == current) { finish(s, false, "발밑의 바닥이 무너졌습니다"); return }
                 map.cells[cell].wall = true; c.collapseAt.remove(cell); c.navigationRevision++
             }
-            if (path(map).isEmpty()) finish(s, false, "출구로 이어지는 통로가 무너졌습니다")
+            if (path(map).isEmpty()) { finish(s, false, "출구로 이어지는 통로가 무너졌습니다"); return }
+        }
+        if (c.phase == ChallengePhase.ACTIVE && c.autoMoving) {
+            c.movementMs += dt
+            if (c.movementMs >= MOVE_MS) {
+                c.movementMs -= MOVE_MS
+                val map = s.dungeon ?: return
+                if (map.direction in MapGenerator.directions(map)) moveOne(s, map.direction) else stop(s)
+            }
         }
     }
 
     fun finish(s: State, success: Boolean, message: String) {
         val c = s.challenge ?: return
         if (c.phase in listOf(ChallengePhase.INTRO, ChallengePhase.RESULT)) return
+        stop(s)
         c.phase = ChallengePhase.RESULT; c.success = success; c.result = message
         if (success && !c.rewardApplied) {
             c.rewardApplied = true

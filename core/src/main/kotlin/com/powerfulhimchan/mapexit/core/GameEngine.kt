@@ -511,6 +511,7 @@ class GameEngine(
     fun turnBack() {
         val map = state.dungeon ?: return
         if (state.mode != Mode.EXPLORE && !(state.mode == Mode.CHALLENGE && state.challenge?.phase == ChallengePhase.ACTIVE)) return
+        if (state.mode == Mode.CHALLENGE && state.challenge?.autoMoving == true) return
         map.direction = (map.direction + 2) % 4
         controls.skipCurrentEvent()
     }
