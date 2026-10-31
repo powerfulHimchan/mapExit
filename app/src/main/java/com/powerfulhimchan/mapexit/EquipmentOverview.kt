@@ -1,10 +1,6 @@
 package com.powerfulhimchan.mapexit
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,13 +40,7 @@ internal fun EquipmentOverview(vm: GameModel) {
                         Column(
                             Modifier.weight(1f)
                                 .heightIn(min = 116.dp)
-                                .background(panel, RoundedCornerShape(6.dp))
-                                .border(
-                                    1.dp,
-                                    if (gear != null) mint.copy(alpha = .6f) else line,
-                                    RoundedCornerShape(6.dp),
-                                )
-                                .clickable(role = Role.Button) {
+                                .gameClickable {
                                     if (s.mode != Mode.MENU || s.menu?.type != "equipment")
                                         vm.choose(Choice("장착 현황", "equipment"))
                                     vm.choose(Choice(label, "slotItem", slot.ordinal.toLong()))

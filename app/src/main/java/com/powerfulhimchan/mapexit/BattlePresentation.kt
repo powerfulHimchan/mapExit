@@ -9,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -436,7 +435,7 @@ private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifi
             lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
         )
-        TextButton(onClick = vm::dismissChestLoot, modifier = Modifier.align(Alignment.End)) {
+        GameButton(onClick = vm::dismissChestLoot, modifier = Modifier.align(Alignment.End)) {
             Text("획득 확인", color = mint)
         }
     }

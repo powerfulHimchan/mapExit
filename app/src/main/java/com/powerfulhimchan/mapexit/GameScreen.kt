@@ -5,7 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -126,10 +125,10 @@ fun MapExitScreen(vm: GameModel) {
                         Modifier.fillMaxWidth().height(34.dp),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        TextButton(onClick = vm::trainingMenu) {
+                        GameButton(onClick = vm::trainingMenu) {
                             Text("테스트 목록", color = mint, fontSize = 12.sp)
                         }
-                        TextButton(onClick = vm::exitTraining) {
+                        GameButton(onClick = vm::exitTraining) {
                             Text("테스트 종료", color = red, fontSize = 12.sp)
                         }
                     }
@@ -147,7 +146,7 @@ fun MapExitScreen(vm: GameModel) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                         Text(vm.loadError!!, color = red)
                         Spacer(Modifier.height(20.dp))
-                        Button(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
+                        GameButton(onClick = { vm.up(1) }) { Text("원본을 보존하고 새로 시작") }
                     }
                 } else if (s.mode == Mode.CHALLENGE) {
                     ChallengeScreen(vm, clock, Modifier.weight(1f))
@@ -189,7 +188,7 @@ fun MapExitScreen(vm: GameModel) {
                 title = { Text("탐험을 포기하고 지상으로 갈까요?") },
                 text = { Text("사망과 동일하게 장비·아이템·소지 골드를 모두 잃습니다. 성장, 보관 골드와 이동 장치는 유지됩니다.") },
                 confirmButton = {
-                    TextButton(
+                    GameButton(
                         onClick = {
                             confirmRetreat = false
                             vm.choose(Choice("탐험 포기", "retreat"))
@@ -199,7 +198,7 @@ fun MapExitScreen(vm: GameModel) {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { confirmRetreat = false }) { Text("계속 탐험") }
+                    GameButton(onClick = { confirmRetreat = false }) { Text("계속 탐험") }
                 },
             )
     }
@@ -351,12 +350,7 @@ internal fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier:
     Column(
         modifier
             .fillMaxHeight()
-            .background(if (pressed) Color(0xFF294C49) else panel, RoundedCornerShape(10.dp))
-            .border(
-                if (pressed) 2.dp else 1.dp,
-                if (b.enabled) mint else line,
-                RoundedCornerShape(10.dp),
-            )
+            .gameButtonSurface(enabled = b.enabled, pressed = pressed)
             .semantics {
                 role = Role.Button
                 contentDescription = b.label
@@ -457,7 +451,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         )
                         Text(title, color = pale, fontSize = 25.sp, fontWeight = FontWeight.Black)
                     }
-                    if (!surface) TextButton(onClick = { vm.back() }) { Text("돌아가기", color = mint) }
+                    if (!surface) GameButton(onClick = { vm.back() }) { Text("돌아가기", color = mint) }
                 }
             }
             if (surface || s.mode == Mode.INHERIT)
@@ -518,12 +512,12 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 }
                 if (menu == "help") {
                     item { ExplorationRecord(s) }
-                    item { OutlinedButton(onClick = { vm.choose(Choice("몬스터 도감", "bestiary")) }, modifier = Modifier.fillMaxWidth()) { Text("몬스터 도감", color = mint) } }
-                    item { OutlinedButton(onClick = { vm.choose(Choice("업적", "achievements")) }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "업적" }) {
+                    item { GameButton(onClick = { vm.choose(Choice("몬스터 도감", "bestiary")) }, modifier = Modifier.fillMaxWidth()) { Text("몬스터 도감", color = mint) } }
+                    item { GameButton(onClick = { vm.choose(Choice("업적", "achievements")) }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "업적" }) {
                         val ready = s.achievements.unlocked.size - s.achievements.claimed.size
                         Text("업적${if (ready > 0) " · 보상 $ready" else ""}", color = mint)
                     } }
-                    item { OutlinedButton(onClick = { vm.choose(Choice("특별 도전 기록", "challengeRecords")) }, modifier = Modifier.fillMaxWidth()) { Text("특별 도전 기록", color = mint) } }
+                    item { GameButton(onClick = { vm.choose(Choice("특별 도전 기록", "challengeRecords")) }, modifier = Modifier.fillMaxWidth()) { Text("특별 도전 기록", color = mint) } }
                 }
                 if (menu == "challengeRecords") challengeRecordCards(s)
                 if (menu == "bestiary") bestiaryCards(s)
@@ -572,9 +566,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         }
                     Row(
                         Modifier.fillMaxWidth()
-                            .background(panel, RoundedCornerShape(8.dp))
-                            .border(1.dp, if (enabled) line else ink, RoundedCornerShape(8.dp))
-                            .clickable(enabled = enabled, role = Role.Button) { vm.choose(c) }
+                            .gameClickable(enabled = enabled) { vm.choose(c) }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
