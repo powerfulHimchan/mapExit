@@ -2,11 +2,9 @@ package com.powerfulhimchan.mapexit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,9 +77,7 @@ private fun DungeonShortcut(
     Row(
         modifier
             .fillMaxHeight()
-            .background(panel, RoundedCornerShape(6.dp))
-            .border(1.dp, if (enabled) line else line.copy(alpha = .4f), RoundedCornerShape(6.dp))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .gameClickable(enabled = enabled, onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = label }
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -103,9 +99,7 @@ internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Uni
     Row(
         Modifier.fillMaxWidth()
             .padding(bottom = 6.dp)
-            .background(panel, RoundedCornerShape(6.dp))
-            .border(2.dp, amber, RoundedCornerShape(6.dp))
-            .clickable(role=Role.Button,onClick=onOpen)
+            .gameClickable(onClick = onOpen)
             .padding(start = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -123,7 +117,7 @@ internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Uni
             )
             Text("성장 포인트 +${notice.gainedPoints}P · 보유 ${points}P", color = pale, fontSize = 11.sp)
         }
-        TextButton(
+        GameButton(
             onClick = onOpen,
             modifier = Modifier.semantics { contentDescription = "성장 배분 열기" },
         ) {
@@ -183,9 +177,7 @@ internal fun CombatShortcuts(vm: GameModel) {
             .forEach { (label, action) ->
                 Row(
                     Modifier.height(30.dp)
-                        .background(panel, RoundedCornerShape(5.dp))
-                        .border(1.dp, line, RoundedCornerShape(5.dp))
-                        .clickable(enabled = enabled, role = Role.Button) {
+                        .gameClickable(enabled = enabled) {
                             vm.choose(Choice(label, action))
                         }
                         .semantics(mergeDescendants = true) {

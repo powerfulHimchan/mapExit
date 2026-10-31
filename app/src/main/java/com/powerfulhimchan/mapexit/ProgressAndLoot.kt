@@ -2,13 +2,11 @@ package com.powerfulhimchan.mapexit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Snackbar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -61,9 +59,7 @@ internal fun LootEquipButton(vm: GameModel, gear: Gear) {
     val slot=Equipment.quickSlot(s,gear)
     val label=if(worn)"[착용중]" else "바로 장착 · ${slot?.label ?: "장비"}"
     Row(Modifier.fillMaxWidth().heightIn(min=48.dp)
-        .background(panel,RoundedCornerShape(8.dp))
-        .border(1.dp,if(enabled)mint else line,RoundedCornerShape(8.dp))
-        .clickable(enabled=enabled,role=Role.Button) { vm.choose(Choice(label,"equipLoot",gear.id)) }
+        .gameClickable(enabled = enabled) { vm.choose(Choice(label,"equipLoot",gear.id)) }
         .semantics(mergeDescendants=true) { contentDescription="$label · ${gear.name}" }
         .padding(horizontal=10.dp,vertical=8.dp),
         verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -93,17 +89,15 @@ internal fun ShopDetail(vm: GameModel) {
             if(gear.kind!=Kind.POTION) ShopComparison(s,gear)
             if(gear.kind==Kind.POTION) Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                 for(n in listOf(1,3,5)) Box(Modifier.weight(1f).heightIn(min=48.dp)
-                    .background(ink,RoundedCornerShape(6.dp))
-                    .border(1.dp,if(count==n)mint else line,RoundedCornerShape(6.dp))
-                    .clickable(role=Role.Button) { count=n }
+                    .gameClickable(selected = count == n) { count=n }
                     .semantics { contentDescription="구매 수량 ${n}개" },contentAlignment=Alignment.Center) {
                     Text("${n}개",color=if(count==n)mint else pale,fontWeight=FontWeight.Bold)
                 }
             }
             Text("가격 ${price}G · 소지 ${s.gold}G",color=amber,fontSize=14.sp)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick=vm::back,modifier=Modifier.weight(1f).border(1.dp,line,RoundedCornerShape(8.dp))) { Text("취소",color=muted) }
-                TextButton(onClick={ vm.purchase(gear.id,count) },modifier=Modifier.weight(1f).border(1.dp,mint,RoundedCornerShape(8.dp))) { Text("구매",color=mint) }
+                GameButton(onClick=vm::back,modifier=Modifier.weight(1f)) { Text("취소",color=muted) }
+                GameButton(onClick={ vm.purchase(gear.id,count) },modifier=Modifier.weight(1f)) { Text("구매",color=mint) }
             }
         }
         // A Dialog owns a separate window, so the screen-level notice is behind it.

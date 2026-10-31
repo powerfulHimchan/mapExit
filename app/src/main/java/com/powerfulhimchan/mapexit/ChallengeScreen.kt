@@ -2,7 +2,6 @@ package com.powerfulhimchan.mapexit
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -38,7 +37,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 Text(c.kind.title, color = amber, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             if (phase in listOf(ChallengePhase.ACTIVE, ChallengePhase.HAZARD, ChallengePhase.PREVIEW))
-                TextButton(onClick = { vm.choose(Choice("일시정지", "challengePause")) }) { Text("일시정지", color = mint) }
+                GameButton(onClick = { vm.choose(Choice("일시정지", "challengePause")) }) { Text("일시정지", color = mint) }
         }
         when (phase) {
             ChallengePhase.INTRO -> Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
@@ -107,7 +106,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 Text(if (phase == ChallengePhase.HAZARD) mechanismHint(s.dungeon!!.here().challengeMark) else ChallengeStages.clue(s), color = pale, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.fillMaxWidth().background(panel).padding(8.dp).semantics { contentDescription = "도전 단서" })
                 if (phase == ChallengePhase.HAZARD && c.feedback.isNotBlank()) Text(c.feedback, color = amber, fontSize = 12.sp, lineHeight = 17.sp)
-                if (phase == ChallengePhase.ACTIVE && vm.engine.controls.directionSelectionActive()) TextButton(onClick = vm::resetDirections) { Text("방향 처음", color = mint) }
+                if (phase == ChallengePhase.ACTIVE && vm.engine.controls.directionSelectionActive()) GameButton(onClick = vm::resetDirections) { Text("방향 처음", color = mint) }
             }
         }
         Row(Modifier.fillMaxWidth().height(68.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

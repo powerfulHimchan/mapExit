@@ -1,10 +1,7 @@
 package com.powerfulhimchan.mapexit
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -153,9 +150,7 @@ internal fun PreparationMenuGrid(vm: GameModel) {
                 row.forEach { (label, action) ->
                     Column(
                         Modifier.weight(1f)
-                            .background(panel, RoundedCornerShape(8.dp))
-                            .border(1.dp, line, RoundedCornerShape(8.dp))
-                            .clickable(role = Role.Button) { vm.choose(Choice(label, action)) }
+                            .gameClickable { vm.choose(Choice(label, action)) }
                             .semantics(mergeDescendants = true) { contentDescription = label }
                             .padding(10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -246,9 +241,7 @@ internal fun ExpeditionButton(
         modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .background(panel, RoundedCornerShape(8.dp))
-            .border(1.dp, mint, RoundedCornerShape(8.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .gameClickable(onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = title }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

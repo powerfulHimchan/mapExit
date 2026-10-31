@@ -1,13 +1,10 @@
 package com.powerfulhimchan.mapexit
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,15 +22,14 @@ internal fun statValue(stat: Stat, value: Double): String =
         String.format(Locale.ROOT, "%.1f", value * 100).removeSuffix(".0") + "%"
     else value.roundToInt().toString()
 
+@Composable
 private fun Modifier.card(
     enabled: Boolean,
     label: String,
     compact: Boolean = false,
     action: () -> Unit,
 ): Modifier =
-    background(panel, RoundedCornerShape(8.dp))
-        .border(1.dp, if (enabled) line else line.copy(alpha = .5f), RoundedCornerShape(8.dp))
-        .clickable(enabled = enabled, role = Role.Button, onClick = action)
+    gameClickable(enabled = enabled, onClick = action)
         .semantics(mergeDescendants = true) { contentDescription = label }
         .padding(if (compact) 6.dp else 12.dp)
 
