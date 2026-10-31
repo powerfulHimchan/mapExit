@@ -214,7 +214,7 @@ class GameEngine(
                         when (cell.event) {
                             Event.CHEST ->
                                 add(c("상자 살펴보기", "encounter", Event.CHEST.ordinal.toLong()))
-                            Event.HEAL -> add(c("회복 장소 사용", "heal"))
+                            Event.HEAL -> add(c("회복의 수정 사용", "heal"))
                             Event.MERCHANT ->
                                 add(c("상인 만나기", "encounter", Event.MERCHANT.ordinal.toLong()))
                             Event.NPC -> add(c("NPC 만나기", "encounter", Event.NPC.ordinal.toLong()))
@@ -432,7 +432,9 @@ class GameEngine(
                 else -> ChallengeStages.pause(state)
             }
             controls.reset()
-        } else if (state.mode == Mode.MENU) back() else controls.reset()
+        } else if (state.mode == Mode.MENU) back()
+        else if (state.mode == Mode.EXPLORE && state.chestLoot != null) state.chestLoot = null
+        else controls.reset()
     }
 
     fun rawDown(button: Int) {
@@ -482,6 +484,18 @@ class GameEngine(
                 finishTrap()
         }
     }
+
+    /** Reward bag entry is available only for actual equipment receipts, including worn rewards. */
+    fun canOpenLootInventory(): Boolean {
+        val rewards = when (state.mode) {
+            Mode.VICTORY -> state.battleResult?.rewards
+            Mode.EXPLORE -> state.chestLoot?.items
+            else -> null
+        }
+        return rewards?.any { it.kind != Kind.POTION } == true
+    }
+
+    fun openLootInventory(): Boolean = canOpenLootInventory() && openDungeonPanel("inventory")
 
     /** Header shortcuts stop automatic walking before opening a real menu. */
     fun openDungeonPanel(type: String): Boolean {
@@ -696,7 +710,7 @@ class GameEngine(
                 if (!m.here().resolved) {
                     m.here().resolved = true
                     s.hp = min(stats().hp, s.hp + stats().hp * .45)
-                    s.note("회복 장소: HP 45% 회복")
+                    s.note("회복의 수정: HP 45% 회복")
                 }
             }
             "claim" -> {
@@ -879,7 +893,7 @@ class GameEngine(
                     s.note(
                         when (cell.event) {
                             Event.CHEST -> "아이템 상자를 발견했습니다"
-                            Event.HEAL -> "회복 장소를 발견했습니다"
+                            Event.HEAL -> "회복의 수정을 발견했습니다"
                             Event.MERCHANT -> "상인을 만났습니다"
                             Event.NPC -> "미션 NPC를 만났습니다"
                             else -> ""
@@ -1280,7 +1294,7 @@ class GameEngine(
             val previousHp = s.hp
             s.hp = max(0.0, s.hp - damage)
             impact(ImpactTarget.PLAYER, previousHp - s.hp, ImpactOutcome.DAMAGE)
-            s.note("함정 회피 실패 · ${damage.roundToInt()} 피해")
+            s.note("${if (t.type == 4 && t.action == 1 && t.actionAtMs < t.beamCrouchStartMs) "너무 일찍 숙였습니다 · " else ""}함정 회피 실패 · ${damage.roundToInt()} 피해")
             if (s.hp <= 0) die()
         } else s.note("함정 회피 성공!")
     }

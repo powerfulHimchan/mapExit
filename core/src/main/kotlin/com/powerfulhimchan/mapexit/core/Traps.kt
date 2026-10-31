@@ -54,7 +54,15 @@ data class TrapState(
 
     fun bladesRetracted(): Boolean = bladeExtension() <= .001f
 
-    /** The beam falls by itself; crouching early remains safe until it has passed. */
+    /** A crouch lasts briefly: wait for the beam's approach rather than ducking at the start. */
+    val beamCrouchStartMs: Long get() = (limitMs * 2 + 4) / 5
+
+    fun beamCrouchReady(): Boolean {
+        val time = if (phase == TrapPhase.RESULT) actionAtMs else elapsedMs
+        return time >= beamCrouchStartMs && time < limitMs
+    }
+
+    /** The beam continues through its visible collision plane during the result motion. */
     fun beamDescent(): Float {
         val time =
             if (phase == TrapPhase.RESULT)
@@ -175,8 +183,9 @@ object Traps {
             return
         }
         t.action = button
-        val ok = if (t.type == 1) button == 0 && t.bladesRetracted() else button == 1
-        finish(t, ok, if (ok) "회피 성공!" else "회피 실패")
+        val ok = if (t.type == 1) button == 0 && t.bladesRetracted() else button == 1 && t.beamCrouchReady()
+        val early = t.type == 4 && button == 1 && t.elapsedMs < t.beamCrouchStartMs
+        finish(t, ok, if (ok) "회피 성공!" else if (early) "너무 일찍 숙였습니다 · 회피 실패" else "회피 실패")
     }
 
     fun down(t: TrapState, button: Int) {

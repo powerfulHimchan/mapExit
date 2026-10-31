@@ -96,32 +96,28 @@ private fun DungeonShortcut(
 
 @Composable
 internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth()
-            .padding(bottom = 6.dp)
-            .gameClickable(onClick = onOpen)
-            .padding(start = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MenuArt("level", Modifier.size(30.dp))
-        Column(Modifier.weight(1f).padding(start = 8.dp, top = 8.dp, bottom = 8.dp)) {
-            Text(
-                "레벨 업! LV.${notice.from} → LV.${notice.to}",
-                color = amber,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
-                modifier =
-                    Modifier.semantics {
-                        contentDescription = "레벨 업 LV.${notice.from}에서 LV.${notice.to}"
-                    },
-            )
-            Text("성장 포인트 +${notice.gainedPoints}P · 보유 ${points}P", color = pale, fontSize = 11.sp)
-        }
-        GameButton(
-            onClick = onOpen,
-            modifier = Modifier.semantics { contentDescription = "성장 배분 열기" },
-        ) {
-            Text("능력치 배분 ›", color = mint, fontSize = 11.sp)
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 6.dp).gameClickable(onClick = onOpen)) {
+        val narrow = maxWidth < 320.dp
+        Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            MenuArt("level", Modifier.size(if (narrow) 24.dp else 30.dp))
+            Column(Modifier.weight(1f).padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)) {
+                Text(
+                    if (narrow) "LV.${notice.from} → LV.${notice.to}" else "레벨 업! LV.${notice.from} → LV.${notice.to}", color = amber,
+                    fontSize = if (narrow) 13.sp else 17.sp,
+                    lineHeight = if (narrow) 16.sp else 22.sp,
+                    maxLines = if (narrow) 1 else 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.semantics { contentDescription = "레벨 업 LV.${notice.from}에서 LV.${notice.to}" },
+                )
+                Text(if (narrow) "+${notice.gainedPoints}P · 보유 ${points}P" else "성장 포인트 +${notice.gainedPoints}P · 보유 ${points}P", color = pale,
+                    fontSize = if (narrow) 10.sp else 11.sp, lineHeight = 14.sp, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            GameButton(onClick = onOpen,
+                modifier = Modifier.semantics { contentDescription = "성장 배분 열기" },
+                contentPadding = PaddingValues(horizontal = if (narrow) 6.dp else 10.dp, vertical = 8.dp)) {
+                Text("능력치 배분 ›", color = mint, fontSize = if (narrow) 10.sp else 11.sp)
+            }
         }
     }
 }

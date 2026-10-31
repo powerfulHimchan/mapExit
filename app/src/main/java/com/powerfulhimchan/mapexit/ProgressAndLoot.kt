@@ -34,19 +34,35 @@ internal fun ExperienceMeter(s: State) {
 
 @Composable
 internal fun LootRewardRow(vm: GameModel, gear: Gear, showSummary: Boolean = true) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(Modifier.size(42.dp).semantics { contentDescription = "획득 아이템 아이콘 · ${gear.name}" }) {
-            ItemArt(gear, Modifier.fillMaxSize())
+    vm.revision
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(Modifier.size(42.dp).semantics { contentDescription = "획득 아이템 아이콘 · ${gear.name}" }) {
+                ItemArt(gear, Modifier.fillMaxSize())
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(gear.name, color = pale, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold)
+                if (showSummary) Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 15.sp)
+                if (gear.kind != Kind.POTION) LootEquipButton(vm, gear)
+            }
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(gear.name, color = pale, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold)
-            if (showSummary) Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 15.sp)
-            if (gear.kind != Kind.POTION) LootEquipButton(vm, gear)
-        }
+        if (gear.kind != Kind.POTION && gear.id !in vm.engine.state.equipment.values)
+            ShopComparison(vm.engine.state, gear, occupiedOnly = true)
+    }
+}
+
+@Composable
+internal fun LootBagButton(vm: GameModel) {
+    vm.revision
+    if (!vm.engine.canOpenLootInventory()) return
+    GameButton(onClick = vm::openLootInventory, modifier = Modifier.semantics { contentDescription = "가방 열기" }) {
+        MenuArt("inventory", Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("가방 열기", color = mint, fontSize = 12.sp)
     }
 }
 

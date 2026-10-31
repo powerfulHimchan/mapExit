@@ -197,8 +197,10 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
 }
 
 @Composable
-internal fun ShopComparison(state: State, gear: Gear) {
-    Equipment.compare(state, gear).forEach { comparison ->
+internal fun ShopComparison(state: State, gear: Gear, occupiedOnly: Boolean = false) {
+    Equipment.compare(state, gear)
+        .filter { !occupiedOnly || it.current != null || it.removed.isNotEmpty() }
+        .forEach { comparison ->
         Column(
             Modifier.fillMaxWidth().background(ink, RoundedCornerShape(4.dp)).padding(7.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -216,16 +218,18 @@ internal fun ShopComparison(state: State, gear: Gear) {
                 lineHeight = 15.sp,
             )
             comparison.current?.let {
-                Text(it.summary(), color = muted, fontSize = 10.sp, lineHeight = 14.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (occupiedOnly) Box(Modifier.size(30.dp).semantics { contentDescription = "현재 장비 아이콘 · ${it.name}" }) {
+                        ItemArt(it, Modifier.fillMaxSize())
+                    }
+                    Text(it.summary(), color = muted, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.weight(1f))
+                }
             }
             val other = comparison.removed.filter { it.id != comparison.current?.id }
-            if (other.isNotEmpty())
-                Text(
-                    "함께 해제: ${other.joinToString { it.name }}",
-                    color = amber,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp,
-                )
+            other.forEach { removed ->
+                Text("함께 해제: ${removed.name}", color = amber, fontSize = 10.sp, lineHeight = 14.sp)
+                if (occupiedOnly) Text(removed.summary(), color = muted, fontSize = 10.sp, lineHeight = 14.sp)
+            }
             val changes =
                 Stat.entries.filter {
                     kotlin.math.abs(comparison.after.value(it) - comparison.before.value(it)) >

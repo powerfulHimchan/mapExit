@@ -124,7 +124,7 @@ class RestorationRegressionTest {
         assertEquals(s.inventory.size,s.inventory.map { it.id }.distinct().size);assertTrue(s.quickEquipIds.isEmpty())
     }
     @Test fun completedActionsClearOnSuccessfulMovementButNotWhileFacingAWall() {
-        for(note in listOf("함정 회피 성공!","장비를 변경했습니다","회복 장소: HP 45% 회복")) {
+        for(note in listOf("함정 회피 성공!","장비를 변경했습니다","회복의 수정: HP 45% 회복")) {
             val m=Dungeon(9,9,MutableList(81){Cell()},4,5,0);for(y in 2..6)m.cell(4,y).wall=false
             val e=GameEngine(State(bootstrapped=true,floor=1,dungeon=m,mode=Mode.EXPLORE,message=note))
             choose(e,"move",0);assertEquals("통로를 탐험하고 있습니다",e.state.message)
