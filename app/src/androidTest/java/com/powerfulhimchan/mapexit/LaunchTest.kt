@@ -2406,8 +2406,9 @@ class LaunchTest {
                     a.game.engine=e;a.game.active=false;a.game.refresh()
                 }
                 for(gear in rewards) {
-                    bounds("획득 아이템 아이콘 · ${gear.name}",allowScroll=true)
+                    // Titles precede the vertically centered art in a tall equipment row.
                     bounds(gear.name,allowScroll=true)
+                    bounds("획득 아이템 아이콘 · ${gear.name}",allowScroll=true)
                 }
                 capture("victory-multiple-items-compact")
                 scenario.onActivity { a ->
@@ -2989,6 +2990,11 @@ class LaunchTest {
                 assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "가방 열기"))
                 assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "획득 확인"))
                 capture("loot-potion-only-${if (victory) "victory" else "chest"}")
+                if (!victory) {
+                    instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                    settleFrames()
+                    scenario.onActivity { a -> assertNull(a.game.engine.state.chestLoot); assertEquals(Mode.EXPLORE, a.game.engine.state.mode) }
+                }
             }
         }
     }

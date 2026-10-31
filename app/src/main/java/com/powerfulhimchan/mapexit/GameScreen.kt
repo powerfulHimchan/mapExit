@@ -81,7 +81,7 @@ fun MapExitScreen(vm: GameModel) {
             vm.clearGoldNotice(serial)
         }
     }
-    BackHandler(s.mode in listOf(Mode.MENU, Mode.CHALLENGE)) { vm.back() }
+    BackHandler(s.mode in listOf(Mode.MENU, Mode.CHALLENGE) || s.mode == Mode.EXPLORE && s.chestLoot != null) { vm.back() }
     MaterialTheme(
         colorScheme =
             darkColorScheme(background = ink, surface = panel, onSurface = pale, primary = mint)
