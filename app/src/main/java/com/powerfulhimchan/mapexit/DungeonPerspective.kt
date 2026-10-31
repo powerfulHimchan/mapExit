@@ -28,5 +28,5 @@ internal fun DrawScope.drawDungeonPerspective(
     val view = DungeonFixtures.camera(m, pose)
     val challenge = s.challenge
     val visibility = if (challenge?.kind == ChallengeKind.TORCH) 1.5f + (challenge.torchMs / 1000).toInt() * .25f else 12f
-    drawImage(dungeonRaster!!.render(m, view, DungeonTheme.forFloor(s.floor), visibility), filterQuality = FilterQuality.None)
+    drawImage(dungeonRaster!!.render(m, view, DungeonTheme.forFloor(s.floor), visibility, challenge?.phase == ChallengePhase.HAZARD), filterQuality = FilterQuality.None)
 }

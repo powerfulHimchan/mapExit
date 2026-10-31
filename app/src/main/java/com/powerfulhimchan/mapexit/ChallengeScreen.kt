@@ -92,7 +92,13 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 }
                 if (c.kind == ChallengeKind.SEALS) Text("작동한 제단 ${c.seals} / 3", color = amber, fontSize = 12.sp)
                 if (c.kind == ChallengeKind.HAZARDS) Text("실수 ${c.mistakes} / 3 · 실패 시 8초 차감", color = amber, fontSize = 12.sp)
-                Box(Modifier.weight(1f).fillMaxWidth()) {
+                Box(Modifier.weight(1f).fillMaxWidth().clearAndSetSemantics {
+                    contentDescription = "메인 장면"
+                    stateDescription = if (phase == ChallengePhase.HAZARD) {
+                        mechanismHint(s.dungeon!!.here().challengeMark) + " · " +
+                            if (ChallengeStages.hazardSafe(s.dungeon!!.here().challengeMark, c.hazardMs)) "안전 구간" else "작동 중"
+                    } else "벽 표식 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}"
+                }) {
                     PixelCanvas(s, clock, Modifier.fillMaxSize(), camera = vm.dungeonCamera.sample(clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis()))
                     if (phase == ChallengePhase.HAZARD) ChallengeMechanism(s, Modifier.fillMaxSize())
                     Text("벽 표식 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}",
@@ -133,7 +139,7 @@ private fun mechanismHint(mark: Int) = when (mark) {
 private fun ChallengeMechanism(s: State, modifier: Modifier) {
     val c = s.challenge ?: return
     val mark = s.dungeon!!.here().challengeMark
-    Canvas(modifier.semantics { contentDescription = "도전 장애물 · ${mechanismHint(mark)}"; stateDescription = if (ChallengeStages.hazardSafe(mark, c.hazardMs)) "안전 구간" else "작동 중" }) {
+    Canvas(modifier) {
         val w = size.width; val h = size.height; val t = (c.hazardMs % 4000).toFloat()
         val safe = ChallengeStages.hazardSafe(mark, c.hazardMs)
         val steel = Color(0xff879a9b); val dark = Color(0xff263740)

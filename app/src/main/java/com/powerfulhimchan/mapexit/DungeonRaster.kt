@@ -52,6 +52,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
     private var lastCamera: DungeonViewPose? = null
     private var lastGeometry = 0
     private var lastVisibility = 12f
+    private var lastHideCurrentFeature = false
 
     private fun shade(color: Int, light: Int): Int =
         (0xff shl 24) or
@@ -59,7 +60,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
             ((((color ushr 8) and 255) * light / 256) shl 8) or
             ((color and 255) * light / 256)
 
-    fun render(map: Dungeon, camera: DungeonViewPose, theme: DungeonTheme = DungeonTheme.MOSS, visibility: Float = 12f): ImageBitmap {
+    fun render(map: Dungeon, camera: DungeonViewPose, theme: DungeonTheme = DungeonTheme.MOSS, visibility: Float = 12f, hideCurrentFeature: Boolean = false): ImageBitmap {
         fun fog(light: Int, distance: Float): Int = if (visibility >= 12f) light else (light * (1f - distance / visibility).coerceIn(0f, 1f)).toInt()
         val textures = materials.getOrPut(theme) {
             Materials(Texture(PixelMaterials.wall(Color(theme.wall), theme = theme)),
@@ -67,7 +68,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Texture(PixelMaterials.floor(theme)))
         }
         val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + cell.challengeMark * 67 + cell.npcRole.ordinal * 43 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
-        if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme && lastVisibility == visibility) return image
+        if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme && lastVisibility == visibility && lastHideCurrentFeature == hideCurrentFeature) return image
         val dx = cos(camera.angle)
         val dy = sin(camera.angle)
         val focal = DungeonFixtures.focal(map,width,height)
@@ -156,6 +157,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         }
         // Back-to-front world billboards share wall depth and the floor contact plane.
         DungeonFixtures.visible(map,camera).forEach { fixture ->
+            if (hideCurrentFeature && fixture.event == Event.CHALLENGE && fixture.x == map.x && fixture.y == map.y) return@forEach
             val name = when(fixture.event) {
                 Event.HEAL -> "heal"; Event.CHEST -> "chest"; Event.MERCHANT -> "merchant"
                 Event.NPC -> map.cell(fixture.x,fixture.y).npcRole.sprite
@@ -199,6 +201,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         lastCamera = camera
         lastGeometry = geometry
         lastVisibility = visibility
+        lastHideCurrentFeature = hideCurrentFeature
         return image
     }
 }
