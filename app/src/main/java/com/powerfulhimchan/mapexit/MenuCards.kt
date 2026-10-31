@@ -219,7 +219,9 @@ internal fun ShopComparison(state: State, gear: Gear, occupiedOnly: Boolean = fa
             )
             comparison.current?.let {
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (occupiedOnly) ItemArt(it, Modifier.size(30.dp).semantics { contentDescription = "현재 장비 아이콘 · ${it.name}" })
+                    if (occupiedOnly) Box(Modifier.size(30.dp).semantics { contentDescription = "현재 장비 아이콘 · ${it.name}" }) {
+                        ItemArt(it, Modifier.fillMaxSize())
+                    }
                     Text(it.summary(), color = muted, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.weight(1f))
                 }
             }
