@@ -16,6 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,7 +51,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                     ChallengePlan(s.dungeon!!, Modifier.fillMaxWidth().height(220.dp))
                 }
                 if (c.kind == ChallengeKind.COLLAPSE) Text("갈림길 버튼의 문양과 ‘안정된 문양’을 비교하세요. 잘못 든 길에서는 붕괴 전에 돌아와야 합니다.", color = pale, fontSize = 13.sp, lineHeight = 20.sp)
-                Text("몬스터와 미니맵은 없습니다. 이동은 한 번 누를 때 한 칸입니다. 방향 선택 중에는 ‘방향 처음’으로 돌아갈 수 있습니다.", color = muted, fontSize = 12.sp, lineHeight = 18.sp)
+                Text("몬스터와 미니맵은 없습니다. 이동하면 통로를 자동으로 따라가며 갈림길·막다른 길·제단·화로·장애물에서 멈춥니다. 이동 중 ‘멈추기’로 중단할 수 있습니다.", color = muted, fontSize = 12.sp, lineHeight = 18.sp)
                 Text("실패·포기 시 보상 없이 원래 던전으로 돌아갑니다. 도전을 시작하면 이번 회차에는 같은 포털에 다시 도전할 수 없습니다.", color = pale, fontSize = 13.sp, lineHeight = 20.sp)
                 Text(if (s.training || s.debug) "연습에서는 보상과 도전 기록을 남기지 않습니다" else "성공 보상: ${60 + c.hostFloor * 4}G · ${if (c.kind in listOf(ChallengeKind.COLLAPSE, ChallengeKind.HAZARDS, ChallengeKind.STEPS)) "다음 구간 등급의 도전자 무기 + 상급 회복약 1개" else "상급 회복약 2개"}", color = amber, fontSize = 13.sp, lineHeight = 20.sp)
                 Text("준비 중에는 제한 시간이 흐르지 않습니다", color = mint, fontSize = 12.sp)
@@ -74,6 +75,15 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 Text(if (c.success) "도전 성공" else "도전 실패", color = if (c.success) mint else amber, fontSize = 25.sp, fontWeight = FontWeight.Bold)
                 Text(c.result, color = pale, fontSize = 16.sp, lineHeight = 22.sp)
                 Text("소요 ${"%.1f".format(c.elapsedMs / 1000.0)}초 · 이동 ${c.steps}칸", color = muted, fontSize = 13.sp)
+                if (!c.success) {
+                    val map = s.dungeon!!
+                    Text("전체 지도 · 마지막 위치", color = amber, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    ChallengePlan(map, Modifier.fillMaxWidth().height(230.dp), result = c)
+                    Text("민트: 시작 · 흰색: 출구 · 빨강 ●: 종료 위치 · 화살표: 바라보던 방향", color = pale, fontSize = 12.sp, lineHeight = 18.sp)
+                    if (c.collapsedCells.isNotEmpty()) Text("갈색 ×: 무너진 통로", color = amber, fontSize = 12.sp)
+                    Text("종료 위치: 가로 ${map.x + 1} · 세로 ${map.y + 1} · ${listOf("북쪽", "동쪽", "남쪽", "서쪽")[map.direction]}", color = pale, fontSize = 13.sp,
+                        modifier = Modifier.semantics { contentDescription = "도전 종료 위치" })
+                }
                 if (c.success && c.rewards.isNotEmpty()) {
                     Text("획득 ${c.rewardGold}G", color = amber, fontSize = 16.sp)
                     c.rewards.forEach { LootRewardRow(vm, it) }
@@ -106,7 +116,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 Text(if (phase == ChallengePhase.HAZARD) mechanismHint(s.dungeon!!.here().challengeMark) else ChallengeStages.clue(s), color = pale, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.fillMaxWidth().background(panel).padding(8.dp).semantics { contentDescription = "도전 단서" })
                 if (phase == ChallengePhase.HAZARD && c.feedback.isNotBlank()) Text(c.feedback, color = amber, fontSize = 12.sp, lineHeight = 17.sp)
-                if (phase == ChallengePhase.ACTIVE && vm.engine.controls.directionSelectionActive()) GameButton(onClick = vm::resetDirections) { Text("방향 처음", color = mint) }
+                if (phase == ChallengePhase.ACTIVE && !c.autoMoving && vm.engine.controls.directionSelectionActive()) GameButton(onClick = vm::resetDirections) { Text("방향 처음", color = mint) }
             }
         }
         Row(Modifier.fillMaxWidth().height(68.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -117,13 +127,44 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
 }
 
 @Composable
-private fun ChallengePlan(map: Dungeon, modifier: Modifier) {
-    Canvas(modifier.background(panel).semantics { contentDescription = "도전 계획도" }) {
+private fun ChallengePlan(map: Dungeon, modifier: Modifier, result: ChallengeRun? = null) {
+    Canvas(modifier.background(ink).semantics {
+        contentDescription = if (result == null) "도전 계획도" else "도전 결과 전체 지도"
+        if (result != null) stateDescription = "전체 ${map.width} × ${map.height} · 종료 위치 가로 ${map.x + 1} 세로 ${map.y + 1} · ${listOf("북쪽", "동쪽", "남쪽", "서쪽")[map.direction]}"
+    }) {
         val unit = min(size.width / map.width, size.height / map.height)
         val left = (size.width - map.width * unit) / 2; val top = (size.height - map.height * unit) / 2
         map.cells.forEachIndexed { i, cell ->
-            if (!cell.wall) drawRect(if (cell.event == Event.EXIT) pale else if (i == map.width + 1) mint else line,
-                Offset(left + i % map.width * unit, top + i / map.width * unit), Size(unit - 1, unit - 1))
+            val collapsed = result?.collapsedCells?.contains(i) == true
+            val point = Offset(left + i % map.width * unit, top + i / map.width * unit)
+            if (!cell.wall || collapsed) {
+                drawRect(when {
+                    collapsed -> Color(0xff725b43)
+                    cell.event == Event.EXIT -> pale
+                    i == map.width + 1 -> mint
+                    else -> line
+                }, point, Size(unit - 1, unit - 1))
+                if (collapsed) {
+                    val inset = unit * .24f
+                    drawLine(amber, point + Offset(inset, inset), point + Offset(unit - inset, unit - inset), 2f)
+                    drawLine(amber, point + Offset(unit - inset, inset), point + Offset(inset, unit - inset), 2f)
+                }
+            }
+            if (result != null && cell.event == Event.EXIT)
+                drawRect(amber, point + Offset(1f, 1f), Size(unit - 3, unit - 3), style = Stroke(2f))
+        }
+        if (result != null) {
+            val center = Offset(left + (map.x + .5f) * unit, top + (map.y + .5f) * unit)
+            drawCircle(red, unit * .34f, center)
+            drawCircle(pale, unit * .34f, center, style = Stroke(2f))
+            val forward = Offset(MapGenerator.dx[map.direction] * unit * .25f, MapGenerator.dy[map.direction] * unit * .25f)
+            val side = Offset(-forward.y, forward.x) * .55f
+            drawPath(Path().apply {
+                moveTo(center.x + forward.x, center.y + forward.y)
+                lineTo(center.x - forward.x * .6f + side.x, center.y - forward.y * .6f + side.y)
+                lineTo(center.x - forward.x * .6f - side.x, center.y - forward.y * .6f - side.y)
+                close()
+            }, pale)
         }
     }
 }

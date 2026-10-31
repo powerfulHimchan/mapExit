@@ -196,10 +196,16 @@ object Traps {
         when (t.type) {
             0,
             3 -> {
-                if (button != t.pattern[t.progress]) finish(t, false, "잘못된 순서! 회피 실패")
+                if (button != t.pattern[t.progress]) {
+                    t.action = button
+                    finish(t, false, "잘못된 순서! 회피 실패")
+                }
                 else {
                     t.progress++
-                    if (t.progress == t.pattern.size) finish(t, true, "회피 성공!")
+                    if (t.progress == t.pattern.size) {
+                        t.action = button
+                        finish(t, true, "회피 성공!")
+                    }
                 }
             }
             2 -> Unit

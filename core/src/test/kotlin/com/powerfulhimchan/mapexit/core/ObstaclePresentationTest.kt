@@ -78,4 +78,37 @@ class ObstaclePresentationTest {
         assertFalse(e.controls.directionSelectionActive())
         assertEquals(before, SaveCodec.encode(e.state))
     }
+    @Test fun finalSequenceStepLandsBeforeReturningToTheMiddle() {
+        for (type in listOf(0, 3)) for (last in 0..1) {
+            val previous = 1 - last
+            val t = Traps.create(State(), type).copy(pattern = listOf(previous, last), phase = TrapPhase.ACTIVE, progress = 1)
+            assertEquals(if (previous == 0) .27f else .75f, ObstacleLayout.sequenceHeroCenter(t), .001f)
+            Traps.tap(t, last)
+            assertTrue(t.success); assertEquals(last, t.action)
+            val from = ObstacleLayout.sequenceHeroCenter(t)
+            t.elapsedMs = 250
+            val landed = ObstacleLayout.sequenceHeroCenter(t)
+            assertEquals(if (last == 0) .27f else .75f, landed, .001f)
+            assertNotEquals(from, landed)
+            t.elapsedMs = 400; assertEquals(landed, ObstacleLayout.sequenceHeroCenter(t), .001f)
+            t.elapsedMs = 575
+            assertTrue(ObstacleLayout.sequenceHeroCenter(t) in minOf(landed, .5f)..maxOf(landed, .5f))
+            val restored = SaveCodec.decode(SaveCodec.encode(State(bootstrapped = true, trap = t)))
+            assertEquals(ObstacleLayout.sequenceHeroCenter(t), ObstacleLayout.sequenceHeroCenter(restored.trap!!), .001f)
+            t.elapsedMs = 750; assertEquals(.5f, ObstacleLayout.sequenceHeroCenter(t), .001f)
+            assertTrue(t.elapsedMs < Traps.RESULT_MS)
+        }
+    }
+
+    @Test fun wrongSequenceInputAndTimeoutReturnSmoothlyFromTheirLastPosition() {
+        for (wrongInput in listOf(false, true)) {
+            val t = Traps.create(State(), 3).copy(pattern = listOf(0, 1), phase = TrapPhase.ACTIVE, progress = 1)
+            if (wrongInput) Traps.tap(t, 0) else Traps.tick(t, t.limitMs)
+            assertFalse(t.success)
+            assertEquals(.27f, ObstacleLayout.sequenceHeroCenter(t), .001f)
+            t.elapsedMs = 750
+            assertEquals(.5f, ObstacleLayout.sequenceHeroCenter(t), .001f)
+        }
+    }
+
 }

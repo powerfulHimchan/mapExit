@@ -2562,6 +2562,9 @@ class LaunchTest {
 
     private fun challengeAction(e: GameEngine, action: String, argument: Long? = null) {
         e.choose(e.choices().first { it.action == action && (argument == null || it.argument == argument) })
+        // Route fixtures stop at each cell; touch tests below cover continuous corridor travel.
+        if (action == "move" && e.state.challenge?.autoMoving == true)
+            e.choose(e.choices().first { it.action == "challengeStop" })
     }
 
     private fun openChallenge(e: GameEngine) {
@@ -2814,6 +2817,94 @@ class LaunchTest {
         } finally {
             val reset = instrumentation.uiAutomation.executeShellCommand("wm size reset")
             ParcelFileDescriptor.AutoCloseInputStream(reset).use { it.readBytes() }
+        }
+    }
+
+    @Test fun challengeAutoWalkFollowsTheCorridorAndOffersAWorkingStopButton() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val e = challengeGame(ChallengeKind.LOST); openChallenge(e)
+                val m = Dungeon(9,9,MutableList(81) { Cell() }, x = 1, y = 1, direction = 1)
+                for ((x,y) in listOf(1 to 1, 2 to 1, 3 to 1, 3 to 2, 3 to 3, 2 to 3, 4 to 3)) m.cell(x,y).wall = false
+                m.cell(4,3).event = Event.EXIT
+                e.state.dungeon = m; e.controls.reset()
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            tap("↑ 앞으로 이동")
+            bounds("이동 중"); bounds("멈추기"); capture("challenge-auto-moving")
+            scenario.onActivity { a ->
+                repeat(3) { a.game.engine.tick(200) }; a.game.refresh()
+                assertEquals(3 to 1, a.game.engine.state.dungeon!!.let { it.x to it.y })
+            }
+            tap("멈추기")
+            scenario.onActivity { a ->
+                repeat(6) { a.game.engine.tick(200) }
+                assertEquals(3 to 1, a.game.engine.state.dungeon!!.let { it.x to it.y })
+                assertFalse(a.game.engine.state.challenge!!.autoMoving)
+            }
+            tap("↑ 앞으로 이동")
+            scenario.onActivity { a ->
+                repeat(3) { a.game.engine.tick(200) }; a.game.refresh()
+                assertEquals(3 to 3, a.game.engine.state.dungeon!!.let { it.x to it.y })
+                assertFalse(a.game.engine.state.challenge!!.autoMoving)
+            }
+            bounds("메인 장면"); capture("challenge-auto-junction")
+        }
+    }
+
+    @Test fun failedChallengeShowsTheWholeMapAndFinalPositionAfterRecreationOnCompactScreens() {
+        for (compact in listOf(false, true)) {
+            if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+            try {
+                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    var endpoint = 0 to 0
+                    scenario.onActivity { a ->
+                        val e = challengeGame(ChallengeKind.COLLAPSE); openChallenge(e)
+                        val m = e.state.dungeon!!
+                        walkChallenge(e, ChallengeStages.path(m)[2])
+                        endpoint = m.x to m.y
+                        repeat(12) { e.tick(250) }
+                        if (e.state.challenge!!.phase != ChallengePhase.RESULT) {
+                            e.navigateBack(); challengeAction(e, "challengeGiveUp")
+                        }
+                        a.game.engine = e; a.game.active = false; a.game.refresh(); a.game.save(blocking = true)
+                    }
+                    bounds("도전 실패"); capture("challenge-failure-${if (compact) "compact" else "normal"}")
+                    bounds("도전 결과 전체 지도", allowScroll = true)
+                    bounds("도전 종료 위치", allowScroll = true)
+                    capture("challenge-failure-map-${if (compact) "compact" else "normal"}")
+                    scenario.recreate()
+                    scenario.onActivity { a ->
+                        a.game.active = false
+                        assertEquals(ChallengePhase.RESULT, a.game.engine.state.challenge!!.phase)
+                        assertEquals(endpoint, a.game.engine.state.dungeon!!.let { it.x to it.y })
+                        assertTrue(a.game.engine.state.challenge!!.collapsedCells.isNotEmpty())
+                    }
+                    bounds("도전 결과 전체 지도", allowScroll = true)
+                    tap("던전으로 복귀")
+                    scenario.onActivity { a -> assertNull(a.game.engine.state.challenge); assertEquals(Mode.EXPLORE, a.game.engine.state.mode) }
+                }
+            } finally {
+                if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+            }
+        }
+    }
+
+    @Test fun sequenceObstaclesShowTheLastStepBeforeMovingBackToCenter() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for (type in listOf(0,3)) {
+                scenario.onActivity { a ->
+                    val e = GameEngine(); e.enterFloor(1); e.state.mode = Mode.TRAP
+                    val t = Traps.create(e.state,type).copy(pattern = listOf(0,1,0), phase = TrapPhase.ACTIVE, progress = 2)
+                    e.state.trap = t; e.press(0)
+                    assertTrue(t.success); assertEquals(0, t.action)
+                    a.game.engine = e; a.game.active = false; a.game.refresh()
+                }
+                for ((label, ms) in listOf("last-start" to 0L, "last-land" to 250L, "return" to 575L, "center" to 750L)) {
+                    scenario.onActivity { a -> a.game.engine.state.trap!!.elapsedMs = ms; a.game.refresh() }
+                    bounds("메인 장면"); capture("obstacle-sequence-$type-$label")
+                }
+            }
         }
     }
 

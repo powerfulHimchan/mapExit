@@ -10,12 +10,13 @@ class ContextControls(private val engine: GameEngine) {
 
     fun token(): String {
         val s = engine.state
-        return "${s.mode}:${s.floor}:${s.dungeon?.x}:${s.dungeon?.y}:${s.dungeon?.direction}:${s.enemy?.hp}:${s.dungeon?.here()?.resolved}:${s.menu}:${s.gold}:${s.points}:${s.challenge?.phase}:${s.challenge?.seals}:${s.challenge?.mistakes}:${s.challenge?.navigationRevision}"
+        return "${s.mode}:${s.floor}:${s.dungeon?.x}:${s.dungeon?.y}:${s.dungeon?.direction}:${s.enemy?.hp}:${s.dungeon?.here()?.resolved}:${s.menu}:${s.gold}:${s.points}:${s.challenge?.phase}:${s.challenge?.seals}:${s.challenge?.mistakes}:${s.challenge?.navigationRevision}:${s.challenge?.autoMoving}"
     }
 
     fun inputToken(): String {
         buttons()
         return if (engine.state.mode == Mode.MOVING) "MOVING"
+        else if (engine.state.mode == Mode.CHALLENGE && engine.state.challenge?.autoMoving == true) "CHALLENGE_MOVING"
         else token() + ":$routes:$eventSkipped"
     }
 
@@ -53,7 +54,9 @@ class ContextControls(private val engine: GameEngine) {
         return when (s.mode) {
             Mode.CHALLENGE -> {
                 val c = s.challenge
-                if (c?.phase == ChallengePhase.ACTIVE) explorationButtons()
+                if (c?.phase == ChallengePhase.ACTIVE && c.autoMoving)
+                    listOf(ContextButton("이동 중", enabled = false), b("멈추기", "challengeStop"))
+                else if (c?.phase == ChallengePhase.ACTIVE) explorationButtons()
                 else if (c?.phase == ChallengePhase.HAZARD) listOf(
                     b("대기 · 0.5초", "challengeWait"),
                     ContextButton("통과", Choice("통과", "challengeCross"), c.hazardCooldownMs <= 0),
