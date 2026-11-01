@@ -16,9 +16,11 @@ class ChallengeWallMarksRenderingTest {
         assertTrue(pictures.all { pixels -> pixels.any { it ushr 24 == 0 } && pixels.any { it ushr 24 == 255 } })
         assertEquals(17,(1..17).map { ChallengeWallMarks.bitmap(0,it).pixels() }.distinct().size)
         val room = Dungeon(9,9,MutableList(81) { Cell() },4,4,0)
-        room.here().wall = false
         val facingRaster = DungeonRaster(480,640)
         val masks = (0..3).map { d ->
+            room.cells.forEach { it.wall = true }; room.here().wall = false
+            val behind = (d+2)%4
+            room.cell(4+MapGenerator.dx[behind],4+MapGenerator.dy[behind]).wall = false
             facingRaster.render(room,DungeonViewPose(4.5f,4.5f,(-PI/2+d*PI/2).toFloat()),wallMarks=true)
                 .asAndroidBitmap().pixels().map { color ->
                     val red = (color ushr 16) and 255; val green = (color ushr 8) and 255; val blue = color and 255

@@ -361,6 +361,13 @@ object ChallengeStages {
         if (fromX !in 0 until map.width || fromY !in 0 until map.height ||
             kotlin.math.abs(wallX - fromX) + kotlin.math.abs(wallY - fromY) != 1 ||
             !map.cell(wallX, wallY).wall || map.cell(fromX, fromY).wall) return null
+        val openings = (0..3).filter { !map.cell(fromX + MapGenerator.dx[it], fromY + MapGenerator.dy[it]).wall }
+        val face = when {
+            openings.size == 1 -> (openings.single() + 2) % 4
+            openings.size == 2 && (openings[0] + 2) % 4 != openings[1] -> (0..3).first { it !in openings }
+            else -> return null
+        }
+        if (wallX != fromX + MapGenerator.dx[face] || wallY != fromY + MapGenerator.dy[face]) return null
         return fromY * map.width + fromX
     }
 

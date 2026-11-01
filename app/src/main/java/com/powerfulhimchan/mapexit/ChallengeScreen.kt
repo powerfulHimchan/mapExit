@@ -47,7 +47,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 .background(panel, RoundedCornerShape(8.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("도전 안내", color = mint, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 Text(c.kind.objective, color = pale, fontSize = 15.sp, lineHeight = 22.sp)
-                Text("벽에 새겨진 그림과 숫자가 위치 표식입니다. 해·달·별·산·물·꽃 그림과 번호를 함께 기억하세요.", color = amber, fontSize = 13.sp, lineHeight = 20.sp)
+                Text("코너와 막다른 길의 벽에 위치 표식이 하나씩 새겨져 있습니다. 해·달·별·산·물·꽃 그림과 번호를 함께 기억하세요.", color = amber, fontSize = 13.sp, lineHeight = 20.sp)
                 if (c.kind == ChallengeKind.SEALS) Text("기억할 순서: ${c.sealOrder.joinToString(" → ") { ChallengeStages.runeNames[it - 1] }}", color = amber, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 if (c.kind == ChallengeKind.STEPS) {
                     Text("이동 가능 ${c.stepLimit}칸 · 시작 전에는 시간 제한 없이 계획할 수 있습니다", color = amber, fontSize = 14.sp, lineHeight = 20.sp)

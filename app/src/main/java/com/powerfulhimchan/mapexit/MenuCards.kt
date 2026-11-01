@@ -44,6 +44,7 @@ internal fun LazyListScope.growthCards(vm: GameModel) {
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
         )
+        Text("레벨업마다 3P · 레벨 5·10·15… 달성 시 추가 2P", color = muted, fontSize = 11.sp, lineHeight = 16.sp)
     }
     items(Stat.entries.chunked(4), key = { "stats:${it.first().name}" }) { row ->
         val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 320

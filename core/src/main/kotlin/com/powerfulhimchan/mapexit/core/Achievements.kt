@@ -61,6 +61,15 @@ object Achievements {
         Achievement("boss-50-twice", "다시 찾은 출구", "서로 다른 회차에서 50층 보스 2회 처치", 2, "finalBossCycles", title = "다시 찾은 출구", specialGear = true),
     )
 
+    /** Keep catalogue indices for claim/title actions even when the visible order changes. */
+    fun displayOrder(s: State): List<IndexedValue<Achievement>> = all.withIndex().sortedBy { (_, a) ->
+        when (a.id) {
+            in s.achievements.claimed -> 2
+            in s.achievements.unlocked -> 0
+            else -> 1
+        }
+    }
+
     fun progress(s: State, a: Achievement): Int = when (a.metric) {
         "kills" -> s.bestiary.values.sumOf { it.defeats }
         "species" -> s.bestiary.size
