@@ -76,7 +76,10 @@ class StoryScreenTest {
                 it.game.engine=restored;it.game.refresh()
             }
             scenario.recreate()
-            scenario.onActivity { assertEquals(1,it.game.storyPage);assertEquals("prologue",it.game.storyScene?.id) }
+            scenario.onActivity {
+                it.game.active=false
+                assertEquals(1,it.game.storyPage);assertEquals("prologue",it.game.storyScene?.id)
+            }
             tap("나중에 읽기")
             scenario.onActivity {
                 assertNull(it.game.storyScene)
