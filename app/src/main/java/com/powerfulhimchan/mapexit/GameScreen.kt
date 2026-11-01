@@ -43,6 +43,12 @@ internal val red = Color(0xFFF29491)
 @Composable
 fun MapExitScreen(vm: GameModel) {
     vm.revision
+    if (vm.storyScene != null) {
+        MaterialTheme(colorScheme = darkColorScheme(background = ink,surface = panel,onSurface = pale,primary = mint)) {
+            StoryScreen(vm)
+        }
+        return
+    }
     var confirmRetreat by remember { mutableStateOf(false) }
     var clock by remember { mutableLongStateOf(0L) }
     val now = clock.takeIf { it > 0 } ?: SystemClock.uptimeMillis()
@@ -407,7 +413,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
     LaunchedEffect(s.mode, s.menu?.type, s.menu?.argument) { listState.scrollToItem(0) }
     val title =
         if (surface) "출정 준비"
-        else if (s.mode == Mode.INHERIT) "다음 여정에 남길 장비"
+        else if (s.mode == Mode.INHERIT) "영혼에 새길 장비"
         else
             when (menu) {
                 "equipment" -> "장비 장착"
@@ -422,6 +428,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "growth" -> "능력치 성장"
                 "bank" -> "골드 보관소"
                 "help" -> "탐험 기록"
+                "storyRecords" -> "이야기"
                 "bestiary" -> "몬스터 도감"
                 "achievements" -> "업적"
                 "challengeRecords" -> "특별 도전 기록"
@@ -481,6 +488,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         "sell",
                         "quantity",
                         "help",
+                        "storyRecords",
                         "bestiary",
                         "achievements",
                         "forge", "forgeConfirm", "upgradeTargets",
@@ -516,6 +524,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 }
                 if (menu == "help") {
                     item { ExplorationRecord(s) }
+                    item { GameButton(onClick = { vm.choose(Choice("이야기", "storyRecords")) },modifier = Modifier.fillMaxWidth()) { Text("이야기",color = mint) } }
                     item { GameButton(onClick = { vm.choose(Choice("몬스터 도감", "bestiary")) }, modifier = Modifier.fillMaxWidth()) { Text("몬스터 도감", color = mint) } }
                     item { GameButton(onClick = { vm.choose(Choice("업적", "achievements")) }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "업적" }) {
                         val ready = s.achievements.unlocked.size - s.achievements.claimed.size
@@ -524,6 +533,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     item { GameButton(onClick = { vm.choose(Choice("특별 도전 기록", "challengeRecords")) }, modifier = Modifier.fillMaxWidth()) { Text("특별 도전 기록", color = mint) } }
                 }
                 if (menu == "challengeRecords") challengeRecordCards(s)
+                if (menu == "storyRecords") storyRecordCards(vm)
                 if (menu == "bestiary") bestiaryCards(s)
                 if (menu == "achievements") achievementCards(vm)
                 items(

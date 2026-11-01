@@ -1,6 +1,7 @@
 package com.powerfulhimchan.mapexit
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -192,6 +193,10 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val opacity=1-death
     val dead=death>=1f
     contactShadow(ex, h * .74f + advance * h * .14f, unit * 32)
+    if (enemy.boss && s.floor == 50 && s.cycle > 1 && !dead) {
+        drawOval(Color(0xFFAC80DA).copy(alpha = .16f * opacity),Offset(ex-unit*3,ey-unit*3),Size(unit*38,baseline-ey+unit*7))
+        for(i in 0..4) pixelRect(Color(0xFFB38AE0).copy(alpha=.55f*opacity),ex+unit*(i*8-1),ey+unit*(8+i*4),unit*2,unit*6)
+    }
     if (!dead) {
         val tint =
             if (enemyDamage && elapsed in BattleAnimation.HIT_MS..BattleAnimation.HIT_MS + 100)

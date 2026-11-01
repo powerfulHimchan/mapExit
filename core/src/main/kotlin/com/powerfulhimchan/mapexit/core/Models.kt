@@ -427,6 +427,7 @@ data class State(
     val achievements: AchievementProgress = AchievementProgress(),
     val challengeProgress: ChallengeProgress = ChallengeProgress(),
     var challenge: ChallengeRun? = null,
+    val story: StoryProgress = StoryProgress(),
 ) {
   val experienceRequired: Int get() = level * 80
   val experienceRemaining: Int get() = (experienceRequired - experience).coerceAtLeast(0)

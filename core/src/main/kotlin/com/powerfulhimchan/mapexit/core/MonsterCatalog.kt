@@ -44,12 +44,14 @@ object MonsterCatalog {
     fun forFloor(floor: Int) = all.filter { it.band == band(floor) }
     fun special(floor: Int, boss: Boolean): MonsterSpecies {
         val b = band(floor)
-        val title = if (boss) "${(b + 1) * 10}층의 수문장" else "${b * 10 + 1}~${(b + 1) * 10}층의 정예 기사"
+        val title = if (boss && floor == 50) "마지막 문지기" else if (boss) "${(b + 1) * 10}층의 수문장" else "${b * 10 + 1}~${(b + 1) * 10}층의 정예 기사"
         return MonsterSpecies("${if (boss) "boss" else "elite"}-$b", title,
             "monster_${b}_${if (boss) "boss" else "knight"}", if (boss) "boss" else "knight", b)
     }
     fun find(id: String?) = all.firstOrNull { it.id == id }
     fun describe(enemy: Enemy, floor: Int): MonsterSpecies {
+        if (enemy.boss && floor == 50 && enemy.name == "회수자의 문지기")
+            return special(floor,true).copy(id = "possessed-4", name = enemy.name)
         find(enemy.speciesId)?.takeIf { enemy.name.removePrefix("상자 속 ") == it.name }?.let { return it }
         if (enemy.boss || enemy.elite) return special(floor, enemy.boss)
         val name = enemy.name.removePrefix("상자 속 ")
