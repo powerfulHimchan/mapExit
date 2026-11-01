@@ -567,37 +567,45 @@ class LaunchTest {
             capture("merchant-encounter")
             tap("거래하기")
             tap("아이템 판매", allowScroll = true)
+            var groupLabel = ""
             var wornLabel = ""
-            var duplicateLabel = ""
             var wornId = 0L
+            var duplicateId = 0L
             var gold = 0
             var price = 0
             scenario.onActivity {
                 val e = it.game.engine
                 wornId = e.state.equipment[Slot.RIGHT]!!
-                wornLabel =
-                    e.choices().first { c -> c.action == "sell" && c.argument == wornId }.label
-                val twin = e.state.inventory.last { gear -> gear.weapon }
-                duplicateLabel =
-                    e.choices().first { c -> c.action == "sell" && c.argument == twin.id }.label
+                duplicateId = e.state.inventory.last { gear -> gear.weapon }.id
+                groupLabel = e.choices().first { c -> c.action == "sell" && c.argument == duplicateId }.label
                 gold = e.state.gold
                 price = Equipment.sellPrice(e.state.inventory.first { gear -> gear.id == wornId })
-                assertTrue(wornLabel.contains("[착용중]"))
-                assertFalse(duplicateLabel.contains("[착용중]"))
+                assertTrue(groupLabel.contains("×2"))
+                assertTrue(groupLabel.contains("착용중 1개"))
+                assertFalse(e.choices().any { c -> c.action == "sell" && c.argument == wornId })
             }
-            bounds(wornLabel, allowScroll = true)
+            bounds(groupLabel, allowScroll = true)
             capture("sell-equipped")
-            tap(wornLabel, allowScroll = true)
-            bounds(duplicateLabel, allowScroll = true)
+            tap(groupLabel, allowScroll = true)
             scenario.onActivity {
                 val e = it.game.engine
                 assertEquals(gold + price, e.state.gold)
-                assertFalse(e.state.inventory.any { gear -> gear.id == wornId })
+                assertFalse(e.state.inventory.any { gear -> gear.id == duplicateId })
+                assertTrue(wornId in e.state.equipment.values)
+                assertFalse(e.choices().any { c -> c.action == "sell" && c.argument == duplicateId })
+                wornLabel = e.choices().first { c -> c.action == "sell" && c.argument == wornId }.label
+                assertTrue(wornLabel.contains("[착용중]"))
+            }
+            tap(wornLabel, allowScroll = true)
+            scenario.onActivity {
+                val e = it.game.engine
+                assertEquals(gold + price * 2, e.state.gold)
+                assertFalse(e.state.inventory.any { gear -> gear.id == wornId || gear.id == duplicateId })
                 assertFalse(wornId in e.state.equipment.values)
                 assertFalse(e.choices().any { c -> c.action == "sell" && c.argument == wornId })
                 it.game.pause()
                 val cold = GameModel(it.application)
-                assertFalse(cold.engine.state.inventory.any { gear -> gear.id == wornId })
+                assertFalse(cold.engine.state.inventory.any { gear -> gear.id == wornId || gear.id == duplicateId })
             }
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, wornLabel))
             capture("sell-removed")
