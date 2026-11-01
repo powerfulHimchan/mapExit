@@ -3,7 +3,7 @@ package com.powerfulhimchan.mapexit
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -50,7 +50,7 @@ internal fun LazyListScope.achievementCards(vm: GameModel) {
             Text("골드·아이템·성장 포인트에는 기존 손실 및 회차 초기화 규칙이 적용됩니다. 이전 저장은 확인 가능한 기록만 반영합니다.", color = muted, fontSize = 11.sp, lineHeight = 16.sp)
         }
     }
-    itemsIndexed(Achievements.all, key = { _, a -> "achievement:${a.id}" }) { index, a ->
+    items(Achievements.displayOrder(s), key = { "achievement:${it.value.id}" }) { (index, a) ->
         val unlocked = a.id in p.unlocked
         val claimed = a.id in p.claimed
         val count = if (unlocked) a.target else Achievements.progress(s, a)

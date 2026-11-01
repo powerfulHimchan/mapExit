@@ -355,7 +355,7 @@ class GameEngine(
                 "challengeRecords" -> emptyList()
                 "trainingChallenges" -> ChallengeKind.entries.map { c(it.title, "trainChallenge", it.ordinal.toLong()) }
                 "achievements" -> buildList {
-                    Achievements.all.forEachIndexed { index, a ->
+                    Achievements.displayOrder(s).forEach { (index, a) ->
                         if (a.id in s.achievements.unlocked && a.id !in s.achievements.claimed)
                             add(c("보상 받기 · ${a.name}", "claimAchievement", index.toLong()))
                         if (a.title != null && a.id in s.achievements.claimed)
@@ -1211,11 +1211,14 @@ class GameEngine(
     private fun gainExperience(amount: Int) {
         val s = state
         val before = s.level
+        var gainedPoints = 0
         s.experience += amount
         while (s.experience >= s.experienceRequired) {
             s.experience -= s.experienceRequired
             s.level++
-            s.points += 3
+            val reward = 3 + if (s.level % 5 == 0) 2 else 0
+            s.points += reward
+            gainedPoints += reward
         }
         if (s.level > before) {
             val pending = s.levelUpNotice
@@ -1223,7 +1226,7 @@ class GameEngine(
                 LevelUpNotice(
                     pending?.from ?: before,
                     s.level,
-                    (pending?.gainedPoints ?: 0) + (s.level - before) * 3,
+                    (pending?.gainedPoints ?: 0) + gainedPoints,
                 )
         }
     }

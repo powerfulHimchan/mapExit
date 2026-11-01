@@ -2451,7 +2451,7 @@ class LaunchTest {
             bounds("업적 보상 받기 · 첫 승리", allowScroll = true)
             capture("achievements-first-reward")
             tap("업적 보상 받기 · 첫 승리", allowScroll = true)
-            bounds("수령 완료")
+            bounds("수령 완료", allowScroll = true)
             scenario.onActivity { a ->
                 rewardGold = a.game.engine.state.gold
                 assertEquals(30, rewardGold)
@@ -3153,6 +3153,68 @@ class LaunchTest {
         }
     }
 
+    @Test fun levelFiveBonusAppearsInTheRealVictoryBannerAndGrowthMenu() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val e = GameEngine(State(level=4,experience=319))
+                e.enterFloor(1); e.startBattle(false); e.state.enemy!!.hp=.01; e.state.rng=0; e.attack(false)
+                assertEquals(LevelUpNotice(4,5,5),e.state.levelUpNotice)
+                assertEquals(5,e.state.points)
+                a.game.engine=e; a.game.active=false; a.game.refresh()
+            }
+            bounds("레벨 업 LV.4에서 LV.5")
+            bounds("성장 포인트 +5P · 보유 5P")
+            capture("level-five-bonus")
+            tap("성장 배분 열기")
+            bounds("남은 성장 포인트 5P")
+            bounds("레벨업마다 3P · 레벨 5·10·15… 달성 시 추가 2P")
+            capture("level-five-growth")
+        }
+    }
+
+    @Test fun achievementRewardsReorderWithoutChangingClaimedRewardOnNormalAndCompactScreens() {
+        for (compact in listOf(false,true)) {
+            if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+            try {
+                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    scenario.onActivity { a ->
+                        val e = GameEngine()
+                        e.state.achievements.apply {
+                            unlocked.add("first-victory"); claimed.add("first-victory"); traps=20; donations=3
+                        }
+                        Achievements.evaluate(e.state); e.state.achievements.notices.clear()
+                        e.choose(e.choices().first { it.action=="help" }); e.choose(e.choices().first { it.action=="achievements" })
+                        a.game.engine=e; a.game.active=false; a.game.refresh()
+                    }
+                    bounds("업적 보상 받기 · 함정 전문가",allowScroll=true)
+                    capture("achievement-ready-first-${if(compact) "compact" else "normal"}")
+                    tap("업적 보상 받기 · 함정 전문가",allowScroll=true)
+                    scenario.onActivity { a ->
+                        val s=a.game.engine.state
+                        assertEquals(1,s.points); assertEquals(0,s.gold)
+                        assertEquals(setOf("first-victory","traps-20"),s.achievements.claimed)
+                        assertEquals("donations-3",Achievements.displayOrder(s).first().value.id)
+                        assertEquals(listOf("first-victory","traps-20"),Achievements.displayOrder(s).takeLast(2).map { it.value.id })
+                        a.game.engine.navigateBack(); a.game.refresh()
+                    }
+                    bounds("탐험 기록"); tap("업적",allowScroll=true)
+                    bounds("업적 보상 받기 · 따뜻한 손길",allowScroll=true)
+                    capture("achievement-next-ready-${if(compact) "compact" else "normal"}")
+                    scenario.onActivity { it.game.save(blocking=true) }
+                    scenario.recreate()
+                    scenario.onActivity { a ->
+                        a.game.active=false
+                        assertEquals(1,a.game.engine.state.points)
+                        assertEquals("donations-3",Achievements.displayOrder(a.game.engine.state).first().value.id)
+                    }
+                    bounds("업적 보상 받기 · 따뜻한 손길",allowScroll=true)
+                }
+            } finally {
+                if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+            }
+        }
+    }
+
     @Test fun challengeWallsShowPhysicalMarksOnNormalAndCompactScreensAfterReload() {
         for (compact in listOf(false,true)) {
             if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
@@ -3161,10 +3223,10 @@ class LaunchTest {
                     for (kind in listOf(ChallengeKind.LOST,ChallengeKind.MEMORY,ChallengeKind.COLLAPSE)) {
                         scenario.onActivity { a ->
                             val e = challengeGame(kind); openChallenge(e)
-                            val m = Dungeon(9,9,MutableList(81) { Cell() },4,6,0)
+                            val m = Dungeon(9,9,MutableList(81) { Cell() },4,3,0)
                             for (y in 2..7) m.cell(4,y).wall = false
-                            m.cell(3,4).wall = false; m.cell(2,4).wall = false
-                            m.cell(4,2).event = Event.EXIT; m.reveal()
+                            m.cell(3,2).wall = false; m.cell(2,2).wall = false
+                            m.cell(2,2).event = Event.EXIT; m.reveal()
                             e.state.dungeon = m; e.controls.reset()
                             a.game.engine = e; a.game.active = false; a.game.refresh()
                         }
@@ -3176,8 +3238,8 @@ class LaunchTest {
                     scenario.onActivity { a ->
                         a.game.active = false
                         assertEquals(ChallengePhase.PAUSED,a.game.engine.state.challenge!!.phase)
-                        assertEquals(58,a.game.engine.state.dungeon!!.let { it.y*it.width+it.x })
-                        assertEquals("산-8",ChallengeStages.rune(a.game.engine.state.dungeon!!.let { it.y*it.width+it.x }))
+                        assertEquals(31,a.game.engine.state.dungeon!!.let { it.y*it.width+it.x })
+                        assertEquals("산-15",ChallengeStages.rune(a.game.engine.state.dungeon!!.let { it.y*it.width+it.x }))
                     }
                     tap("도전 계속")
                     bounds("메인 장면")
