@@ -24,6 +24,8 @@ class InventoryStacksTest {
             item.copy(id = 3, variantId = "rapier"), item.copy(id = 4, inherited = true), item.copy(id = 5, tier = 2))
         assertEquals(5, InventoryStacks.groups(variants).size)
         val potion = Gear(6, Kind.POTION, "회복약")
+        // Old item generation assigned tiers to potions without changing their effect or icon.
+        assertEquals(2, InventoryStacks.groups(listOf(potion, potion.copy(id = 8, tier = 7))).single().count)
         assertEquals(2, InventoryStacks.groups(listOf(potion, potion.copy(id = 7, potionGrade = PotionGrade.GREATER))).size)
         assertTrue(InventoryStacks.inventoryLabel(InventoryStacks.groups(listOf(variants[3])).single()).startsWith("◆"))
     }

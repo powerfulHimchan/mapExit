@@ -11,7 +11,8 @@ object InventoryStacks {
         val worn = equippedIds.toSet()
         return items.groupBy { item ->
             // Inheritance, real rolled stats, variants and potion grade are significant differences.
-            item.copy(id = 0, affixes = item.affixes.sortedWith(compareBy<WeaponAffix> { it.stat.ordinal }.thenBy { it.amount }))
+            item.copy(id = 0, tier = if (item.kind == Kind.POTION) 1 else item.tier,
+                affixes = item.affixes.sortedWith(compareBy<WeaponAffix> { it.stat.ordinal }.thenBy { it.amount }))
         }.values.map { copies ->
             Stack(copies.toList(), copies.firstOrNull { it.id !in worn } ?: copies.first(), copies.count { it.id in worn })
         }
