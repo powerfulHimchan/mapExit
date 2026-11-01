@@ -337,22 +337,49 @@ class GameModel(app: Application) : AndroidViewModel(app) {
 }
 
 class MainActivity : ComponentActivity() {
+    private val introMusic by lazy { IntroMusic(this) }
+    internal val introMusicPlaying: Boolean get() = introMusic.isPlaying
     lateinit var game: GameModel
         private set
+
+    internal var introVisible by mutableStateOf(true)
+        private set
+
+    internal fun startGame() {
+        introMusic.stop()
+        introVisible = false
+        game.active = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         game = ViewModelProvider(this)[GameModel::class.java]
-        setContent { MapExitScreen(game) }
+        introVisible = savedInstanceState?.getBoolean("intro_visible", true) ?: true
+        setContent {
+            if (introVisible) IntroScreen(onStart = ::startGame)
+            else MapExitScreen(game)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("intro_visible", introVisible)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {
         super.onResume()
-        if (::game.isInitialized) game.active = true
+        if (::game.isInitialized) game.active = !introVisible
+        if (introVisible) introMusic.start()
     }
 
     override fun onPause() {
+        introMusic.stop()
         if (::game.isInitialized) game.pause()
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        introMusic.stop()
+        super.onDestroy()
     }
 }

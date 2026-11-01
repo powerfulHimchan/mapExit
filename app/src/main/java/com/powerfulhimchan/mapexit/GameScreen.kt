@@ -98,10 +98,10 @@ fun MapExitScreen(vm: GameModel) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "MAP / EXIT",
+                        "한 층만 더",
                         color = mint,
                         fontSize = if (s.enemy != null) 12.sp else 15.sp,
-                        letterSpacing = if (s.enemy != null) 1.sp else 3.sp,
+                        letterSpacing = 0.5.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.Black,
