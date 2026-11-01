@@ -18,7 +18,7 @@ import org.junit.Test
 /** Existing gameplay tests enter through the same action as the title screen. */
 internal fun launchGame(): ActivityScenario<MainActivity> =
     ActivityScenario.launch(MainActivity::class.java).also { scenario ->
-        scenario.onActivity { it.startGame() }
+        scenario.onActivity { it.game.storyPlaybackEnabled = false; it.startGame() }
     }
 
 class IntroScreenTest {

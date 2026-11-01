@@ -14,6 +14,7 @@ class GameEngine(
     val controls = ContextControls(this)
 
     init {
+        Story.initialize(state, fresh = !state.bootstrapped)
         if (!state.bootstrapped) {
             state.bootstrapped = true
             state.inventory.add(ItemFactory.create(state, Kind.SWORD, 1, variantId = "longsword"))
@@ -282,7 +283,7 @@ class GameEngine(
             Mode.CHALLENGE -> ChallengeStages.choices(s)
             Mode.TRAP_GUIDE -> emptyList()
             Mode.FLOOR_CLEAR ->
-                if (s.floor == 50) listOf(c("50층 엔딩 · 계승 장비 선택", "ending"))
+                if (s.floor == 50) listOf(c("봉인의 파편 · 계승 장비 선택", "ending"))
                 else
                     listOf(
                         c("다음 ${s.floor+1}층으로", "enter", (s.floor + 1).toLong()),
@@ -293,7 +294,7 @@ class GameEngine(
             Mode.INHERIT ->
                 s.inventory
                     .filter { !it.inherited && it.equippable }
-                    .map { c("계승 선택: ${it.name}", "inherit", it.id) }
+                    .map { c("영혼에 새기기: ${it.name}", "inherit", it.id) }
             Mode.NOTICE -> listOf(c("계속", "notice"))
             Mode.TRAP -> emptyList()
             Mode.MENU -> menuChoices()
@@ -360,7 +361,8 @@ class GameEngine(
                     if (item == null) listOf(c("취소", "back"))
                     else listOf(c("구매", "purchase", item.id), c("취소", "back"))
                 }
-                "help" -> listOf(c("몬스터 도감", "bestiary"), c("업적", "achievements"), c("특별 도전 기록", "challengeRecords"))
+                "help" -> listOf(c("이야기", "storyRecords"), c("몬스터 도감", "bestiary"), c("업적", "achievements"), c("특별 도전 기록", "challengeRecords"))
+                "storyRecords" -> emptyList()
                 "challengeRecords" -> emptyList()
                 "trainingChallenges" -> ChallengeKind.entries.map { c(it.title, "trainChallenge", it.ordinal.toLong()) }
                 "achievements" -> buildList {
@@ -588,6 +590,7 @@ class GameEngine(
                 s.runResult = null
                 s.lastImpact = null
                 s.mode = Mode.SURFACE
+                Story.onSurface(s)
                 controls.reset()
             }
             "battleContinue" -> {
@@ -598,6 +601,7 @@ class GameEngine(
                 s.mode = result.returnMode
                 s.selection = 0
                 s.note(if (s.mode == Mode.FLOOR_CLEAR) "보스 격파 · 층 클리어" else "전투 종료 · 탐험을 계속하세요")
+                if (result.enemy.boss) Story.afterBoss(s)
                 if (s.training) trainingMenu()
             }
             "encounter" -> beginEncounter(Event.entries[c.argument.toInt()])
@@ -749,6 +753,7 @@ class GameEngine(
             }
             "flee" -> flee()
             "ending" -> beginInheritance()
+            "storyRecords" -> open("storyRecords")
             "inherit" -> newCycle(c.argument)
             "back" -> back()
             "training" -> open("training")
@@ -860,6 +865,7 @@ class GameEngine(
         ItemFactory.rareScroll(s)
         s.quest?.takeIf { it.kind == "floor" }?.let { it.progress = max(it.progress, floor) }
         s.note("지하 ${floor}층 · 갈림길에서 방향을 선택하세요")
+        Story.onFloor(s)
     }
 
     private fun moveOne() {
@@ -980,7 +986,8 @@ class GameEngine(
         }
         s.enemy =
             Enemy(
-                if (elite) "${floor}층의 정예 기사" else species.name,
+                if (boss && floor == 50) (if (s.cycle > 1) "회수자의 문지기" else "마지막 문지기")
+                else if (elite) "${floor}층의 정예 기사" else species.name,
                 hp,
                 hp,
                 (65 + floor * 4.0) * (if (boss) 1.2 else if (elite) 1.1 else 1.0),
@@ -1003,6 +1010,7 @@ class GameEngine(
         val first = ambush && !s.training && !s.debug && s.random() < Luck.ambush(stats(),s.enemy!!.precision)
         if (first) s.mode=Mode.COMBAT_DEFEND
         s.note(if(first) "몬스터 선제공격! 방어하거나 회피하세요" else "${s.enemy!!.name} 조우")
+        if (boss) Story.beforeBoss(s)
     }
 
     fun attack(strong: Boolean) {
@@ -1353,6 +1361,7 @@ class GameEngine(
                 s.inventory.size,
             )
         surface(true)
+        Story.onDeath(s)
         s.runResult = result
         s.mode = Mode.RUN_RESULT
         s.note(
@@ -1386,6 +1395,7 @@ class GameEngine(
         s.shop.add(ItemFactory.potion(s, PotionGrade.GREATER))
         ItemFactory.rareScroll(s)
         s.note(if (dead) "사망 · 지상 부활. 장비·아이템·소지 골드를 잃었습니다" else "지상 귀환 · 아이템과 골드를 안전하게 가져왔습니다")
+        if (!dead) Story.onSurface(s)
     }
 
     fun beginInheritance() {
@@ -1398,6 +1408,7 @@ class GameEngine(
         s.menu = null
         s.menuStack.clear()
         s.note("50층 클리어! 기존 계승 ${s.inventory.count { it.inherited }}개 자동 보존 + 새 장비 하나 선택")
+        Story.onInheritance(s)
     }
 
     fun newCycle(id: Long) {
@@ -1447,5 +1458,6 @@ class GameEngine(
         ItemFactory.rareScroll(s)
         Achievements.evaluate(s)
         s.note("${s.cycle}회차 시작 · 계승 장비 ${s.inventory.size}개 · 능력치/돈/장치 초기화")
+        Story.onNewCycle(s)
     }
 }

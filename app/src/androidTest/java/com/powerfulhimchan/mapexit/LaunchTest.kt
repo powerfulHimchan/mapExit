@@ -2055,7 +2055,7 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
-            bounds("다음 여정에 남길 장비")
+            bounds("영혼에 새길 장비")
             capture("fine-inheritance")
             scenario.onActivity {
                 val e = GameEngine()

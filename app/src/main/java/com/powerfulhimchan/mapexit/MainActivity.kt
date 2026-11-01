@@ -110,6 +110,43 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     var active = false
+    // Scene-seeded regression tests may render gameplay independently of the narrative layer.
+    internal var storyPlaybackEnabled by mutableStateOf(true)
+    private var storyReplay by mutableStateOf<String?>(null)
+    private var replayPage by mutableIntStateOf(0)
+    private var displayedStory: String? = null
+    internal val storyScene: StoryScene?
+        get() = if (!storyPlaybackEnabled || loadError != null || !Story.enabled(engine.state)) null
+        else storyReplay?.let(Story::find) ?: Story.current(engine.state)
+    internal val storyPage: Int
+        get() = if (storyReplay != null) replayPage else engine.state.story.page
+    internal val replayingStory: Boolean get() = storyReplay != null
+
+    internal fun replayStory(id: String) {
+        if (id !in engine.state.story.unlocked || storyScene != null) return
+        storyReplay = id
+        replayPage = 0
+        refresh()
+    }
+
+    internal fun nextStory() {
+        val scene = storyScene ?: return
+        if (storyReplay != null) {
+            if (replayPage < scene.lines.lastIndex) replayPage++ else storyReplay = null
+        } else Story.advance(engine.state)
+        save(); refresh()
+    }
+
+    internal fun previousStory() {
+        if (storyPage <= 0) return
+        if (storyReplay != null) replayPage-- else engine.state.story.page--
+        save(); refresh()
+    }
+
+    internal fun closeStory() {
+        if (storyReplay != null) storyReplay = null else Story.skip(engine.state)
+        save(); refresh()
+    }
     var loadError: String? = null
         private set
 
@@ -139,12 +176,14 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun down(button: Int) {
+        if (storyScene != null) return
         if (loadError != null) return
         downContext[button] = if (battleBusy()) "BUSY" else engine.controls.inputToken()
         refresh()
     }
 
     fun up(button: Int, released: Boolean = true) {
+        if (storyScene != null) return
         if (loadError != null) {
             if (button == 1) {
                 val f = saveFile.baseFile
@@ -185,6 +224,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun choose(choice: Choice) {
+        if (storyScene != null) return
         if (loadError != null) return
         if (
             battleBusy() &&
@@ -229,6 +269,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun purchase(itemId: Long, count: Int) {
+        if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         val item=engine.state.shop.find { it.id==itemId } ?: return
         if(engine.state.gold < Equipment.buyPrice(engine.state,item)*count) {
@@ -240,16 +281,19 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openLootInventory() {
+        if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         if (engine.openLootInventory()) { save(); refresh() }
     }
 
     fun openLevelUpGrowth() {
+        if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         if(engine.openLevelUpGrowth()) { save(); refresh() }
     }
 
     fun openDungeonPanel(type: String) {
+        if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         if (engine.openDungeonPanel(type)) {
             save()
@@ -264,12 +308,20 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun back() {
+        if (storyScene != null) { closeStory(); return }
         engine.navigateBack()
         save()
         refresh()
     }
 
     fun refresh() {
+        if (engine.state.mode == Mode.SURFACE) Story.onSurface(engine.state)
+        val sceneId = storyScene?.id
+        if (sceneId != displayedStory) {
+            downContext.fill("")
+            engine.controls.reset()
+            displayedStory = sceneId
+        }
         dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = active)
         if (observedImpact != engine.state.impactSequence) {
             observedImpact = engine.state.impactSequence
@@ -283,6 +335,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun tick(delta: Long) {
+        if (storyScene != null) return
         if (!active || loadError != null) return
         val animate =
             engine.state.mode == Mode.MOVING ||
