@@ -117,7 +117,7 @@ class EncounterFlowTest {
     }
 
     @Test
-    fun merchantReturnsToEncounterAndSellingRemovesOnlyTheSelectedId() {
+    fun merchantReturnsToEncounterAndGroupedSalesPreferTheSpareCopy() {
         val e = fixture(Event.MERCHANT)
         val sword = e.state.inventory.first { it.weapon }
         val duplicate = sword.copy(id = e.state.nextId++)
@@ -125,24 +125,22 @@ class EncounterFlowTest {
         choose(e, "shop")
         assertEquals(Mode.ENCOUNTER, e.state.menu!!.returnMode)
         choose(e, "sellMenu")
-        val row = e.choices().first { it.action == "sell" && it.argument == sword.id }
-        assertTrue(row.label.contains("[착용중] · 오른손"))
-        assertFalse(
-            e.choices()
-                .first { it.action == "sell" && it.argument == duplicate.id }
-                .label
-                .contains("[착용중]")
-        )
+        val row = e.choices().first { it.action == "sell" && it.argument == duplicate.id }
+        assertTrue(row.label.contains("×2"))
+        assertTrue(row.label.contains("착용중 1개"))
+        assertFalse(e.choices().any { it.action == "sell" && it.argument == sword.id })
         val gold = e.state.gold
         e.choose(row)
-        assertEquals(gold + Equipment.sellPrice(sword), e.state.gold)
-        assertFalse(sword.id in e.state.equipment.values)
-        assertTrue(e.state.inventory.any { it.id == duplicate.id })
-        assertFalse(e.choices().any { it.action == "sell" && it.argument == sword.id })
+        assertEquals(gold + Equipment.sellPrice(duplicate), e.state.gold)
+        assertTrue(sword.id in e.state.equipment.values)
+        assertFalse(e.state.inventory.any { it.id == duplicate.id })
+        assertTrue(e.state.inventory.any { it.id == sword.id })
+        assertFalse(e.choices().any { it.action == "sell" && it.argument == duplicate.id })
         e.choose(row)
-        assertEquals(gold + Equipment.sellPrice(sword), e.state.gold)
+        assertEquals(gold + Equipment.sellPrice(duplicate), e.state.gold)
         val restored = GameEngine(SaveCodec.decode(SaveCodec.encode(e.state)))
-        assertFalse(restored.choices().any { it.action == "sell" && it.argument == sword.id })
+        assertFalse(restored.choices().any { it.action == "sell" && it.argument == duplicate.id })
+        assertTrue(sword.id in restored.state.equipment.values)
         restored.navigateBack()
         restored.navigateBack()
         assertEquals(Mode.ENCOUNTER, restored.state.mode)
