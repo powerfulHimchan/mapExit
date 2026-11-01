@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ForgeTest {
+    @Test fun identicalFinalStatsStillStackWhileDifferentNecklacePowersRemainSeparate() {
+        val upgraded=Forge.upgraded(Gear(1,Kind.BODY,"갑옷 +2",2,Stats.zero().copy(defense=8.0,hp=30.0),price=70))
+        val natural=upgraded.copy(id=2,refinements=0)
+        assertEquals(1,InventoryStacks.groups(listOf(upgraded,natural)).size)
+        val charm=Gear(3,Kind.NECKLACE,"탐색의 목걸이 +3",3,charm=Charm.MAP)
+        assertEquals(2,InventoryStacks.groups(listOf(charm,charm.copy(id=4,refinements=1))).size)
+    }
     private fun fixture(): GameEngine {
         val m=Dungeon(9,9,MutableList(81){Cell()},4,4,0)
         m.here().wall=false; m.here().event=Event.FORGE; m.cell(4,3).wall=false
