@@ -24,7 +24,7 @@ class RestoredUiTest {
             File(folder,"ui-$name.png").outputStream().use { assertTrue(b.compress(Bitmap.CompressFormat.PNG,100,it)) }
         }
         instrumentation.runOnMainSync {
-            a.game.active=false;a.game.engine=GameEngine();a.game.engine.state.experience=64;a.game.refresh()
+            a.startGame();a.game.active=false;a.game.engine=GameEngine();a.game.engine.state.experience=64;a.game.refresh()
         }
         capture("home-xp")
         instrumentation.runOnMainSync {

@@ -140,7 +140,7 @@ class LaunchTest {
 
     @Test
     fun preparationDirectActionsSaveAndSceneLayout() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 it.game.active = false
                 it.game.engine = GameEngine(State(gold = 300))
@@ -307,7 +307,7 @@ class LaunchTest {
 
     @Test
     fun combatFeedbackVictoryAndAllAutomaticTrapCues() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 it.game.active = false
                 val e = GameEngine()
@@ -403,7 +403,7 @@ class LaunchTest {
         val descriptor = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
         try {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 scenario.onActivity {
                     it.game.active = false
                     it.game.engine = GameEngine()
@@ -519,7 +519,7 @@ class LaunchTest {
 
     @Test
     fun encounterChoicesAndMerchantSaleRefreshOnScreen() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 it.game.active = false
                 it.game.engine = encounterEngine(Event.NPC)
@@ -621,7 +621,7 @@ class LaunchTest {
 
     @Test
     fun preparationMenusHideRepeatedLogAndGrowthUsesFourColumns() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             val menus =
                 listOf(
                     "equipment" to "장비 장착",
@@ -669,7 +669,7 @@ class LaunchTest {
 
     @Test
     fun liveCombatSynchronizesCriticalFeedbackAndPreventsOverlappingTurns() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var popup = ""
             scenario.onActivity {
                 val e = GameEngine(State(base = Stats(crit = 1.0)))
@@ -808,7 +808,7 @@ class LaunchTest {
 
     @Test
     fun iconGrowthAndTradingCardsRefreshImmediately() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var hpChoice = ""
             var attackChoice = ""
             scenario.onActivity {
@@ -946,7 +946,7 @@ class LaunchTest {
                 DungeonViewPose(4.5f, 3.5f, (-Math.PI / 2 + direction * Math.PI / 2).toFloat())
             exportBitmap("turn-$index", renderer.render(map, pose).asAndroidBitmap())
         }
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 it.game.active = false
                 it.game.engine = e
@@ -959,7 +959,7 @@ class LaunchTest {
 
     @Test
     fun shopComparisonRecordsAndNavigationUseActualEquipment() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var oldName = ""
             scenario.onActivity {
                 val e = GameEngine(State(gold = 10000))
@@ -1058,7 +1058,7 @@ class LaunchTest {
 
     @Test
     fun dungeonHeaderMenusAndTurnStripUseSeparateAreas() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val e = GameEngine(State(points = 3))
                 e.enterFloor(1)
@@ -1103,7 +1103,7 @@ class LaunchTest {
 
     @Test
     fun levelUpBannerAppearsAfterFinalStrikeAndOpensGrowthWithoutLosingVictory() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val e = GameEngine(State(experience = 79))
                 e.enterFloor(1)
@@ -1140,7 +1140,7 @@ class LaunchTest {
 
     @Test
     fun deadEndMessageDisappearsAfterReturningToCorridor() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val d = Dungeon(9, 9, MutableList(81) { Cell() }, x = 4, y = 3, direction = 0)
                 for (y in 2..6) d.cell(4, y).wall = false
@@ -1164,7 +1164,7 @@ class LaunchTest {
 
     @Test
     fun unaffordableShopItemsStayTouchableAndOnlyWarnAfterTap() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var buy = ""
             var itemId = 0L
             scenario.onActivity {
@@ -1197,7 +1197,7 @@ class LaunchTest {
 
     @Test
     fun topMenusExposeInventoryRecordsPotionAndFleeWithoutDirectionReset() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val e = GameEngine()
                 e.enterFloor(1)
@@ -1281,7 +1281,7 @@ class LaunchTest {
 
     @Test
     fun longPressNeverOpensAnAlternateMenuAndGoldNoticeIsCentered() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val e = GameEngine()
                 e.enterFloor(1)
@@ -1320,7 +1320,7 @@ class LaunchTest {
 
     @Test
     fun chestLootAppearsInSceneAndFullGuardShowsZero() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val e = GameEngine()
                 e.enterFloor(1)
@@ -1365,7 +1365,7 @@ class LaunchTest {
 
     @Test
     fun publicTrainingMenuCanChooseAllFourActivitiesAndExitSafely() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 it.game.active = false
                 it.game.engine = GameEngine(State(gold = 57))
@@ -1401,7 +1401,7 @@ class LaunchTest {
 
     @Test
     fun bladeAndBeamUseFixedActionsAndShowTheActualAvoidancePose() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             fun show(type: Int, time: Long) {
                 scenario.onActivity {
                     val e = GameEngine()
@@ -1498,7 +1498,7 @@ class LaunchTest {
 
     @Test
     fun weaponVarietiesAndBossOptionsAreVisibleInShopVictoryAndEquipmentDetail() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             val names = mutableListOf<String>()
             scenario.onActivity {
                 val e = GameEngine(State(gold = 5000))
@@ -1546,7 +1546,7 @@ class LaunchTest {
 
     @Test
     fun deepFloorWallAndMemoryKeepTheirReadableActionsWithMoreInputs() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val e = GameEngine()
                 e.enterFloor(50)
@@ -1586,7 +1586,7 @@ class LaunchTest {
 
     @Test
     fun enemyTellShieldBreakAndOpeningWorkThroughExistingButtonsAndPersist() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 val e = GameEngine()
                 e.enterFloor(1)
@@ -1640,7 +1640,7 @@ class LaunchTest {
         val descriptor = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
         try {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 for ((name, intent, id) in
                     listOf(
                         Triple("동굴 슬라임", EnemyIntent.HEAVY, "slime"),
@@ -1733,7 +1733,7 @@ class LaunchTest {
     @Test
     fun luckShowsOnlyActivatedBonusesAndDoesNotChangePersistentAttackOrCriticalStats() {
         for (seed in listOf(11L, 0L)) {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 var attack = 0.0
                 var crit = 0.0
                 var label = ""
@@ -1767,7 +1767,7 @@ class LaunchTest {
 
     @Test
     fun savedVisitorSchedulePlacesNpcAndMerchantOnTheirOwnThreeOrFourFloorIntervals() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var npcTitle = ""
             scenario.onActivity {
                 val e = GameEngine()
@@ -1845,7 +1845,7 @@ class LaunchTest {
 
     @Test
     fun expeditionResultsRetreatConfirmationAndEquipmentLayout() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity {
                 it.game.active = false
                 val e = GameEngine(State(gold = 120, bank = 500))
@@ -1951,7 +1951,7 @@ class LaunchTest {
 
     @Test
     fun trapsUseLiveTimersAndReturnWithoutConfirmation() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             lateinit var activity: MainActivity
             scenario.onActivity { activity = it; it.game.active = false }
             for (type in 0..1) {
@@ -2000,7 +2000,7 @@ class LaunchTest {
     @Test
     @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
     fun fineArtCoversAllWeaponsEnemiesAndFacilities() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             for (kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)) {
                 scenario.onActivity {
                     val e = GameEngine()
@@ -2179,7 +2179,7 @@ class LaunchTest {
         assertArrayEquals(frames.first(), pixels)
     }
     @Test fun requestedGrowthHealingBestiaryAndEquipmentBackRenderAndWork() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var name = ""
             scenario.onActivity { a ->
                 val e=GameEngine(State(points=2));e.enterFloor(1);e.startBattle(false)
@@ -2261,7 +2261,7 @@ class LaunchTest {
         assertEquals(4,frames.distinct().size)
     }
     @Test fun supportNpcDialogsApplyTheirOwnEffectsAndReturnToExploration() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             for(role in listOf(NpcRole.BEGGAR,NpcRole.HEALER,NpcRole.HERBALIST)) {
                 var beforeItems=0
                 scenario.onActivity { a ->
@@ -2292,7 +2292,7 @@ class LaunchTest {
         val resize=instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
         ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
         try {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 for(role in listOf(NpcRole.BEGGAR,NpcRole.HEALER)) {
                     scenario.onActivity { a ->
                         val e=GameEngine(State(gold=0));e.enterFloor(4)
@@ -2340,7 +2340,7 @@ class LaunchTest {
         }
     }
     @Test fun bestiaryLivesInsideRecordsAndReturnsToRecordsOnBack() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a -> a.game.engine=GameEngine();a.game.active=false;a.game.refresh() }
             bounds("출정 준비")
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow,"도감"))
@@ -2360,7 +2360,7 @@ class LaunchTest {
     }
 
     @Test fun realVictoryRewardShowsItsItemIconAndEquipsWithoutClosingTheResult() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var reward: Gear?=null
             var equipLabel=""
             var beforeItems=0
@@ -2402,7 +2402,7 @@ class LaunchTest {
         val resize=instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
         ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
         try {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 var rewards=listOf<Gear>()
                 scenario.onActivity { a ->
                     val e=GameEngine();e.enterFloor(1)
@@ -2436,7 +2436,7 @@ class LaunchTest {
     }
 
     @Test fun achievementsAreInsideRecordsAndRealVictoryRewardIsClaimedOnceAtCamp() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var rewardGold = 0
             scenario.onActivity { a ->
                 val e = GameEngine(); e.enterFloor(1); e.startBattle(false)
@@ -2470,7 +2470,7 @@ class LaunchTest {
     }
 
     @Test fun achievementTitleCanBeClaimedSelectedAndRestored() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val e = GameEngine(); e.state.achievements.traps = 19; e.enterFloor(1)
                 e.state.mode = Mode.TRAP
@@ -2500,7 +2500,7 @@ class LaunchTest {
         val resize = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
         ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
         try {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 scenario.onActivity { a ->
                     val e = GameEngine()
                     repeat(2) {
@@ -2539,7 +2539,7 @@ class LaunchTest {
     }
 
     @Test fun greaterPotionHasDistinctArtCanBeBoughtInBulkAndUsedFromBattleHeader() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val e = GameEngine(State(gold = 500))
                 val potion = e.state.shop.first { it.potionGrade == PotionGrade.GREATER }
@@ -2608,7 +2608,7 @@ class LaunchTest {
     }
 
     @Test fun challengePortalStartsPausesRestoresAndReturnsToTheSameDungeonWithARecord() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var host: Triple<Int,Int,Int>? = null
             scenario.onActivity { a ->
                 val e = challengeGame(ChallengeKind.LOST)
@@ -2648,7 +2648,7 @@ class LaunchTest {
     }
 
     @Test fun memoryPreviewHidesAfterSevenSecondsAndStepPlanningHasItsOwnBudget() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val e = challengeGame(ChallengeKind.MEMORY); challengeAction(e, "challengeEnter")
                 a.game.engine = e; a.game.active = false; a.game.refresh()
@@ -2682,7 +2682,7 @@ class LaunchTest {
                 ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
             }
             try {
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                launchGame().use { scenario ->
                     for (kind in ChallengeKind.entries) {
                         scenario.onActivity { a ->
                             val e = challengeGame(kind); openChallenge(e)
@@ -2717,7 +2717,7 @@ class LaunchTest {
     }
 
     @Test fun sealsUseTheirRememberedOrderAndTorchFuelActuallyDimsTheDungeon() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             var first = 0
             scenario.onActivity { a ->
                 val e = challengeGame(ChallengeKind.SEALS); openChallenge(e)
@@ -2758,7 +2758,7 @@ class LaunchTest {
     }
 
     @Test fun physicalChallengeGatesUseWaitAndCrossButtonsForAllThreeMechanisms() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             for (mark in listOf(ChallengeStages.BLADE, ChallengeStages.FALLING, ChallengeStages.WALL)) {
                 scenario.onActivity { a ->
                     val e = challengeGame(ChallengeKind.HAZARDS); openChallenge(e)
@@ -2794,7 +2794,7 @@ class LaunchTest {
         val resize = instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")
         ParcelFileDescriptor.AutoCloseInputStream(resize).use { it.readBytes() }
         try {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 var gear: Gear? = null
                 var label = ""
                 scenario.onActivity { a ->
@@ -2840,7 +2840,7 @@ class LaunchTest {
     }
 
     @Test fun challengeAutoWalkFollowsTheCorridorAndOffersAWorkingStopButton() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val e = challengeGame(ChallengeKind.LOST); openChallenge(e)
                 val m = Dungeon(9,9,MutableList(81) { Cell() }, x = 1, y = 1, direction = 1)
@@ -2875,7 +2875,7 @@ class LaunchTest {
         for (compact in listOf(false, true)) {
             if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
             try {
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                launchGame().use { scenario ->
                     var endpoint = 0 to 0
                     scenario.onActivity { a ->
                         val e = challengeGame(ChallengeKind.COLLAPSE); openChallenge(e)
@@ -2921,7 +2921,7 @@ class LaunchTest {
     }
 
     @Test fun sequenceObstaclesShowTheLastStepBeforeMovingBackToCenter() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             for (type in listOf(0,3)) {
                 scenario.onActivity { a ->
                     val e = GameEngine(); e.enterFloor(1); e.state.mode = Mode.TRAP
@@ -2942,7 +2942,7 @@ class LaunchTest {
         for (compact in listOf(false, true)) {
             if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
             try {
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                launchGame().use { scenario ->
                     for (victory in listOf(false, true)) {
                         var current: Gear? = null
                         scenario.onActivity { a ->
@@ -2984,7 +2984,7 @@ class LaunchTest {
     }
 
     @Test fun potionOnlyReceiptsHaveNeitherBagEntryNorConfirmationButton() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             for (victory in listOf(false, true)) {
                 scenario.onActivity { a ->
                     val e = GameEngine(); e.enterFloor(1)
@@ -3009,7 +3009,7 @@ class LaunchTest {
     }
 
     @Test fun earlyBeamCrouchFailsAndHealingCrystalUsesItsNewName() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val e = GameEngine(); e.enterFloor(1); e.state.mode = Mode.TRAP
                 e.state.trap = Traps.create(e.state, 4).copy(phase = TrapPhase.ACTIVE, elapsedMs = 100)
@@ -3038,7 +3038,7 @@ class LaunchTest {
     @Test fun levelUpGrowthButtonKeepsAnInsetOnCompactScreens() {
         ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
         try {
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            launchGame().use { scenario ->
                 scenario.onActivity { a ->
                     val e = GameEngine(); e.enterFloor(1)
                     e.state.levelUpNotice = LevelUpNotice(1,2,3); e.state.points = 3
@@ -3058,7 +3058,7 @@ class LaunchTest {
         for (compact in listOf(false,true)) {
             if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
             try {
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                launchGame().use { scenario ->
                     scenario.onActivity { a ->
                         val potion = Gear(1, Kind.POTION, "회복약", price = 25)
                         val armor = Gear(4, Kind.BODY, "동일 갑옷", flat = Stats.zero().copy(defense = 10.0), price = 90)
@@ -3109,7 +3109,7 @@ class LaunchTest {
         assertNotEquals(ready.rows, depleted.rows)
         for (y in ready.rows.indices) for (x in ready.rows[y].indices)
             assertEquals(ready.rows[y][x] == '0', depleted.rows[y][x] == '0')
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             val raster = DungeonRaster(480,320)
             val view = DungeonViewPose(4.5f,6.5f,(-kotlin.math.PI/2).toFloat())
             var before: android.graphics.Bitmap? = null
@@ -3154,7 +3154,7 @@ class LaunchTest {
     }
 
     @Test fun levelFiveBonusAppearsInTheRealVictoryBannerAndGrowthMenu() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val e = GameEngine(State(level=4,experience=319))
                 e.enterFloor(1); e.startBattle(false); e.state.enemy!!.hp=.01; e.state.rng=0; e.attack(false)
@@ -3176,7 +3176,7 @@ class LaunchTest {
         for (compact in listOf(false,true)) {
             if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
             try {
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                launchGame().use { scenario ->
                     scenario.onActivity { a ->
                         val e = GameEngine()
                         e.state.achievements.apply {
@@ -3219,7 +3219,7 @@ class LaunchTest {
         for (compact in listOf(false,true)) {
             if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
             try {
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                launchGame().use { scenario ->
                     for (kind in listOf(ChallengeKind.LOST,ChallengeKind.MEMORY,ChallengeKind.COLLAPSE)) {
                         scenario.onActivity { a ->
                             val e = challengeGame(kind); openChallenge(e)
@@ -3252,7 +3252,7 @@ class LaunchTest {
     }
 
     @Test fun upgradeBookFromBagImprovesTheSelectedEquippedItemOnce() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val gear=Gear(1,Kind.SWORD,"시험 검 +2",2,Stats.zero().copy(attack=40.0),variantId="longsword")
                 val e=GameEngine(State(bootstrapped=true,nextId=10,inventory=mutableListOf(gear,Gear(2,Kind.SCROLL,"강화서",price=180),Gear(3,Kind.SCROLL,"강화서",price=180),gear.copy(id=4)),equipment=mutableMapOf(Slot.RIGHT to 1L)))
@@ -3274,7 +3274,7 @@ class LaunchTest {
     @Test fun forgeConfirmsMaterialsAndShowsSuccessAndFailureOnBothScreenSizes() {
         for(compact in listOf(false,true)) {
             if(compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
-            try { ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            try { launchGame().use { scenario ->
                 scenario.onActivity { a ->
                     val m=Dungeon(9,9,MutableList(81){Cell()},4,4,0,arrivalDirection=0)
                     for(y in 2..6) m.cell(4,y).wall=false
@@ -3304,7 +3304,7 @@ class LaunchTest {
     }
 
     @Test fun normalDoubleAttackAnimatesBothHitsAndBlocksInputUntilBothFinish() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 var selected:GameEngine?=null
                 for(seed in 1L..500L) {
@@ -3331,7 +3331,7 @@ class LaunchTest {
     @Test fun lowHpAuraAndCauldronWaterUseTheCorrectDangerLaneOnBothScreens() {
         for(compact in listOf(false,true)) {
             if(compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
-            try { ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            try { launchGame().use { scenario ->
                 scenario.onActivity { a ->
                     val e=GameEngine(State(bootstrapped=true,hp=36.0));e.enterFloor(1);e.startBattle(false)
                     a.game.engine=e;a.game.active=false;a.game.refresh()
@@ -3359,7 +3359,7 @@ class LaunchTest {
     }
 
     @Test fun specialChallengeDirectionSelectionHasNoResetButton() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        launchGame().use { scenario ->
             scenario.onActivity { a ->
                 val e = challengeGame(ChallengeKind.LOST); openChallenge(e)
                 val m = Dungeon(9,9,MutableList(81) { Cell() },4,4,0)
