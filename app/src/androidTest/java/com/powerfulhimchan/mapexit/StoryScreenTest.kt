@@ -43,6 +43,18 @@ class StoryScreenTest {
     ).use { it.readBytes() }
     private fun capture(name: String) {
         SystemClock.sleep(350)
+        var rendered = false
+        for(attempt in 0..29) {
+            val frame = instrumentation.uiAutomation.takeScreenshot() ?: error("No story frame")
+            rendered = listOf(1,2,3).any { x ->
+                val pixel=frame.getPixel(frame.width*x/4,frame.height*2/3)
+                android.graphics.Color.red(pixel)<220 || android.graphics.Color.green(pixel)<220 || android.graphics.Color.blue(pixel)<220
+            }
+            frame.recycle()
+            if(rendered) break
+            SystemClock.sleep(100)
+        }
+        assertTrue("Story must render before capture: $name",rendered)
         shell("screencap -p /sdcard/Download/mapexit-$name.png")
     }
     private fun seed(a: MainActivity, id: String = "prologue", cycle: Int = 1) {
@@ -81,6 +93,7 @@ class StoryScreenTest {
                 assertEquals("storyRecords",it.game.engine.state.menu?.type)
                 assertEquals(listOf("prologue"),it.game.engine.state.story.unlocked)
                 assertTrue(it.game.engine.state.story.queue.isEmpty())
+                it.game.active=false
             }
         }
     }
@@ -98,6 +111,8 @@ class StoryScreenTest {
                 assertEquals("floor_2",a.game.storyScene?.id)
                 a.game.closeStory();assertNull(a.game.storyScene)
                 a.game.tick(200);assertTrue(e.state.playMs>play)
+                // Stop the resumed moving scene before ActivityScenario waits for teardown idleness.
+                a.game.active=false
             }
         }
     }
