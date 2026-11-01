@@ -61,6 +61,10 @@ class ForgeTest {
         }
         e.state.inventory[1]=item.copy(inherited=true);e.state.inventory[0].inherited=true
         assertTrue(Forge.pairs(e.state).isEmpty())
+        val options=listOf(WeaponAffix(Stat.HP,10.0),WeaponAffix(Stat.ATTACK,3.0))
+        e.state.inventory[0]=item.copy(id=1,affixes=options)
+        e.state.inventory[1]=item.copy(id=2,affixes=options.reversed())
+        assertEquals(1,Forge.pairs(e.state).size)
     }
     @Test fun staleAndRemoteForgeCallsDoNotConsumeItemsOrRollRng() {
         val e=fixture();val before=SaveCodec.encode(e.state)
