@@ -352,7 +352,17 @@ object ChallengeStages {
         s.note(if (c.phase == ChallengePhase.INTRO) "도전을 지나갔습니다 · 나중에 다시 입장할 수 있습니다" else "특별 도전 종료 · 원래 던전으로 복귀했습니다")
     }
 
-    fun rune(index: Int): String = "${runeNames[(index * 7 + index / 11).mod(runeNames.size)]}-${index % 17 + 1}"
+    fun runeSymbol(index: Int): Int = (index * 7 + index / 11).mod(runeNames.size)
+    fun runeNumber(index: Int): Int = index.mod(17) + 1
+    fun rune(index: Int): String = "${runeNames[runeSymbol(index)]}-${runeNumber(index)}"
+
+    /** A mark belongs to the open cell touching this wall face, never to its back side. */
+    fun wallRuneIndex(map: Dungeon, wallX: Int, wallY: Int, fromX: Int, fromY: Int): Int? {
+        if (fromX !in 0 until map.width || fromY !in 0 until map.height ||
+            kotlin.math.abs(wallX - fromX) + kotlin.math.abs(wallY - fromY) != 1 ||
+            !map.cell(wallX, wallY).wall || map.cell(fromX, fromY).wall) return null
+        return fromY * map.width + fromX
+    }
 
     fun clue(s: State): String {
         val c = s.challenge ?: return ""
@@ -364,7 +374,7 @@ object ChallengeStages {
             c.kind == ChallengeKind.SEALS && here == m.width + 1 -> "입구 문양: ${c.sealOrder.joinToString(" → ") { runeNames[it - 1] }}"
             c.kind == ChallengeKind.SEALS && m.here().event == Event.CHALLENGE && !m.here().resolved -> "${runeNames[m.here().challengeMark - 1]} 제단 · 순서를 기억하세요"
             c.kind == ChallengeKind.TORCH && m.here().event == Event.CHALLENGE && !m.here().resolved -> "불이 남은 화로입니다 · 횃불을 보충하세요"
-            else -> "벽 표식 ${rune(here)} · ${listOf("북", "동", "남", "서")[m.direction]}쪽을 보는 중"
+            else -> "벽의 그림과 번호를 기억하세요 · ${listOf("북", "동", "남", "서")[m.direction]}쪽을 보는 중"
         }
     }
 

@@ -47,6 +47,7 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 .background(panel, RoundedCornerShape(8.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("도전 안내", color = mint, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 Text(c.kind.objective, color = pale, fontSize = 15.sp, lineHeight = 22.sp)
+                Text("벽에 새겨진 그림과 숫자가 위치 표식입니다. 해·달·별·산·물·꽃 그림과 번호를 함께 기억하세요.", color = amber, fontSize = 13.sp, lineHeight = 20.sp)
                 if (c.kind == ChallengeKind.SEALS) Text("기억할 순서: ${c.sealOrder.joinToString(" → ") { ChallengeStages.runeNames[it - 1] }}", color = amber, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 if (c.kind == ChallengeKind.STEPS) {
                     Text("이동 가능 ${c.stepLimit}칸 · 시작 전에는 시간 제한 없이 계획할 수 있습니다", color = amber, fontSize = 14.sp, lineHeight = 20.sp)
@@ -108,12 +109,10 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                     stateDescription = if (phase == ChallengePhase.HAZARD) {
                         mechanismHint(s.dungeon!!.here().challengeMark) + " · " +
                             if (ChallengeStages.hazardSafe(s.dungeon!!.here().challengeMark, c.hazardMs)) "안전 구간" else "작동 중"
-                    } else "벽 표식 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}"
+                    } else "벽에 그림과 번호가 새겨진 통로 · 현재 위치 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}"
                 }) {
                     PixelCanvas(s, clock, Modifier.fillMaxSize(), camera = vm.dungeonCamera.sample(clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis()))
                     if (phase == ChallengePhase.HAZARD) ChallengeMechanism(s, Modifier.fillMaxSize())
-                    Text("벽 표식 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}",
-                        color = amber, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopStart).background(ink.copy(alpha = .85f)).padding(7.dp))
                 }
                 Text(if (phase == ChallengePhase.HAZARD) mechanismHint(s.dungeon!!.here().challengeMark) else ChallengeStages.clue(s), color = pale, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.fillMaxWidth().background(panel).padding(8.dp).semantics { contentDescription = "도전 단서" })
