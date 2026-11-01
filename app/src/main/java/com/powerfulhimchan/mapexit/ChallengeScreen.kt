@@ -118,7 +118,6 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 Text(if (phase == ChallengePhase.HAZARD) mechanismHint(s.dungeon!!.here().challengeMark) else ChallengeStages.clue(s), color = pale, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.fillMaxWidth().background(panel).padding(8.dp).semantics { contentDescription = "도전 단서" })
                 if (phase == ChallengePhase.HAZARD && c.feedback.isNotBlank()) Text(c.feedback, color = amber, fontSize = 12.sp, lineHeight = 17.sp)
-                if (phase == ChallengePhase.ACTIVE && !c.autoMoving && vm.engine.controls.directionSelectionActive()) GameButton(onClick = vm::resetDirections) { Text("방향 처음", color = mint) }
             }
         }
         Row(Modifier.fillMaxWidth().height(68.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

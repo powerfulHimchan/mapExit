@@ -132,7 +132,8 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
     val s = vm.engine.state
     val choices = vm.engine.choices()
     val gold = s.gold
-    val items = (if (menu == "sell") s.inventory else s.shop).toList()
+    val stacks = if (menu == "sell") InventoryStacks.groups(s.inventory, s.equipment.values)
+        else s.shop.map { InventoryStacks.Stack(listOf(it), it, 0) }
     val worn = s.equipment.toMap()
     if(menu=="shop") {
         items(vm.engine.lootChoices(),key={ "purchase-equip:${it.argument}" }) { choice ->
@@ -157,16 +158,17 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                 }
         }
     }
-    if (items.isEmpty())
+    if (stacks.isEmpty())
         item(key = "trade-empty") {
             Text(if (menu == "sell") "판매할 아이템이 없습니다" else "남은 상품이 없습니다", color = muted)
         }
-    items(items.chunked(2), key = { "trade:${it.first().id}" }) { row ->
+    items(stacks.chunked(2), key = { "trade:${it.first().representative.id}" }) { row ->
         Row(
             Modifier.fillMaxWidth().height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            row.forEach { gear ->
+            row.forEach { stack ->
+                val gear = stack.representative
                 val choice =
                     choices.firstOrNull {
                         it.action == (if (menu == "sell") "sell" else "buy") &&
@@ -183,11 +185,14 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     ItemArt(gear, Modifier.size(if(menu=="shop")36.dp else 48.dp))
-                    Text(gear.name,color=if(menu=="shop" || affordable)pale else red,fontSize=14.sp,fontWeight=FontWeight.Bold,lineHeight=18.sp)
+                    Text(stack.displayName,color=if(menu=="shop" || affordable)pale else red,fontSize=14.sp,fontWeight=FontWeight.Bold,lineHeight=18.sp)
                     if(menu=="sell") {
-                        if(gear.id in worn.values) Text("[착용중] · 판매 시 해제",color=mint,fontSize=11.sp)
+                        if (gear.inherited) Text("◆ 계승 장비", color = amber, fontSize = 11.sp)
+                        if (stack.equippedCount > 0) Text(
+                            if (gear.id in worn.values) "[착용중] · 판매 시 해제" else "${stack.equippedCount}개 착용 중 · 미장착 아이템부터 판매",
+                            color = mint, fontSize = 11.sp, lineHeight = 15.sp)
                         Text(gear.summary(),color=muted,fontSize=11.sp,lineHeight=16.sp)
-                        Text("${price}G · 판매하기",color=amber,fontSize=14.sp)
+                        Text("${price}G · ${if (stack.count > 1) "1개 판매" else "판매하기"}",color=amber,fontSize=14.sp)
                     }
                 }
             }

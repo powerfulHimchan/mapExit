@@ -5,7 +5,7 @@ import kotlin.math.*
 data class VisibleFixture(val x: Int, val y: Int, val event: Event, val depth: Float, val lateral: Float)
 
 object DungeonFixtures {
-    private fun active(map: Dungeon): Boolean = !map.here().resolved &&
+    private fun active(map: Dungeon): Boolean = (!map.here().resolved || map.here().event == Event.HEAL) &&
         map.here().event in listOf(Event.HEAL, Event.EXIT, Event.PORTAL, Event.CHALLENGE) &&
         (map.arrivalDirection !in 0..3 || map.direction == map.arrivalDirection)
 
@@ -52,7 +52,7 @@ object DungeonFixtures {
     fun visible(map: Dungeon, camera: DungeonViewPose): List<VisibleFixture> {
         val dx=cos(camera.angle);val dy=sin(camera.angle)
         return map.cells.mapIndexedNotNull { index,c ->
-            if(c.wall || c.resolved || c.event==Event.NONE) return@mapIndexedNotNull null
+            if(c.wall || (c.resolved && c.event != Event.HEAL) || c.event==Event.NONE) return@mapIndexedNotNull null
             val x=index%map.width;val y=index/map.width
             val vx=x+.5f-camera.x;val vy=y+.5f-camera.y
             val depth=vx*dx+vy*dy;val lateral=-vx*dy+vy*dx

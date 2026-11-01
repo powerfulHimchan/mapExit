@@ -159,7 +159,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         DungeonFixtures.visible(map,camera).forEach { fixture ->
             if (hideCurrentFeature && fixture.event == Event.CHALLENGE && fixture.x == map.x && fixture.y == map.y) return@forEach
             val name = when(fixture.event) {
-                Event.HEAL -> "heal"; Event.CHEST -> "chest"; Event.MERCHANT -> "merchant"
+                Event.HEAL -> if (map.cell(fixture.x,fixture.y).resolved) "heal_used" else "heal"; Event.CHEST -> "chest"; Event.MERCHANT -> "merchant"
                 Event.NPC -> map.cell(fixture.x,fixture.y).npcRole.sprite
                 Event.MONSTER -> MonsterCatalog.find(map.cell(fixture.x,fixture.y).monsterId)?.sprite
                     ?: MonsterCatalog.forFloor(theme.ordinal * 10 + 1)[(fixture.x + fixture.y) % 6].sprite

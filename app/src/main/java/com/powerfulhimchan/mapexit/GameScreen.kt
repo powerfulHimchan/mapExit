@@ -637,6 +637,10 @@ private fun ItemComparison(e: GameEngine) {
             Text(gear.name, color = if(Equipment.isUpgrade(s,gear)) Color(0xff86df87) else amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Text(gear.summary(), color = pale, fontSize = 12.sp)
+        InventoryStacks.groups(s.inventory, s.equipment.values).firstOrNull { stack -> stack.items.any { it.id == gear.id } }
+            ?.takeIf { it.count > 1 }?.let { stack ->
+                Text("동일 아이템 ${stack.count}개 · 착용 중 ${stack.equippedCount}개", color = mint, fontSize = 12.sp)
+            }
         Equipment.allowedSlots(gear).forEach { slot ->
             val preview = s.copy(equipment = s.equipment.toMutableMap())
             Equipment.equip(preview, gear.id, slot)

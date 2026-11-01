@@ -101,12 +101,6 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
-    fun resetDirections() {
-        if (engine.state.mode !in listOf(Mode.EXPLORE, Mode.CHALLENGE)) return
-        engine.controls.resetDirections()
-        refresh()
-    }
-
     var active = false
     var loadError: String? = null
         private set
