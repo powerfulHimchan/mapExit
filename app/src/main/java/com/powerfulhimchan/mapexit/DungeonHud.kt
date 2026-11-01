@@ -24,7 +24,6 @@ internal fun DungeonToolbar(vm: GameModel, onRetreat: () -> Unit) {
             "능력치" to "growth",
             "가방" to "inventory",
             "기록" to "help",
-            "방향 처음" to "directions",
             "지상으로" to "return",
         )
     Column(
@@ -40,21 +39,17 @@ internal fun DungeonToolbar(vm: GameModel, onRetreat: () -> Unit) {
                     val enabled =
                         when (action) {
                             "return" -> s.mode in listOf(Mode.EXPLORE, Mode.MOVING)
-                            "directions" ->
-                                s.mode == Mode.EXPLORE &&
-                                    vm.engine.controls.directionSelectionActive()
                             else -> canOpen
                         }
                     DungeonShortcut(
                         label,
-                        if (action == "directions") "return" else action,
+                        action,
                         enabled,
                         Modifier.weight(1f),
                         danger = action == "return",
                     ) {
                         when (action) {
                             "return" -> onRetreat()
-                            "directions" -> vm.resetDirections()
                             else -> vm.openDungeonPanel(action)
                         }
                     }

@@ -307,14 +307,9 @@ class GameEngine(
                     s.inventory.filter { Slot.entries[menu.argument.toInt()] in Equipment.allowedSlots(it) }.map {
                         c("${it.name}${if(it.id in s.equipment.values) " [착용중]" else ""}", "item", it.id)
                     }
-                "inventory" ->
-                    s.inventory.map { item ->
-                        c(
-                            "${if(item.inherited)"◆ " else ""}${item.name}${if(item.id in s.equipment.values)" [착용중]" else ""}",
-                            "item",
-                            item.id,
-                        )
-                    }
+                "inventory" -> InventoryStacks.groups(s.inventory, s.equipment.values).map { stack ->
+                    c(InventoryStacks.inventoryLabel(stack), "item", stack.representative.id)
+                }
                 "item" -> {
                     val g = s.inventory.find { it.id == menu.argument }
                     if (g == null) emptyList()
@@ -348,14 +343,9 @@ class GameEngine(
                 "shop" ->
                     s.shop.map { c(it.name, "buy", it.id) } +
                         c("아이템 판매", "sellMenu")
-                "sell" ->
-                    s.inventory.map {
-                        c(
-                            "${it.name}${Equipment.equippedLabel(s, it.id)} 판매 · ${Equipment.sellPrice(it)}G",
-                            "sell",
-                            it.id,
-                        )
-                    }
+                "sell" -> InventoryStacks.groups(s.inventory, s.equipment.values).map { stack ->
+                    c(InventoryStacks.saleLabel(s, stack), "sell", stack.representative.id)
+                }
                 "shopItem" -> {
                     val item = s.shop.find { it.id == menu.argument }
                     if (item == null) listOf(c("취소", "back"))

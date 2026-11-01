@@ -105,10 +105,12 @@ class NavigationFixtureRegressionTest {
         val view=DungeonViewPose(4.5f,5.5f,(PI/2).toFloat())
         assertEquals(view,DungeonFixtures.camera(map,view))
     }
-    @Test fun resolvedFixturesDisappearAndOldSavesKeepNewDefaults() {
+    @Test fun usedCrystalsRemainWhileCompletedExitsDisappearAndOldSavesKeepDefaults() {
         val map=corridor();val view=DungeonViewPose(4.5f,7.5f,(-PI/2).toFloat())
         map.cell(4,5).resolved=true
-        assertEquals(listOf(Event.EXIT),DungeonFixtures.visible(map,view).map { it.event })
+        assertEquals(setOf(Event.EXIT, Event.HEAL),DungeonFixtures.visible(map,view).map { it.event }.toSet())
+        map.cell(4,2).resolved=true
+        assertEquals(listOf(Event.HEAL),DungeonFixtures.visible(map,view).map { it.event })
         val text=SaveCodec.encode(State()).replace("\"quickEquipIds\":[],","")
         assertTrue(SaveCodec.decode(text).quickEquipIds.isEmpty())
         assertFalse(SaveCodec.decode(text).dungeon?.eliteCleared ?: false)

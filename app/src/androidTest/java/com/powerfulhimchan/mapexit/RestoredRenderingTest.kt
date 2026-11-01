@@ -46,7 +46,12 @@ class RestoredRenderingTest {
             val with=r.render(map,view).asAndroidBitmap().copy(Bitmap.Config.ARGB_8888,false)
             map.cell(4,2).resolved=true
             val without=r.render(map,view).asAndroidBitmap().copy(Bitmap.Config.ARGB_8888,false)
-            assertFalse("Resolved $event must remove its visible art",with.sameAs(without))
+            assertFalse("Resolving $event must update its art",with.sameAs(without))
+            if (event == Event.HEAL) {
+                map.cell(4,2).event = Event.NONE
+                assertFalse("Used crystal must remain visible",without.sameAs(r.render(map,view).asAndroidBitmap()))
+                map.cell(4,2).event = Event.HEAL
+            }
             map.cell(4,3).wall=true;map.cell(4,2).resolved=false
             val hidden=r.render(map,view).asAndroidBitmap().copy(Bitmap.Config.ARGB_8888,false)
             map.cell(4,2).resolved=true

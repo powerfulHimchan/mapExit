@@ -1,0 +1,9 @@
+# MapExit 0.31.0 — grouped inventory and depleted crystals
+
+Inventory and sale menus show identical items once, with ×N for multiple copies. Groups compare complete gear data (including real stats, potion grade, variant, affixes, price and inheritance status) while ignoring instance IDs and affix ordering. Potion tiers, which do not affect their icon, recovery or price, are normalized for grouping. Each actual inventory item and saved ID remains independent. A non-equipped copy represents the group when available, so selling duplicates preserves worn equipment. Actions consume or sell one copy, and the next display/action uses the remaining actual ID. Equipped counts and inherited status remain visible; duplicate rings can still occupy separate slots.
+
+Healing crystals remain in their original cells after use and use a gray depleted palette with the same silhouette and base. The resolved flag still prevents a second heal, including after save/revisit. Close-up camera framing, wall occlusion and perspective remain consistent; the minimap uses a muted marker for used crystals. Existing used crystals in saves need no migration.
+
+The direction-reset button is removed from both dungeon and special-challenge UI. The remaining five dungeon shortcuts occupy three buttons on the first row and two on the second. Core navigation and left/right mapping remain unchanged.
+
+Validation covers grouped identity/counts, unique IDs and save integrity, one-at-a-time consumption/sales, stale-sale rejection, equipped-copy protection, dual identical rings, and persistent/occluded used crystals with stable camera poses. Device cases exercise real bag consumption and grouped sales on normal/compact screens, ready/used/revisited/reloaded crystal renders, and direction-button absence during active challenge direction selection. The full workflow runs atlas consistency, core tests, lint, debug assembly and device regressions before merge.

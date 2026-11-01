@@ -237,13 +237,13 @@ internal fun DrawScope.drawMap(s: State) {
         val px = ox + x * unit
         val py = oy + y * unit
         pixelRect(if (c.wall) line else Color(0xFF1A303A), px, py, unit - 1, unit - 1)
-        if (!c.wall && !c.resolved) {
+        if (!c.wall && (!c.resolved || c.event == Event.HEAL)) {
             val color =
                 when (c.event) {
                     Event.MONSTER -> red
                     Event.ELITE -> amber
                     Event.CHEST -> amber
-                    Event.HEAL -> mint
+                    Event.HEAL -> if (c.resolved) Color(0xFF6C7A7C) else mint
                     Event.MERCHANT -> Color(0xFFBA9DDA)
                     Event.NPC -> Color(0xFF9AC3E4)
                     Event.EXIT -> Color.White

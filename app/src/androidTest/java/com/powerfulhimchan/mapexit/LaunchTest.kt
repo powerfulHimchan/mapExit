@@ -567,37 +567,45 @@ class LaunchTest {
             capture("merchant-encounter")
             tap("거래하기")
             tap("아이템 판매", allowScroll = true)
+            var groupLabel = ""
             var wornLabel = ""
-            var duplicateLabel = ""
             var wornId = 0L
+            var duplicateId = 0L
             var gold = 0
             var price = 0
             scenario.onActivity {
                 val e = it.game.engine
                 wornId = e.state.equipment[Slot.RIGHT]!!
-                wornLabel =
-                    e.choices().first { c -> c.action == "sell" && c.argument == wornId }.label
-                val twin = e.state.inventory.last { gear -> gear.weapon }
-                duplicateLabel =
-                    e.choices().first { c -> c.action == "sell" && c.argument == twin.id }.label
+                duplicateId = e.state.inventory.last { gear -> gear.weapon }.id
+                groupLabel = e.choices().first { c -> c.action == "sell" && c.argument == duplicateId }.label
                 gold = e.state.gold
                 price = Equipment.sellPrice(e.state.inventory.first { gear -> gear.id == wornId })
-                assertTrue(wornLabel.contains("[착용중]"))
-                assertFalse(duplicateLabel.contains("[착용중]"))
+                assertTrue(groupLabel.contains("×2"))
+                assertTrue(groupLabel.contains("착용중 1개"))
+                assertFalse(e.choices().any { c -> c.action == "sell" && c.argument == wornId })
             }
-            bounds(wornLabel, allowScroll = true)
+            bounds(groupLabel, allowScroll = true)
             capture("sell-equipped")
-            tap(wornLabel, allowScroll = true)
-            bounds(duplicateLabel, allowScroll = true)
+            tap(groupLabel, allowScroll = true)
             scenario.onActivity {
                 val e = it.game.engine
                 assertEquals(gold + price, e.state.gold)
-                assertFalse(e.state.inventory.any { gear -> gear.id == wornId })
+                assertFalse(e.state.inventory.any { gear -> gear.id == duplicateId })
+                assertTrue(wornId in e.state.equipment.values)
+                assertFalse(e.choices().any { c -> c.action == "sell" && c.argument == duplicateId })
+                wornLabel = e.choices().first { c -> c.action == "sell" && c.argument == wornId }.label
+                assertTrue(wornLabel.contains("[착용중]"))
+            }
+            tap(wornLabel, allowScroll = true)
+            scenario.onActivity {
+                val e = it.game.engine
+                assertEquals(gold + price * 2, e.state.gold)
+                assertFalse(e.state.inventory.any { gear -> gear.id == wornId || gear.id == duplicateId })
                 assertFalse(wornId in e.state.equipment.values)
                 assertFalse(e.choices().any { c -> c.action == "sell" && c.argument == wornId })
                 it.game.pause()
                 val cold = GameModel(it.application)
-                assertFalse(cold.engine.state.inventory.any { gear -> gear.id == wornId })
+                assertFalse(cold.engine.state.inventory.any { gear -> gear.id == wornId || gear.id == duplicateId })
             }
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, wornLabel))
             capture("sell-removed")
@@ -1188,7 +1196,7 @@ class LaunchTest {
     }
 
     @Test
-    fun topMenusExposeInventoryRecordsDirectionResetPotionAndFlee() {
+    fun topMenusExposeInventoryRecordsPotionAndFleeWithoutDirectionReset() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity {
                 val e = GameEngine()
@@ -1197,7 +1205,8 @@ class LaunchTest {
                 it.game.engine = e
                 it.game.refresh()
             }
-            val shortcuts = listOf("방향 처음", "가방", "기록").map { bounds(it) }
+            val shortcuts = listOf("장비", "능력치", "가방", "기록", "지상으로").map { bounds(it) }
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow, "방향 처음"))
             val scene = bounds("메인 장면")
             shortcuts.forEach { assertTrue(it.bottom <= scene.top) }
             capture("top-explore-menus")
@@ -3042,6 +3051,122 @@ class LaunchTest {
             }
         } finally {
             ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+        }
+    }
+
+    @Test fun bagAndSaleGroupIdenticalCopiesAndReduceCountsOneAtATime() {
+        for (compact in listOf(false,true)) {
+            if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+            try {
+                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    scenario.onActivity { a ->
+                        val potion = Gear(1, Kind.POTION, "회복약", price = 25)
+                        val armor = Gear(4, Kind.BODY, "동일 갑옷", flat = Stats.zero().copy(defense = 10.0), price = 90)
+                        val e = GameEngine(State(bootstrapped = true, nextId = 100, hp = 20.0,
+                            inventory = mutableListOf(potion, potion.copy(id = 2), potion.copy(id = 3), armor, armor.copy(id = 5),
+                                Gear(6, Kind.POTION, "상급 회복약", potionGrade = PotionGrade.GREATER)),
+                            equipment = mutableMapOf(Slot.BODY to 4L)))
+                        e.choose(e.choices().first { it.action == "inventory" })
+                        a.game.engine = e; a.game.active = false; a.game.refresh()
+                        assertEquals(3, e.choices().count { it.action == "item" })
+                    }
+                    tap("회복약 ×3", allowScroll = true)
+                    bounds("동일 아이템 3개 · 착용 중 0개", allowScroll = true)
+                    tap("회복약 마시기", allowScroll = true)
+                    scenario.onActivity { a ->
+                        assertEquals(2, a.game.engine.state.inventory.count { it.kind == Kind.POTION && it.potionGrade == PotionGrade.BASIC })
+                        a.game.engine.choose(a.game.engine.choices().first { it.action == "inventory" }); a.game.refresh()
+                    }
+                    bounds("회복약 ×2", allowScroll = true)
+                    bounds("동일 갑옷 ×2 [착용중 1개]", allowScroll = true)
+                    capture("inventory-stacks-${if(compact) "compact" else "normal"}")
+                    var label = ""
+                    scenario.onActivity { a ->
+                        val e = a.game.engine; e.navigateBack()
+                        e.choose(e.choices().first { it.action == "shop" }); e.choose(e.choices().first { it.action == "sellMenu" })
+                        val sale = e.choices().first { it.action == "sell" && it.argument == 5L }
+                        label = sale.label; assertTrue(label.contains("×2")); a.game.refresh()
+                    }
+                    bounds(label, allowScroll = true)
+                    capture("sale-stacks-${if(compact) "compact" else "normal"}")
+                    tap(label, allowScroll = true)
+                    scenario.onActivity { a ->
+                        val s = a.game.engine.state
+                        assertEquals(30, s.gold); assertEquals(4L, s.equipment[Slot.BODY]); assertFalse(s.inventory.any { it.id == 5L })
+                        assertEquals(1, s.inventory.count { it.kind == Kind.BODY })
+                        assertEquals(2, s.inventory.count { it.kind == Kind.POTION && it.potionGrade == PotionGrade.BASIC })
+                    }
+                }
+            } finally {
+                if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+            }
+        }
+    }
+
+    @Test fun usedHealingCrystalChangesColorStaysVisibleAndSurvivesRevisitAndReload() {
+        val ready = FineSprites.all.getValue("heal"); val depleted = FineSprites.all.getValue("heal_used")
+        assertEquals(ready.width, depleted.width); assertEquals(ready.height, depleted.height)
+        assertNotEquals(ready.rows, depleted.rows)
+        for (y in ready.rows.indices) for (x in ready.rows[y].indices)
+            assertEquals(ready.rows[y][x] == '0', depleted.rows[y][x] == '0')
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val raster = DungeonRaster(480,320)
+            val view = DungeonViewPose(4.5f,6.5f,(-kotlin.math.PI/2).toFloat())
+            var before: android.graphics.Bitmap? = null
+            scenario.onActivity { a ->
+                val e = GameEngine(State(hp = 100.0)); e.enterFloor(1)
+                val m = Dungeon(9,9,MutableList(81) { Cell() },4,4,0,arrivalDirection=0)
+                for (y in 1..7) m.cell(4,y).wall = false
+                m.here().event = Event.HEAL; m.reveal(); e.state.dungeon = m
+                before = raster.render(m,view).asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888,false)
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            bounds("회복의 수정 사용"); capture("crystal-ready")
+            tap("회복의 수정 사용")
+            scenario.onActivity { a ->
+                val s = a.game.engine.state; val m = s.dungeon!!
+                assertEquals(262.0,s.hp,.001); assertTrue(m.here().resolved); assertEquals(Event.HEAL,m.here().event)
+                val used = raster.render(m,view).asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888,false)
+                assertFalse(before!!.sameAs(used))
+                m.here().event = Event.NONE
+                assertFalse(used.sameAs(raster.render(m,view).asAndroidBitmap()))
+                m.here().event = Event.HEAL; a.game.refresh()
+                assertFalse(a.game.engine.choices().any { it.action == "heal" })
+            }
+            capture("crystal-used")
+            scenario.onActivity { a ->
+                val e = a.game.engine
+                e.choose(e.choices().first { it.action == "move" && it.argument == 2L }); a.game.refresh()
+                a.game.save(blocking = true)
+            }
+            capture("crystal-used-revisit")
+            scenario.recreate()
+            scenario.onActivity { a ->
+                a.game.active = false
+                val e = a.game.engine
+                assertTrue(e.state.dungeon!!.cell(4,4).resolved)
+                e.choose(e.choices().first { it.action == "move" && it.argument == 0L }); a.game.refresh()
+                assertFalse(e.choices().any { it.action == "heal" })
+                assertEquals(262.0,e.state.hp,.001)
+            }
+            capture("crystal-used-reloaded")
+        }
+    }
+
+    @Test fun specialChallengeDirectionSelectionHasNoResetButton() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val e = challengeGame(ChallengeKind.LOST); openChallenge(e)
+                val m = Dungeon(9,9,MutableList(81) { Cell() },4,4,0)
+                m.here().wall = false
+                for (d in 0..3) m.cell(4 + MapGenerator.dx[d],4 + MapGenerator.dy[d]).wall = false
+                m.cell(4,3).event = Event.EXIT; e.state.dungeon = m; e.controls.reset(); e.press(0)
+                assertTrue(e.controls.directionSelectionActive())
+                a.game.engine = e; a.game.active = false; a.game.refresh()
+            }
+            bounds("메인 장면")
+            assertNull(find(instrumentation.uiAutomation.rootInActiveWindow,"방향 처음"))
+            capture("challenge-no-direction-reset")
         }
     }
 
