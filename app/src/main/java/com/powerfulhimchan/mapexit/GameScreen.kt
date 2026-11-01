@@ -62,7 +62,7 @@ fun MapExitScreen(vm: GameModel) {
                     if (
                         vm.active ||
                             vm.battleVisual?.let {
-                                uptime - it.startedAt <= BattleAnimation.DURATION_MS + 100
+                                uptime - it.startedAt <= it.duration + 100
                             } == true
                     )
                         clock = uptime
@@ -417,6 +417,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "shop" -> "상점"
                 "sell" -> "아이템 판매"
                 "quantity" -> "소모품 구매 수량"
+                "forge", "forgeConfirm" -> "대장간"
+                "upgradeTargets" -> "강화할 장비 선택"
                 "growth" -> "능력치 성장"
                 "bank" -> "골드 보관소"
                 "help" -> "탐험 기록"
@@ -481,6 +483,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                         "help",
                         "bestiary",
                         "achievements",
+                        "forge", "forgeConfirm", "upgradeTargets",
                         "challengeRecords",
                         "trainingChallenges",
                         "training",
@@ -504,6 +507,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     ExpeditionButton(c.label, "이동 장치로 출발", "enter") { vm.choose(c) }
                 }
             } else {
+                if (menu in listOf("forge","forgeConfirm","upgradeTargets")) upgradeCards(vm,menu!!)
                 if (menu == "growth") growthCards(vm)
                 if (menu in listOf("shop", "sell")) tradeCards(vm, menu!!)
                 if (menu == "item") item { ItemComparison(e) }
@@ -525,6 +529,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 items(
                     menuChoices.filterNot {
                         (menu in listOf("help", "shopItem")) ||
+                            (menu in listOf("forge","forgeConfirm","upgradeTargets") && it.action != "back") ||
                             (menu == "achievements" && it.action != "back") ||
                             (menu in listOf("training", "trainingTraps", "trainingChallenges", "challengeRecords") && it.action == "back") ||
                             (menu == "equipment" && it.action == "slotItem") ||

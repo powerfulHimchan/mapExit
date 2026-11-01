@@ -89,6 +89,7 @@ internal fun gearSprite(kind: Kind): String =
         Kind.RING -> "ring"
         Kind.NECKLACE -> "necklace"
         Kind.POTION -> "potion"
+        Kind.SCROLL -> "scroll"
     }
 
 internal data class HeroPose(val x: Float, val y: Float, val unit: Float)
@@ -108,6 +109,12 @@ internal fun DrawScope.adventurer(
     val unit = spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
+    if (s.hp > 0 && s.hp <= Equipment.stats(s).hp*.10) {
+        drawOval(red.copy(alpha=.20f),Offset(x-actual*.18f,y-unit*3),Size(actual*1.36f,unit*54f))
+        drawOval(red.copy(alpha=.85f),Offset(x-actual*.18f,y-unit*3),Size(actual*1.36f,unit*54f),style=androidx.compose.ui.graphics.drawscope.Stroke(unit*1.5f))
+        pixelRect(amber,x+actual*.5f,y-unit*9,unit*2,unit*5)
+        pixelRect(amber,x+actual*.5f,y-unit*3,unit*2,unit)
+    }
     if(shadow) contactShadow(x, baseline + 3, actual)
     combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride)
 
@@ -157,6 +164,10 @@ internal fun DrawScope.drawScene(
         s.floor == 0 || s.mode == Mode.INHERIT -> drawCamp(s, clock)
         else -> drawDungeonPerspective(s, clock, camera)
     }
+    if (s.hp > 0 && s.hp <= Equipment.stats(s).hp*.10 && s.floor > 0) {
+        val pulse=.45f+.15f*kotlin.math.sin(clock*.006).toFloat()
+        drawRect(red.copy(alpha=pulse),style=androidx.compose.ui.graphics.drawscope.Stroke(min(size.width,size.height)*.025f))
+    }
 }
 
 private fun DrawScope.drawCamp(s: State, clock: Long) {
@@ -188,7 +199,7 @@ private fun DrawScope.drawCamp(s: State, clock: Long) {
     val npcWidth = 60f
     sprite("merchant", w * .77f, h * .88f - spriteHeight("merchant", npcWidth), npcWidth)
     if (s.mode == Mode.INHERIT) {
-        val candidates = s.inventory.filter { !it.inherited && it.kind != Kind.POTION }.take(3)
+        val candidates = s.inventory.filter { !it.inherited && it.equippable }.take(3)
         candidates.forEachIndexed { i, gear ->
             val x = w * (.26f + i * .18f)
             pixelRect(amber.copy(alpha = .20f), x - 4, h * .22f - 4, 40f, 40f)
@@ -232,7 +243,7 @@ internal fun DrawScope.drawMap(s: State) {
     val oy = (size.height - 9 * unit) / 2 - startY * unit
     for (y in startY..m.y + radius) for (x in startX..m.x + radius) {
         val c = m.cell(x, y)
-        val charm = Equipment.charm(s) == Charm.MAP && MapGenerator.charmVisible(m, x, y)
+        val charm = Equipment.charm(s) == Charm.MAP && kotlin.math.abs(x-m.x)+kotlin.math.abs(y-m.y) <= 4 + (Equipment.charmRefinement(s)*20).toInt()
         if (!c.seen && !charm) continue
         val px = ox + x * unit
         val py = oy + y * unit
@@ -249,6 +260,7 @@ internal fun DrawScope.drawMap(s: State) {
                     Event.EXIT -> Color.White
                     Event.TRAP -> Color(0xFFE6A36A)
                     Event.PORTAL -> Color(0xFFBA9DDA)
+                    Event.FORGE -> amber
                     else -> null
                 }
             if (color != null)

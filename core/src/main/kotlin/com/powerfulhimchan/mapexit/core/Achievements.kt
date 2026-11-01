@@ -30,11 +30,13 @@ data class Achievement(
     val points: Int = 0,
     val title: String? = null,
     val specialGear: Boolean = false,
+    val scrolls: Int = 0,
 ) {
     val rewardText: String get() = buildList {
         if (gold > 0) add("${gold}G")
         if (potions > 0) add("회복약 ${potions}개")
         if (greaterPotions > 0) add("상급 회복약 ${greaterPotions}개")
+        if (scrolls > 0) add("강화서 ${scrolls}개")
         if (points > 0) add("성장 포인트 ${points}P")
         if (title != null) add("칭호 ‘$title’")
         if (specialGear) add("특별 반지 ‘귀환자의 인장’")
@@ -45,13 +47,13 @@ data class Achievement(
 object Achievements {
     val all = listOf(
         Achievement("first-victory", "첫 승리", "몬스터 첫 처치", 1, "kills", gold = 30),
-        Achievement("hunter-50", "익숙한 사냥꾼", "몬스터 누적 50마리 처치", 50, "kills", greaterPotions = 1),
+        Achievement("hunter-50", "익숙한 사냥꾼", "몬스터 누적 50마리 처치", 50, "kills", greaterPotions = 1, scrolls = 1),
         Achievement("hunter-200", "숙련된 사냥꾼", "몬스터 누적 200마리 처치", 200, "kills", points = 2, title = "숙련된 사냥꾼"),
         Achievement("discover-10", "관찰의 시작", "몬스터 10종 발견", 10, "species", gold = 100),
         Achievement("discover-30", "도감 연구가", "몬스터 30종 발견", 30, "species", points = 2, title = "도감 연구가"),
         Achievement("chests-20", "보물 사냥꾼", "상자 20개 개봉 (상자 몬스터 포함)", 20, "chests", greaterPotions = 2),
         Achievement("traps-20", "함정 전문가", "함정 회피 20회 성공", 20, "traps", points = 1, title = "함정 전문가"),
-        Achievement("quests-5", "믿음직한 해결사", "의뢰 보상 5회 수령", 5, "quests", gold = 200),
+        Achievement("quests-5", "믿음직한 해결사", "의뢰 보상 5회 수령", 5, "quests", gold = 200, scrolls = 1),
         Achievement("donations-3", "따뜻한 손길", "방랑자에게 3회 기부", 3, "donations", potions = 3, title = "따뜻한 손길"),
         Achievement("clutch-victory", "기사회생", "체력 10% 이하로 전투 승리", 1, "clutch", greaterPotions = 1),
         Achievement("boss-10", "첫 관문 돌파", "10층 보스 처치", 1, "boss10", points = 1),
@@ -143,6 +145,7 @@ object Achievements {
         s.achievements.claimed.add(a.id)
         s.gold += a.gold
         s.points += a.points
+        repeat(a.scrolls) { s.inventory.add(ItemFactory.scroll(s)) }
         repeat(a.potions) { s.inventory.add(ItemFactory.potion(s, PotionGrade.BASIC)) }
         repeat(a.greaterPotions) { s.inventory.add(ItemFactory.potion(s, PotionGrade.GREATER)) }
         if (a.specialGear) {

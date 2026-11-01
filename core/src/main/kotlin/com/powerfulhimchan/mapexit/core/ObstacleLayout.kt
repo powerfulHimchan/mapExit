@@ -5,6 +5,9 @@ import kotlin.math.*
 data class BladeStage(val heroX: Float,val heroWidth: Float,val bladeLeft: Float,val bladeRight: Float,val jump: Float)
 
 object ObstacleLayout {
+    fun cauldronSafeSide(t: TrapState): Int? = if(t.phase==TrapPhase.PREPARE) null else
+        if(t.phase==TrapPhase.RESULT) t.pattern.getOrNull(if(t.success) t.progress-1 else t.progress) else t.pattern.getOrNull(t.progress)
+    fun cauldronWaterLane(t: TrapState): Float? = cauldronSafeSide(t)?.let { if(it==0) .75f else .27f }
     /** Finish the last side step, hold the landing, then return to the middle. */
     fun sequenceHeroCenter(t: TrapState): Float {
         fun center(side: Int?) = when (side) { 0 -> .27f; 1 -> .75f; else -> .5f }

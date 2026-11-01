@@ -6,7 +6,7 @@ data class VisibleFixture(val x: Int, val y: Int, val event: Event, val depth: F
 
 object DungeonFixtures {
     private fun active(map: Dungeon): Boolean = (!map.here().resolved || map.here().event == Event.HEAL) &&
-        map.here().event in listOf(Event.HEAL, Event.EXIT, Event.PORTAL, Event.CHALLENGE) &&
+        map.here().event in listOf(Event.HEAL, Event.EXIT, Event.PORTAL, Event.CHALLENGE, Event.FORGE) &&
         (map.arrivalDirection !in 0..3 || map.direction == map.arrivalDirection)
 
     /** Limit approach progressively, so arriving at an altar never makes it shrink again. */
@@ -41,6 +41,7 @@ object DungeonFixtures {
             Event.MONSTER -> .46f
             Event.MERCHANT, Event.NPC, Event.ELITE -> .64f
             Event.HEAL -> .60f
+            Event.FORGE -> .66f
             Event.PORTAL -> .68f
             Event.CHALLENGE -> .45f
             Event.TRAP -> .12f

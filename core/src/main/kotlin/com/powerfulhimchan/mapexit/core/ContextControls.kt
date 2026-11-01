@@ -122,7 +122,7 @@ class ContextControls(private val engine: GameEngine) {
         fun b(label: String, action: String, arg: Long = 0) = ContextButton(label, Choice(label, action, arg))
         return run {
                 val all = engine.choices()
-                val event = all.firstOrNull { it.action in setOf("encounter", "heal", "exit", "challengeEnter", "challengeUse") }
+                val event = all.firstOrNull { it.action in setOf("encounter", "heal", "exit", "challengeEnter", "challengeUse", "forge") }
                 if (event != null && !eventSkipped)
                     listOf(ContextButton(event.label, event), ContextButton("지나가기", Choice("지나가기", "_skip")))
                 else {

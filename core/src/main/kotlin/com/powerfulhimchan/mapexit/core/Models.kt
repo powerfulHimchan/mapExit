@@ -37,6 +37,7 @@ enum class Event {
   ELITE,
   PORTAL,
   CHALLENGE,
+  FORGE,
 }
 
 @Serializable
@@ -67,6 +68,7 @@ enum class Kind(val label: String) {
   RING("반지"),
   NECKLACE("목걸이"),
   POTION("회복약"),
+  SCROLL("강화서"),
 }
 
 @Serializable
@@ -150,7 +152,9 @@ data class Gear(
     val bossOriginFloor: Int? = null,
     val affixes: List<WeaponAffix> = emptyList(),
     val potionGrade: PotionGrade = PotionGrade.BASIC,
+    val refinements: Int = 0,
 ) {
+  val equippable: Boolean get() = kind != Kind.POTION && kind != Kind.SCROLL
   val twoHanded: Boolean
     get() = kind == Kind.SPEAR || kind == Kind.HAMMER
 
@@ -179,6 +183,7 @@ data class Gear(
       else "보스 전리품 · ${bossOriginFloor}층\n기본: ${baseSummary()}\n추가 옵션: ${affixSummary()}"
 
   fun baseSummary(): String {
+    if (kind == Kind.SCROLL) return "장비 하나를 선택해 +등급 1단계 강화 · 사용 시 1개 소모"
     if (kind == Kind.POTION) return "최대 HP의 ${(potionGrade.healRatio * 100).toInt()}% 회복"
     if (kind == Kind.NECKLACE)
         return when (charm) {
@@ -188,7 +193,7 @@ data class Gear(
           Charm.TRAP -> "함정 시간·목표 구간 +25%"
           Charm.QUEST -> "미션 골드 보상 +25%"
           else -> ""
-        }
+        } + if (refinements > 0) { if (charm == Charm.MAP) " · 탐지 범위 +${refinements}칸" else " · 강화 효과 +${refinements * 5}%p" } else ""
     return Stat.entries
         .mapNotNull { st ->
           val f = flat.value(st)
@@ -288,6 +293,11 @@ enum class ImpactOutcome {
 }
 
 @Serializable
+data class AttackHit(val damage: Double, val critical: Boolean = false, val luckyAttack: Boolean = false, val luckyCritical: Boolean = false) {
+  val amount: Int get() = if (damage > 0) kotlin.math.round(damage).toInt().coerceAtLeast(1) else 0
+}
+
+@Serializable
 data class BattleImpact(
     val serial: Long,
     val target: ImpactTarget,
@@ -297,6 +307,7 @@ data class BattleImpact(
     val luckyAttack: Boolean = false,
     val luckyCritical: Boolean = false,
     val tactic: String = "",
+    val strikes: List<AttackHit> = emptyList(),
 ) {
   fun label(): String {
     val base =

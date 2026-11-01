@@ -35,6 +35,14 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     internal fun presentationState(now: Long): State {
         val motion = battleVisual
         if (motion != null && motion.active(now)) {
+            if (motion.impact.strikes.isNotEmpty()) {
+                val frame=motion.frame(now)
+                val index=((now-motion.startedAt).coerceAtLeast(0)/BattleAnimation.DURATION_MS).toInt()
+                if (index < motion.impact.strikes.lastIndex || now < frame.startedAt+BattleAnimation.HIT_MS)
+                    return frame.scene.copy(mode=Mode.COMBAT_ATTACK,enemy=frame.scene.enemy?.let {
+                        it.copy(hp=(it.hp-if(now>=frame.startedAt+BattleAnimation.HIT_MS) motion.impact.strikes[index].damage else 0.0).coerceAtLeast(0.0))
+                    })
+            }
             val beforeHit = now < motion.startedAt + BattleAnimation.HIT_MS
             if (engine.state.mode == Mode.RUN_RESULT)
                 return motion.scene.copy(hp = if (beforeHit) motion.scene.hp else 0.0)
