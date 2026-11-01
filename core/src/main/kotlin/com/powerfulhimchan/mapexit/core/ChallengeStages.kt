@@ -374,7 +374,7 @@ object ChallengeStages {
             c.kind == ChallengeKind.SEALS && here == m.width + 1 -> "입구 문양: ${c.sealOrder.joinToString(" → ") { runeNames[it - 1] }}"
             c.kind == ChallengeKind.SEALS && m.here().event == Event.CHALLENGE && !m.here().resolved -> "${runeNames[m.here().challengeMark - 1]} 제단 · 순서를 기억하세요"
             c.kind == ChallengeKind.TORCH && m.here().event == Event.CHALLENGE && !m.here().resolved -> "불이 남은 화로입니다 · 횃불을 보충하세요"
-            else -> "벽 표식 ${rune(here)} · ${listOf("북", "동", "남", "서")[m.direction]}쪽을 보는 중"
+            else -> "벽의 그림과 번호를 기억하세요 · ${listOf("북", "동", "남", "서")[m.direction]}쪽을 보는 중"
         }
     }
 

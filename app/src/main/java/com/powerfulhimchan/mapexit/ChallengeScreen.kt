@@ -109,12 +109,10 @@ internal fun ChallengeScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                     stateDescription = if (phase == ChallengePhase.HAZARD) {
                         mechanismHint(s.dungeon!!.here().challengeMark) + " · " +
                             if (ChallengeStages.hazardSafe(s.dungeon!!.here().challengeMark, c.hazardMs)) "안전 구간" else "작동 중"
-                    } else "벽 표식 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}"
+                    } else "벽에 그림과 번호가 새겨진 통로 · 현재 위치 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}"
                 }) {
                     PixelCanvas(s, clock, Modifier.fillMaxSize(), camera = vm.dungeonCamera.sample(clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis()))
                     if (phase == ChallengePhase.HAZARD) ChallengeMechanism(s, Modifier.fillMaxSize())
-                    Text("벽 표식 ${ChallengeStages.rune(s.dungeon!!.y * s.dungeon!!.width + s.dungeon!!.x)}",
-                        color = amber, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopStart).background(ink.copy(alpha = .85f)).padding(7.dp))
                 }
                 Text(if (phase == ChallengePhase.HAZARD) mechanismHint(s.dungeon!!.here().challengeMark) else ChallengeStages.clue(s), color = pale, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.fillMaxWidth().background(panel).padding(8.dp).semantics { contentDescription = "도전 단서" })

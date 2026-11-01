@@ -3175,9 +3175,11 @@ class LaunchTest {
                     scenario.recreate()
                     scenario.onActivity { a ->
                         a.game.active = false
+                        assertEquals(ChallengePhase.PAUSED,a.game.engine.state.challenge!!.phase)
                         assertEquals(58,a.game.engine.state.dungeon!!.let { it.y*it.width+it.x })
                         assertEquals("산-8",ChallengeStages.rune(a.game.engine.state.dungeon!!.let { it.y*it.width+it.x }))
                     }
+                    tap("도전 계속")
                     bounds("메인 장면")
                     capture("challenge-wall-reloaded-${if(compact) "compact" else "normal"}")
                 }
