@@ -53,6 +53,8 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
     private var lastGeometry = 0
     private var lastVisibility = 12f
     private var lastHideCurrentFeature = false
+    private var lastWallMarks = false
+    private val wallMarkTextures = mutableMapOf<Pair<Int,Int>, Texture>()
 
     private fun shade(color: Int, light: Int): Int =
         (0xff shl 24) or
@@ -60,7 +62,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
             ((((color ushr 8) and 255) * light / 256) shl 8) or
             ((color and 255) * light / 256)
 
-    fun render(map: Dungeon, camera: DungeonViewPose, theme: DungeonTheme = DungeonTheme.MOSS, visibility: Float = 12f, hideCurrentFeature: Boolean = false): ImageBitmap {
+    fun render(map: Dungeon, camera: DungeonViewPose, theme: DungeonTheme = DungeonTheme.MOSS, visibility: Float = 12f, hideCurrentFeature: Boolean = false, wallMarks: Boolean = false): ImageBitmap {
         fun fog(light: Int, distance: Float): Int = if (visibility >= 12f) light else (light * (1f - distance / visibility).coerceIn(0f, 1f)).toInt()
         val textures = materials.getOrPut(theme) {
             Materials(Texture(PixelMaterials.wall(Color(theme.wall), theme = theme)),
@@ -68,7 +70,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Texture(PixelMaterials.floor(theme)))
         }
         val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + cell.challengeMark * 67 + cell.npcRole.ordinal * 43 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
-        if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme && lastVisibility == visibility && lastHideCurrentFeature == hideCurrentFeature) return image
+        if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme && lastVisibility == visibility && lastHideCurrentFeature == hideCurrentFeature && lastWallMarks == wallMarks) return image
         val dx = cos(camera.angle)
         val dy = sin(camera.angle)
         val focal = DungeonFixtures.focal(map,width,height)
@@ -131,10 +133,17 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
             val end = floor(bottom).toInt().coerceAtMost(height - 1)
             val hit = if (side == 0) camera.y + ry * distance else camera.x + rx * distance
             val u = hit - floor(hit)
+            val markU = if (side == 0 && stepX < 0 || side == 1 && stepY > 0) 1f - u else u
             val light =
                 ((if (side == 0) 232f else 208f) / (1f + distance * .10f)).toInt().coerceAtLeast(65)
             val isDoor = DungeonFixtures.doorOnFace(map, mx, my, if (side == 0) mx - stepX else mx, if (side == 1) my - stepY else my)
-            val hasTorch = ((mx * 31 + my * 17) and 7) == 0
+            val markIndex = if (wallMarks && !isDoor) ChallengeStages.wallRuneIndex(map, mx, my,
+                if (side == 0) mx - stepX else mx, if (side == 1) my - stepY else my) else null
+            val mark = markIndex?.let { index ->
+                val key = ChallengeStages.runeSymbol(index) to ChallengeStages.runeNumber(index)
+                wallMarkTextures.getOrPut(key) { Texture(ChallengeWallMarks.bitmap(key.first, key.second)) }
+            }
+            val hasTorch = mark == null && ((mx * 31 + my * 17) and 7) == 0
             for (y in start..end) {
                 val v = (y + .5f - top) / span
                 var color = textures.wall.at(u, v)
@@ -149,6 +158,11 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 if (isDoor && u in .17f.. .83f && v in .08f..1f) {
                     val door = assets.getValue("door").sample((u-.17f)/.66f,(v-.08f)/.92f)
                     if (door ushr 24 != 0) color = door
+                }
+                // Sample in the hit face's UVs, so marks stay painted on the masonry while turning.
+                if (mark != null && markU in .20f.. .80f && v in .20f.. .76f) {
+                    val chalk = mark.sample((markU - .20f) / .60f, (v - .20f) / .56f)
+                    if (chalk ushr 24 != 0) color = chalk
                 }
                 // One contact edge at the actual floor, rather than a projecting lip per tile.
                 val edge = if (bottom - y < 2f || y - top < 1f) light * 2 / 3 else light
@@ -202,6 +216,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
         lastGeometry = geometry
         lastVisibility = visibility
         lastHideCurrentFeature = hideCurrentFeature
+        lastWallMarks = wallMarks
         return image
     }
 }

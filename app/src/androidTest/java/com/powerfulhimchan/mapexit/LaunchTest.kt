@@ -3153,6 +3153,40 @@ class LaunchTest {
         }
     }
 
+    @Test fun challengeWallsShowPhysicalMarksOnNormalAndCompactScreensAfterReload() {
+        for (compact in listOf(false,true)) {
+            if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+            try {
+                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    for (kind in listOf(ChallengeKind.LOST,ChallengeKind.MEMORY,ChallengeKind.COLLAPSE)) {
+                        scenario.onActivity { a ->
+                            val e = challengeGame(kind); openChallenge(e)
+                            val m = Dungeon(9,9,MutableList(81) { Cell() },4,6,0)
+                            for (y in 2..7) m.cell(4,y).wall = false
+                            m.cell(3,4).wall = false; m.cell(2,4).wall = false
+                            m.cell(4,2).event = Event.EXIT; m.reveal()
+                            e.state.dungeon = m; e.controls.reset()
+                            a.game.engine = e; a.game.active = false; a.game.refresh()
+                        }
+                        bounds("메인 장면")
+                        capture("challenge-wall-${kind.name.lowercase()}-${if(compact) "compact" else "normal"}")
+                    }
+                    scenario.onActivity { it.game.save(blocking=true) }
+                    scenario.recreate()
+                    scenario.onActivity { a ->
+                        a.game.active = false
+                        assertEquals(58,a.game.engine.state.dungeon!!.let { it.y*it.width+it.x })
+                        assertEquals("산-8",ChallengeStages.rune(a.game.engine.state.dungeon!!.let { it.y*it.width+it.x }))
+                    }
+                    bounds("메인 장면")
+                    capture("challenge-wall-reloaded-${if(compact) "compact" else "normal"}")
+                }
+            } finally {
+                if (compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+            }
+        }
+    }
+
     @Test fun specialChallengeDirectionSelectionHasNoResetButton() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { a ->
