@@ -326,7 +326,7 @@ class GameEngine(
                             if (g.id in s.equipment.values) add(c("장착 해제", "unequip", g.id))
                         }
                 }
-                "upgradeTargets" -> s.inventory.filter { it.equippable }.map { c("강화 · ${it.name}","upgradeTarget",it.id) }
+                "upgradeTargets" -> s.inventory.filter { it.equippable }.map { c("강화 · ${it.name}${Equipment.equippedLabel(s,it.id)}","upgradeTarget",it.id) }
                 "forge" -> Forge.pairs(s).map { c("합성 선택 · ${it.base.name}","forgePair",it.base.id) }
                 "forgeConfirm" -> Forge.pairs(s).firstOrNull { it.base.id == menu.argument }?.let {
                     listOf(c("합성 실행 · ${it.base.name}","forgeDo",it.base.id))

@@ -25,7 +25,7 @@ internal fun LazyListScope.upgradeCards(vm: GameModel, menu: String) {
         }
     }
     val pairs=Forge.pairs(s)
-    val targets=if(menu=="upgradeTargets") InventoryStacks.groups(s.inventory.filter { it.equippable },s.equipment.values).map { it.representative }
+    val targets=if(menu=="upgradeTargets") s.inventory.filter { it.equippable }
         else pairs.filter { menu!="forgeConfirm" || it.base.id==s.menu?.argument }.map { it.base }
     if(targets.isEmpty()) item { Text(if(menu=="upgradeTargets") "강화할 장비가 없습니다. 강화서는 소모되지 않습니다." else "같은 등급의 동일 장비가 2개 필요합니다.",color=muted,fontSize=14.sp) }
     items(targets,key={"upgrade:${it.id}"}) { gear ->

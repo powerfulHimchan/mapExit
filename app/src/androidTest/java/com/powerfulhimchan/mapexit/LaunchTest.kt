@@ -3255,17 +3255,17 @@ class LaunchTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { a ->
                 val gear=Gear(1,Kind.SWORD,"시험 검 +2",2,Stats.zero().copy(attack=40.0),variantId="longsword")
-                val e=GameEngine(State(bootstrapped=true,nextId=10,inventory=mutableListOf(gear,Gear(2,Kind.SCROLL,"강화서",price=180),Gear(3,Kind.SCROLL,"강화서",price=180)),equipment=mutableMapOf(Slot.RIGHT to 1L)))
+                val e=GameEngine(State(bootstrapped=true,nextId=10,inventory=mutableListOf(gear,Gear(2,Kind.SCROLL,"강화서",price=180),Gear(3,Kind.SCROLL,"강화서",price=180),gear.copy(id=4)),equipment=mutableMapOf(Slot.RIGHT to 1L)))
                 e.choose(e.choices().first { it.action=="inventory" });a.game.engine=e;a.game.active=false;a.game.refresh()
             }
             tap("강화서 ×2",allowScroll=true);tap("강화할 장비 선택",allowScroll=true)
-            bounds("강화 · 시험 검 +2",allowScroll=true);capture("upgrade-scroll-preview")
-            tap("강화 · 시험 검 +2",allowScroll=true);bounds("가방")
+            bounds("강화 · 시험 검 +2 [착용중] · 오른손",allowScroll=true);capture("upgrade-scroll-preview")
+            tap("강화 · 시험 검 +2 [착용중] · 오른손",allowScroll=true);bounds("가방")
             bounds("시험 검 +3 [착용중]",allowScroll=true);capture("upgrade-scroll-result")
             scenario.onActivity { a ->
                 val s=a.game.engine.state
                 assertEquals(1,s.inventory.count { it.kind==Kind.SCROLL });assertEquals(3,s.inventory.first { it.id==1L }.tier)
-                assertEquals(1L,s.equipment[Slot.RIGHT]);a.game.save(blocking=true)
+                assertEquals(1L,s.equipment[Slot.RIGHT]);assertEquals(2,s.inventory.first { it.id==4L }.tier);a.game.save(blocking=true)
             }
             scenario.recreate();scenario.onActivity { a -> a.game.active=false;assertEquals(3,a.game.engine.state.inventory.first { it.id==1L }.tier) }
         }
