@@ -44,7 +44,8 @@ internal fun LazyListScope.upgradeCards(vm: GameModel, menu: String) {
             if(menu!="upgradeTargets" && pair!=null) {
                 Text("소모 재료: ${pair.material.name}${Equipment.equippedLabel(s,pair.material.id)}",color=amber,fontSize=12.sp)
                 Text(pair.material.summary(),color=muted,fontSize=11.sp,lineHeight=16.sp)
-                Text("성공 ${(100-Forge.failureChance(s)*100).toInt()}% · 실패 ${(Forge.failureChance(s)*100).toInt()}% · 행운에 따라 변동",color=amber,fontSize=12.sp)
+                val failure=Forge.failureChance(s)
+                Text(String.format(java.util.Locale.ROOT,"성공 %.1f%% · 실패 %.1f%% · 행운에 따라 변동",(1-failure)*100,failure*100),color=amber,fontSize=12.sp)
             }
             Text("→ ${next.name}",color=mint,fontSize=15.sp)
             Text(next.summary(),color=mint,fontSize=12.sp,lineHeight=18.sp)

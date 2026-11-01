@@ -193,7 +193,7 @@ data class Gear(
           Charm.TRAP -> "함정 시간·목표 구간 +25%"
           Charm.QUEST -> "미션 골드 보상 +25%"
           else -> ""
-        } + if (refinements > 0) " · 강화 효과 +${refinements * 5}%p" else ""
+        } + if (refinements > 0) { if (charm == Charm.MAP) " · 탐지 범위 +${refinements}칸" else " · 강화 효과 +${refinements * 5}%p" } else ""
     return Stat.entries
         .mapNotNull { st ->
           val f = flat.value(st)
