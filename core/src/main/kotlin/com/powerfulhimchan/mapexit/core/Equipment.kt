@@ -9,6 +9,8 @@ object Equipment {
     fun charm(state: State): Charm =
         equipped(state).firstOrNull { it.kind == Kind.NECKLACE }?.charm ?: Charm.NONE
 
+    fun charmRefinement(state: State): Double = (equipped(state).firstOrNull { it.kind == Kind.NECKLACE }?.refinements ?: 0) * .05
+
     fun stats(state: State): Stats {
         var result = Stats.zero()
         val gear = equipped(state)
@@ -92,7 +94,7 @@ object Equipment {
 
     /** Compare complete raw loadouts, including penalties and displaced two-handed gear. */
     fun isUpgrade(state: State, item: Gear, targetSlot: Slot? = null): Boolean {
-        if (item.kind == Kind.POTION || item.id in state.equipment.values) return false
+        if (!item.equippable || item.id in state.equipment.values) return false
         val slots = targetSlot?.let { listOf(it) } ?: allowedSlots(item)
         fun raw(s: State, stat: Stat): Double {
             val gear = equipped(s)
@@ -144,7 +146,7 @@ object Equipment {
     }
 
     fun buyPrice(state: State, item: Gear): Int =
-        max(1, (item.price * (if (charm(state) == Charm.MERCHANT) .8 else 1.0)).toInt())
+        max(1, (item.price * (if (charm(state) == Charm.MERCHANT) (.8-charmRefinement(state)).coerceAtLeast(.40) else 1.0)).toInt())
 
     fun sellPrice(item: Gear): Int = max(1, item.price / 3)
 
@@ -155,6 +157,11 @@ object Equipment {
 }
 
 object ItemFactory {
+    fun scroll(s: State) = Gear(s.nextId++,Kind.SCROLL,"강화서",price=180)
+    fun rareScroll(s: State) {
+        if (s.shop.none { it.kind == Kind.SCROLL } && s.random() < Luck.good(.025,Equipment.stats(s).luck,.06)) s.shop.add(scroll(s))
+    }
+
     fun potion(s: State, grade: PotionGrade): Gear = Gear(
         s.nextId++, Kind.POTION, grade.label, price = grade.price, potionGrade = grade,
     )
@@ -165,9 +172,11 @@ object ItemFactory {
         floor: Int = max(1, s.floor),
         variantId: String? = null,
     ): Gear {
-        val k = kind ?: Kind.entries[s.nextInt(Kind.entries.size)]
-        val tier = (1 + (floor - 1) / 10 + s.nextInt(2)).coerceAtMost(7)
-        if (k == Kind.POTION && kind == null && floor >= 11 && s.random() < .25)
+        if (kind == Kind.SCROLL) return scroll(s)
+        val regular = Kind.entries.filter { it != Kind.SCROLL }
+        val k = kind ?: regular[s.nextInt(regular.size)]
+        val tier = (1 + (floor - 1) / 10 + if (s.random() < 1-Luck.good(.5,Equipment.stats(s).luck,.80)) 0 else 1).coerceAtMost(7)
+        if (k == Kind.POTION && kind == null && floor >= 11 && s.random() < Luck.good(.25,Equipment.stats(s).luck,.55))
             return potion(s, PotionGrade.GREATER)
         val t = tier.toDouble()
         var f = Stats.zero()
@@ -194,6 +203,7 @@ object ItemFactory {
             Kind.BODY,
             Kind.PANTS -> f = f.copy(defense = 4 * t, hp = 15 * t)
             Kind.BOOTS -> f = f.copy(defense = 2 * t, agility = 3 * t)
+            Kind.SCROLL -> error("Scroll is created separately")
             Kind.POTION -> title = "회복약"
             Kind.RING ->
                 when (s.nextInt(6)) {

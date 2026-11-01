@@ -178,6 +178,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Event.MONSTER -> MonsterCatalog.find(map.cell(fixture.x,fixture.y).monsterId)?.sprite
                     ?: MonsterCatalog.forFloor(theme.ordinal * 10 + 1)[(fixture.x + fixture.y) % 6].sprite
                 Event.ELITE -> MonsterCatalog.special(theme.ordinal * 10 + 1, false).sprite
+                Event.FORGE -> "forge"
                 Event.PORTAL -> "challenge_portal"
                 Event.CHALLENGE -> ChallengeStages.featureSprite(map.cell(fixture.x, fixture.y))
                 Event.TRAP -> "trap"

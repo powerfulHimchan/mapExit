@@ -47,10 +47,10 @@ internal fun LootRewardRow(vm: GameModel, gear: Gear, showSummary: Boolean = tru
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(gear.name, color = pale, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold)
                 if (showSummary) Text(gear.summary(), color = muted, fontSize = 11.sp, lineHeight = 15.sp)
-                if (gear.kind != Kind.POTION) LootEquipButton(vm, gear)
+                if (gear.equippable) LootEquipButton(vm, gear)
             }
         }
-        if (gear.kind != Kind.POTION && gear.id !in vm.engine.state.equipment.values)
+        if (gear.equippable && gear.id !in vm.engine.state.equipment.values)
             ShopComparison(vm.engine.state, gear, occupiedOnly = true)
     }
 }
@@ -102,7 +102,7 @@ internal fun ShopDetail(vm: GameModel) {
                 ItemArt(gear,Modifier.size(48.dp));Text(gear.name,color=pale,fontSize=18.sp,fontWeight=FontWeight.Bold)
             }
             Text(gear.summary(),color=pale,fontSize=12.sp,lineHeight=18.sp)
-            if(gear.kind!=Kind.POTION) ShopComparison(s,gear)
+            if(gear.equippable) ShopComparison(s,gear)
             if(gear.kind==Kind.POTION) Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                 for(n in listOf(1,3,5)) Box(Modifier.weight(1f).heightIn(min=48.dp)
                     .gameClickable(selected = count == n) { count=n }

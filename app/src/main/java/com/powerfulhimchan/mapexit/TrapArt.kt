@@ -87,50 +87,56 @@ private fun DrawScope.chain(x: Float, bottom: Float) {
 private fun DrawScope.cauldron(t: TrapState, danger: Float, side: Int?) {
     val w = size.width
     val h = size.height
-    val tilt = (if (side == 1) -1 else 1) * (5f + danger * 28f)
-    chain(w * .32f, h * .19f)
-    chain(w * .68f, h * .19f)
-    withTransform({ rotate(tilt, Offset(w * .5f, h * .23f)) }) {
-        drawOval(iron, Offset(w * .23f, h * .13f), Size(w * .54f, h * .28f))
-        pixelRect(Color(0xff293f4c), w * .28f, h * .22f, w * .44f, h * .18f)
-        drawOval(Color(0xff1b2a33), Offset(w * .23f, h * .12f), Size(w * .54f, h * .11f))
-        drawOval(water, Offset(w * .26f, h * .14f), Size(w * .48f, h * .065f))
-        drawOval(edge, Offset(w * .23f, h * .12f), Size(w * .54f, h * .11f), style = Stroke(4f))
-        drawOval(iron, Offset(w * .16f, h * .20f), Size(w * .10f, h * .12f), style = Stroke(5f))
-        drawOval(iron, Offset(w * .74f, h * .20f), Size(w * .10f, h * .12f), style = Stroke(5f))
-        for (i in 0..6) pixelRect(
-            edge.copy(alpha = .6f),
-            w * (.30f + i * .06f),
-            h * .25f,
-            2f,
-            h * .10f,
-        )
-    }
-    for (i in 0..7) {
-        val drift = sin(t.elapsedMs * .013f + i) * w * .035f
-        pixelRect(
-            pale.copy(alpha = .45f),
-            w * (.30f + i * .055f) + drift,
-            h * (.04f + (i % 3) * .025f),
-            w * .018f,
-            h * .07f,
-        )
-    }
-    val pour = if (side == 1) .28f else .72f
-    val flowing = t.phase == TrapPhase.ACTIVE || (t.phase == TrapPhase.RESULT && !t.success)
-    if (flowing)
-        for (i in 0..14) {
-            val y = h * (.28f + i * .035f)
-            val x = w * pour + sin(i * .8f + t.elapsedMs * .025f) * 6
-            pixelRect(
-                if (i % 3 == 0) edge else water,
-                x,
-                y,
-                w * (.015f + danger * .025f),
-                h * .055f,
-            )
-            if (i > 11) pixelRect(water.copy(alpha = .5f), x - 20, h * .79f, 45f, 4f)
+    val lane=ObstacleLayout.cauldronWaterLane(t)
+    val pourRight=lane?.let { it>.5f } ?: true
+    val tilt=(if(pourRight) 1 else -1)*(if(lane==null) 2f else 24f)
+    val pivot=Offset(w*.5f,h*.22f)
+    chain(w*.32f,h*.17f); chain(w*.68f,h*.17f)
+    withTransform({ rotate(tilt,pivot) }) {
+        // A deep cast-iron bowl, rolled lip and two raised carrying handles.
+        drawOval(iron,Offset(w*.20f,h*.13f),Size(w*.12f,h*.15f),style=Stroke(4f))
+        drawOval(iron,Offset(w*.68f,h*.13f),Size(w*.12f,h*.15f),style=Stroke(4f))
+        val bowl=Path().apply {
+            moveTo(w*.25f,h*.20f);lineTo(w*.75f,h*.20f)
+            cubicTo(w*.74f,h*.43f,w*.26f,h*.43f,w*.25f,h*.20f);close()
         }
+        drawPath(bowl,Color(0xff17252e));drawPath(bowl,iron,style=Stroke(4f))
+        drawOval(Color(0xff0b1821),Offset(w*.24f,h*.145f),Size(w*.52f,h*.10f))
+        drawOval(water,Offset(w*.28f,h*.17f),Size(w*.44f,h*.055f))
+        drawOval(edge,Offset(w*.24f,h*.145f),Size(w*.52f,h*.10f),style=Stroke(3f))
+        drawArc(edge.copy(alpha=.5f),20f,140f,false,Offset(w*.29f,h*.22f),Size(w*.42f,h*.13f),style=Stroke(2f))
+        for(i in 0..2) pixelRect(iron,w*(.39f+i*.09f),h*.29f,2f,h*.045f)
+    }
+    for(i in 0..4) {
+        val drift=sin(t.elapsedMs*.006f+i)*w*.02f
+        drawOval(pale.copy(alpha=.25f),Offset(w*(.36f+i*.055f)+drift,h*(.07f-(i%2)*.025f)),Size(w*.026f,h*.06f))
+    }
+    if(lane!=null) {
+        val rad=tilt*PI.toFloat()/180
+        val local=Offset(w*(if(pourRight) .74f else .26f),h*.19f)-pivot
+        val lip=pivot+Offset(local.x*cos(rad)-local.y*sin(rad),local.x*sin(rad)+local.y*cos(rad))
+        val landing=Offset(w*lane,h*.94f)
+        val age=if(t.phase==TrapPhase.RESULT) 300L else t.elapsedMs-t.stepStartedMs
+        val reach=(age/260f).coerceIn(.12f,1f)
+        val fade=if(t.phase==TrapPhase.RESULT && t.success) (1-t.elapsedMs/700f).coerceIn(0f,1f) else 1f
+        for(i in 0..23) {
+            val f=i/23f
+            if(f>reach) continue
+            val point=Offset(lip.x+(landing.x-lip.x)*f,lip.y+(landing.y-lip.y)*f*f)
+            val sway=sin(i*1.3f+t.elapsedMs*.025f)*w*.006f*f
+            pixelRect(water.copy(alpha=.8f*fade),point.x+sway-w*.012f,point.y,w*.025f,h*.035f)
+            if(i%3==0) pixelRect(edge.copy(alpha=fade),point.x+sway,point.y,w*.008f,h*.02f)
+        }
+        if(reach>=.95f) {
+            drawOval(water.copy(alpha=.40f*fade),Offset(landing.x-w*.12f,landing.y-h*.018f),Size(w*.24f,h*.035f))
+            for(i in 0..4) {
+                val f=((t.elapsedMs+i*67)%300)/300f
+                val direction=if(i%2==0) -1 else 1
+                pixelRect(water.copy(alpha=(1-f)*fade),landing.x+direction*w*.11f*f,landing.y-h*.06f*sin(f*PI.toFloat()),w*.014f,h*.012f)
+            }
+        }
+    }
+
 }
 
 private fun DrawScope.drawPhysicalChallenge(s: State, t: TrapState) {

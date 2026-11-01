@@ -427,6 +427,25 @@ for role in ['beggar','healer','herbalist']:
   a.rect(24,31,7,1,23);a.rect(24,34,7,1,23)
  sprites['npc_'+role]=a
 
+# Upgrade parchment and the furnace/anvil landmark share the established pixel palette.
+a=Art(32,40)
+a.rect(6,5,21,29,12);a.rect(7,6,19,27,17);a.rect(10,9,13,23,24)
+a.rect(4,4,23,5,14);a.rect(5,4,21,2,18);a.rect(5,31,23,5,14);a.rect(6,31,21,2,18)
+a.poly([(16,11),(22,20),(18,20),(18,27),(14,27),(14,20),(10,20)],8)
+a.line(16,13,20,19,41);a.rect(12,28,9,1,23)
+sprites['scroll']=a
+a=Art(40,48)
+a.rect(3,2,22,36,2);a.rect(5,3,18,33,3)
+for row in range(5):
+ for col in range(3):a.rect(5+col*6+(row%2)*2,3+row*5,5,4,4)
+a.rect(8,12,14,20,1);a.poly([(9,31),(10,22),(13,26),(15,15),(20,23),(21,31)],46)
+a.poly([(11,31),(14,24),(15,28),(18,21),(20,31)],47);a.poly([(14,31),(16,26),(18,31)],48)
+a.rect(4,33,24,5,4);a.rect(5,33,22,1,5)
+a.rect(13,39,23,7,12);a.rect(16,35,17,6,3)
+a.poly([(9,27),(37,27),(33,31),(28,31),(29,36),(18,36),(19,31),(12,31)],4)
+a.rect(10,26,26,2,5);a.rect(25,14,3,11,14);a.rect(21,12,11,6,4);a.rect(21,12,11,2,5)
+sprites['forge']=a
+
 header='''package com.powerfulhimchan.mapexit
 
 import android.graphics.Bitmap

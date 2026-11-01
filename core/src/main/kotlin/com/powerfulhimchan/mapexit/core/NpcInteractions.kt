@@ -33,8 +33,11 @@ object NpcInteractions {
     fun roleFor(seed: Long, floor: Int): NpcRole =
         NpcRole.entries[random(seed, floor, 0x4E50435F524F4C45L).nextInt(NpcRole.entries.size)]
 
-    fun giftFor(seed: Long, floor: Int): Boolean =
-        random(seed, floor, 0x4E50435F47494654L).random() < GIFT_CHANCE
+    fun giftFor(seed: Long, floor: Int, luck: Double = 0.0): Boolean =
+        random(seed, floor, 0x4E50435F47494654L).random() < GIFT_CHANCE || bonusGift(seed,floor,luck)
+
+    private fun bonusGift(seed: Long, floor: Int, luck: Double): Boolean = luck > 0 &&
+        random(seed,floor,0x424F4E5553474946L).random() < (Luck.good(GIFT_CHANCE,luck,.50)-GIFT_CHANCE)/(1-GIFT_CHANCE)
 
     fun role(state: State): NpcRole = state.dungeon?.here()?.npcRole ?: NpcRole.QUEST
 
@@ -63,7 +66,7 @@ object NpcInteractions {
 
     fun description(state: State): String {
         val body = when (role(state)) {
-            NpcRole.BEGGAR -> "“길을 잃고 가진 것을 모두 잃었어요. 10G만 도와주시겠어요?”\n기부하면 30% 확률로 회복약 1개를 답례합니다. 소지 ${state.gold}G"
+            NpcRole.BEGGAR -> "“길을 잃고 가진 것을 모두 잃었어요. 10G만 도와주시겠어요?”\n소지 ${state.gold}G"
             NpcRole.HEALER -> "“잠시 쉬세요. 가벼운 상처는 제가 돌봐드릴게요.”\n무료로 최대 체력의 20%를 회복합니다. 현재 ${state.hp.roundToInt()} / ${Equipment.stats(state).hp.roundToInt()}"
             NpcRole.HERBALIST -> "“직접 만든 회복약이에요. 필요할 때 쓰세요.”\n회복약 1개를 받습니다. 가방에서 사용하면 최대 체력의 35%를 회복합니다."
             else -> ""
@@ -80,7 +83,9 @@ object NpcInteractions {
         blockedReason(state)?.let { return NpcOutcome(false, it) }
         val message = when (role) {
             NpcRole.BEGGAR -> {
-                val gift = cell.npcGift ?: giftFor(state.visitorSeed ?: state.rng, state.floor).also { cell.npcGift = it }
+                val seed = state.visitorSeed ?: state.rng
+                val gift = (cell.npcGift ?: giftFor(seed,state.floor)) || bonusGift(seed,state.floor,Equipment.stats(state).luck)
+                cell.npcGift = gift
                 state.gold -= DONATION_GOLD
                 if (gift) {
                     state.inventory.add(ItemFactory.create(state, Kind.POTION))

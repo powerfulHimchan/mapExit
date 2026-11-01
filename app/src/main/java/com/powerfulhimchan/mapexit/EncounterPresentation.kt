@@ -35,11 +35,11 @@ internal fun EncounterCaption(vm: GameModel, modifier: Modifier) {
             Event.MERCHANT -> "장비와 소모품을 사고, 가지고 있는 장비를 팔 수 있습니다."
             else -> if (NpcInteractions.role(s) != NpcRole.QUEST) NpcInteractions.description(s) else
                 s.quest?.let {
-                    if (it.complete) "${it.title}\n의뢰 완료 · 보상을 받을 수 있습니다."
+                    if (it.complete) "${it.title}\n의뢰 완료 · 골드와 강화서 1개를 받을 수 있습니다."
                     else "진행 중: ${it.title}\n${it.progress} / ${it.target} · 새 의뢰는 제시하지 않습니다."
                 }
                     ?: s.dungeon?.here()?.questOffer?.let {
-                        "${it.title}\n보상 ${it.reward} G · 수락하시겠습니까?"
+                        "${it.title}\n보상 ${it.reward} G · 강화서 1개 · 수락하시겠습니까?"
                     }
                     ?: "지금 부탁할 수 있는 의뢰가 없습니다."
         }

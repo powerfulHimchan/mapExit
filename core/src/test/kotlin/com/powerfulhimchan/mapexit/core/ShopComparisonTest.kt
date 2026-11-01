@@ -7,7 +7,7 @@ class ShopComparisonTest {
     @Test
     fun shopPreviewMatchesRealEquipWithoutChangingWalletInventoryOrSave() {
         val e = GameEngine(State(gold = 1000))
-        for (kind in Kind.entries.filter { it != Kind.POTION }) {
+        for (kind in Kind.entries.filter { it != Kind.POTION && it != Kind.SCROLL }) {
             val candidate = ItemFactory.create(e.state, kind)
             val saved = SaveCodec.encode(e.state)
             val previews = Equipment.compare(e.state, candidate)

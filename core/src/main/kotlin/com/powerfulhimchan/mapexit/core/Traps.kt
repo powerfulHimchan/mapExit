@@ -32,6 +32,7 @@ data class TrapState(
     var result: String = "",
     var action: Int = -1,
     var actionAtMs: Long = 0L,
+    var stepStartedMs: Long = 0L,
 ) {
     val title: String
         get() = listOf("순간 입력", "바닥 칼날", "연타", "패턴 기억", "천장 나무봉")[type]
@@ -118,7 +119,7 @@ object Traps {
 
     fun create(s: State, type: Int): TrapState {
         require(type in 0..4)
-        val charm = if (Equipment.charm(s) == Charm.TRAP) 1.25 else 1.0
+        val charm = if (Equipment.charm(s) == Charm.TRAP) 1.25 + Equipment.charmRefinement(s) else 1.0
         val depth = s.floor.coerceIn(1, 50) - 1
         val first = s.nextInt(2)
         val pattern =
@@ -210,6 +211,7 @@ object Traps {
                     finish(t, false, "잘못된 순서! 회피 실패")
                 }
                 else {
+                    t.stepStartedMs = t.elapsedMs
                     t.progress++
                     if (t.progress == t.pattern.size) {
                         t.action = button

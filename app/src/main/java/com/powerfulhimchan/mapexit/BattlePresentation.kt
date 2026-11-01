@@ -31,7 +31,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
     vm.revision
     val time = clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis()
     val s = vm.presentationState(time).copy()
-    val motion = vm.battleVisual?.takeIf { it.active(time) }
+    val motion = vm.battleVisual?.takeIf { it.active(time) }?.frame(time)
     val inBattle = s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null)
     val enemy =
         if (
@@ -184,6 +184,9 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     )
             }
         }
+        if (s.hp > 0 && s.hp <= Equipment.stats(s).hp*.10)
+            Text("위험 · 체력 10% 이하",color=red,fontSize=12.sp,fontWeight=FontWeight.Bold,
+                modifier=Modifier.align(Alignment.BottomStart).background(ink.copy(alpha=.9f)).padding(6.dp).semantics { contentDescription="체력 위험 경고" })
         if (s.mode == Mode.ENCOUNTER) EncounterCaption(vm, Modifier.align(Alignment.TopCenter))
         if (s.mode == Mode.VICTORY && !vm.battleBusy(time)) {
             s.battleResult?.let { result ->
@@ -281,7 +284,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
         }
         if (s.mode == Mode.EXPLORE && s.chestLoot != null)
             ChestLootCard(s.chestLoot!!, vm, Modifier.align(Alignment.Center).padding(16.dp), (maxHeight - 32.dp).coerceAtLeast(80.dp))
-        vm.currentImpact
+        (motion?.impact ?: vm.currentImpact?.let { if(it.strikes.isNotEmpty()) vm.battleVisual?.frame(time)?.impact else it })
             ?.takeIf {
                 s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND) || vm.battleBusy(time)
             }
@@ -289,9 +292,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                 key(impact.serial) {
                     val rise = remember { Animatable(0f) }
                     val hitTime =
-                        vm.battleVisual
-                            ?.takeIf { it.impact.serial == impact.serial }
-                            ?.let { it.startedAt + BattleAnimation.HIT_MS } ?: time
+                        motion?.let { it.startedAt + BattleAnimation.HIT_MS } ?: time
                     var visible by remember { mutableStateOf(time >= hitTime) }
                     var animatePopup by remember { mutableStateOf(true) }
                     LaunchedEffect(Unit) {

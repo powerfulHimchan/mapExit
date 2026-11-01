@@ -3251,6 +3251,113 @@ class LaunchTest {
         }
     }
 
+    @Test fun upgradeBookFromBagImprovesTheSelectedEquippedItemOnce() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                val gear=Gear(1,Kind.SWORD,"시험 검 +2",2,Stats.zero().copy(attack=40.0),variantId="longsword")
+                val e=GameEngine(State(bootstrapped=true,nextId=10,inventory=mutableListOf(gear,Gear(2,Kind.SCROLL,"강화서",price=180),Gear(3,Kind.SCROLL,"강화서",price=180)),equipment=mutableMapOf(Slot.RIGHT to 1L)))
+                e.choose(e.choices().first { it.action=="inventory" });a.game.engine=e;a.game.active=false;a.game.refresh()
+            }
+            tap("강화서 ×2",allowScroll=true);tap("강화할 장비 선택",allowScroll=true)
+            bounds("강화 · 시험 검 +2",allowScroll=true);capture("upgrade-scroll-preview")
+            tap("강화 · 시험 검 +2",allowScroll=true);bounds("가방")
+            bounds("시험 검 +3 [착용중]",allowScroll=true);capture("upgrade-scroll-result")
+            scenario.onActivity { a ->
+                val s=a.game.engine.state
+                assertEquals(1,s.inventory.count { it.kind==Kind.SCROLL });assertEquals(3,s.inventory.first { it.id==1L }.tier)
+                assertEquals(1L,s.equipment[Slot.RIGHT]);a.game.save(blocking=true)
+            }
+            scenario.recreate();scenario.onActivity { a -> a.game.active=false;assertEquals(3,a.game.engine.state.inventory.first { it.id==1L }.tier) }
+        }
+    }
+
+    @Test fun forgeConfirmsMaterialsAndShowsSuccessAndFailureOnBothScreenSizes() {
+        for(compact in listOf(false,true)) {
+            if(compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+            try { ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { a ->
+                    val m=Dungeon(9,9,MutableList(81){Cell()},4,4,0,arrivalDirection=0)
+                    for(y in 2..6) m.cell(4,y).wall=false
+                    m.here().event=Event.FORGE
+                    val g=Gear(1,Kind.BODY,"시험 갑옷 +2",2,Stats.zero().copy(defense=8.0,hp=30.0))
+                    val e=GameEngine(State(bootstrapped=true,nextId=10,floor=20,dungeon=m,mode=Mode.EXPLORE,inventory=mutableListOf(g,g.copy(id=2)),equipment=mutableMapOf(Slot.BODY to 1L)))
+                    a.game.engine=e;a.game.active=false;a.game.refresh()
+                }
+                bounds("대장간 이용");capture("forge-world-${if(compact) "compact" else "normal"}")
+                tap("대장간 이용");tap("합성 선택 · 시험 갑옷 +2",allowScroll=true)
+                bounds("합성 실행 · 시험 갑옷 +2",allowScroll=true);capture("forge-confirm-${if(compact) "compact" else "normal"}")
+                scenario.onActivity { it.game.engine.state.rng=1 }
+                tap("합성 실행 · 시험 갑옷 +2",allowScroll=true)
+                scenario.onActivity { a ->
+                    val e=a.game.engine;assertEquals(3,e.state.inventory.single().tier);assertTrue(e.state.message.contains("합성 성공"))
+                    assertEquals(1L,e.state.equipment[Slot.BODY]);e.state.inventory.add(e.state.inventory.single().copy(id=3));a.game.refresh()
+                }
+                tap("합성 선택 · 시험 갑옷 +3",allowScroll=true)
+                scenario.onActivity { it.game.engine.state.rng=0 }
+                tap("합성 실행 · 시험 갑옷 +3",allowScroll=true)
+                bounds("대장간 결과",allowScroll=true);capture("forge-failure-${if(compact) "compact" else "normal"}")
+                scenario.onActivity { a -> assertEquals(3,a.game.engine.state.inventory.single().tier);assertTrue(a.game.engine.state.message.contains("합성 실패"));assertEquals(1L,a.game.engine.state.equipment[Slot.BODY]) }
+            } } finally {
+                if(compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+            }
+        }
+    }
+
+    @Test fun normalDoubleAttackAnimatesBothHitsAndBlocksInputUntilBothFinish() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { a ->
+                var selected:GameEngine?=null
+                for(seed in 1L..500L) {
+                    val e=GameEngine(State(bootstrapped=true,nextId=10,base=Stats(attack=40.0,agility=220.0,luck=180.0)))
+                    e.enterFloor(1);e.startBattle(false);e.state.enemy=e.state.enemy!!.copy(hp=10000.0,maxHp=10000.0,intent=EnemyIntent.STRIKE)
+                    e.state.rng=seed;val saved=SaveCodec.encode(e.state);e.attack(false)
+                    if(e.state.lastImpact!!.strikes.size==2) { selected=GameEngine(SaveCodec.decode(saved));break }
+                }
+                val e=requireNotNull(selected);a.game.engine=e;a.game.active=false;a.game.refresh()
+                a.game.choose(Choice("일반 공격","attack"));val visual=a.game.battleVisual!!
+                assertEquals(1520L,visual.duration);assertEquals(2,visual.impact.strikes.size)
+                assertEquals("연속 공격 · 1/2",visual.frame(visual.startedAt+400).impact.tactic)
+                assertEquals("연속 공격 · 2/2",visual.frame(visual.startedAt+1100).impact.tactic)
+                assertTrue(a.game.battleBusy(visual.startedAt+1500));assertFalse(a.game.battleBusy(visual.startedAt+1520))
+                val serial=e.state.impactSequence;a.game.choose(Choice("방어","guard"));assertEquals(serial,e.state.impactSequence)
+            }
+            SystemClock.sleep(400);capture("combat-double-first")
+            SystemClock.sleep(400);capture("combat-double-second")
+            SystemClock.sleep(500)
+            scenario.onActivity { a -> assertFalse(a.game.battleBusy());assertEquals(Mode.COMBAT_DEFEND,a.game.engine.state.mode) }
+        }
+    }
+
+    @Test fun lowHpAuraAndCauldronWaterUseTheCorrectDangerLaneOnBothScreens() {
+        for(compact in listOf(false,true)) {
+            if(compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size 720x1280")).use { it.readBytes() }
+            try { ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { a ->
+                    val e=GameEngine(State(bootstrapped=true,hp=36.0));e.enterFloor(1);e.startBattle(false)
+                    a.game.engine=e;a.game.active=false;a.game.refresh()
+                }
+                bounds("체력 위험 경고");capture("low-hp-aura-${if(compact) "compact" else "normal"}")
+                scenario.onActivity { a -> a.game.engine.state.hp=37.0;a.game.refresh() }
+                settleFrames();assertNull(find(instrumentation.uiAutomation.rootInActiveWindow,"체력 위험 경고"))
+                for(side in 0..1) {
+                    scenario.onActivity { a ->
+                        val e=GameEngine();e.enterFloor(1);e.state.mode=Mode.TRAP
+                        e.state.trap=Traps.create(e.state,0).copy(pattern=listOf(side),phase=TrapPhase.ACTIVE,elapsedMs=600)
+                        a.game.engine=e;a.game.active=false;a.game.refresh()
+                    }
+                    bounds("메인 장면");capture("cauldron-safe-$side-${if(compact) "compact" else "normal"}")
+                    scenario.onActivity { a ->
+                        val t=a.game.engine.state.trap!!;Traps.tap(t,side);t.elapsedMs=250;a.game.refresh()
+                        assertEquals(if(side==0) .75f else .27f,ObstacleLayout.cauldronWaterLane(t))
+                    }
+                    capture("cauldron-result-$side-${if(compact) "compact" else "normal"}")
+                }
+            } } finally {
+                if(compact) ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("wm size reset")).use { it.readBytes() }
+            }
+        }
+    }
+
     @Test fun specialChallengeDirectionSelectionHasNoResetButton() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { a ->
