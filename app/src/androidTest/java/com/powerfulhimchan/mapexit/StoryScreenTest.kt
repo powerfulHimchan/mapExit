@@ -124,15 +124,44 @@ class StoryScreenTest {
             if(compact) shell("wm size 720x1280")
             try {
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                    for(id in listOf("contract","revelation","inheritance","confession","possessed")) {
+                    for(id in listOf("prologue","resurrection","contract","warning20","warning40","guardian",
+                        "revelation","inheritance","confession","possessed","floor_5","floor_7","floor_12",
+                        "floor_17","floor_22","floor_25","floor_27","floor_32","floor_37","floor_42")) {
                         scenario.onActivity { seed(it,id,if(id in listOf("confession","possessed"))2 else 1) }
                         bounds(Story.find(id)!!.title)
+                        val caption=bounds(storyArtCaption(Story.find(id)!!.art))
+                        assertTrue("Scene caption must remain readable: $id",caption.width()>0 && caption.height()>0)
                         val action=bounds("이야기 다음")
                         assertTrue(action.height()>0 && action.width()>0)
                         capture("story-$id-${if(compact)"compact" else "normal"}")
                     }
                 }
             } finally { if(compact) shell("wm size reset") }
+        }
+    }
+    @Test fun storyArtworkCannotChangeTheSaveAndEveryPanelRendersOnANarrowViewport() {
+        // Exercise all authored art, including a long page, at a real 360dp phone width.
+        val oldDensity=shell("wm density").toString(Charsets.UTF_8)
+        val oldSize=shell("wm size").toString(Charsets.UTF_8)
+        val previousDensity=Regex("Override density: (\\d+)").find(oldDensity)?.groupValues?.get(1)
+        val previousSize=Regex("Override size: (\\d+x\\d+)").find(oldSize)?.groupValues?.get(1)
+        shell("wm size 720x1280");shell("wm density 320")
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                for(scene in Story.scenes.distinctBy { it.art }) {
+                    lateinit var save:String
+                    scenario.onActivity {
+                        seed(it,scene.id)
+                        save=SaveCodec.encode(it.game.engine.state)
+                    }
+                    bounds(storyArtCaption(scene.art));bounds("이야기 다음")
+                    scenario.onActivity { assertEquals("Painting changed save: ${scene.id}",save,SaveCodec.encode(it.game.engine.state)) }
+                    capture("story-art-${scene.art}-phone")
+                }
+            }
+        } finally {
+            shell(if(previousDensity==null)"wm density reset" else "wm density $previousDensity")
+            shell(if(previousSize==null)"wm size reset" else "wm size $previousSize")
         }
     }
     @Test fun legacyFightRemainsVisibleUntilNextSurfaceRecap() {
