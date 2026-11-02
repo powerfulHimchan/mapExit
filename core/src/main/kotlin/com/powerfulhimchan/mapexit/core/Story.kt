@@ -54,11 +54,12 @@ object Story {
         47 to "문 너머의 숨이 거칠어진다. 이제 내가 무엇을 하러 돌아왔는지, 그도 알고 있다.",
     )
     private fun noteArt(floor: Int) = when(floor) {
-        2 -> "lantern"
+        2 -> "ember"
         5 -> "stairs"
         7 -> "footprints"
         12 -> "names"
-        15,35 -> "flame"
+        15 -> "flame"
+        35 -> "ember"
         17 -> "graves"
         22 -> "water"
         25 -> "ledger"
@@ -66,6 +67,7 @@ object Story {
         32 -> "lanterns"
         37 -> "letter"
         42 -> "prayer"
+        47 -> "sealed_door"
         else -> "chains"
     }
     private val major = listOf(
@@ -128,7 +130,7 @@ object Story {
     val scenes: List<StoryScene> = major + listOf(
         scene("return_10","지하 10층 · 다시 찾은 제단","contract","나" to "계약서에는 아직 내 이름이 남아 있다. 이번에는 그 이름을 지우기 위해 제단을 지나간다."),
         scene("return_20","지하 20층 · 약속의 대가","record","나" to "노인도 같은 거짓 약속에 붙잡혀 있었다. 그를 용서할 수 있을지는 모르지만, 다음 사람을 보내게 둘 수는 없다."),
-        scene("return_30","지하 30층 · 내 뜻으로","flame","나" to "나를 되살리는 힘은 여전히 회수자의 것이다. 하지만 그 힘으로 무엇을 할지는 내가 정한다."),
+        scene("return_30","지하 30층 · 내 뜻으로","ember","나" to "나를 되살리는 힘은 여전히 회수자의 것이다. 하지만 그 힘으로 무엇을 할지는 내가 정한다."),
         scene("return_40","지하 40층 · 경고에 대한 대답","chains","나" to "이제 경고의 뜻을 안다. 문지기의 몸을 해방하고, 그 안으로 뻗은 회수자의 사슬을 끊겠다."),
     ) + firstNotes.map { (floor,note) ->
         scene("floor_$floor","지하 ${floor}층 · ${note.first}",noteArt(floor),"나" to note.second)

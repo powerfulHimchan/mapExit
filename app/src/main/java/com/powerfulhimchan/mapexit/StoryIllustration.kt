@@ -27,6 +27,7 @@ internal fun storyArtCaption(art: String): String = when(art) {
     "contract" -> "10층 제단 · 계약서에 새겨진 나의 이름"
     "record" -> "이전 계약자가 남긴 낡은 기록"
     "flame" -> "부활의 불씨 · 돌아온 몸과 남겨진 장비"
+    "ember" -> "가슴에 깃든 불씨 · 아래로 이어지는 빛"
     "fragment" -> "봉인의 파편 · 영혼에 새기는 장비"
     "chains" -> "마지막 문을 붙잡고 있는 봉인의 사슬"
     "guardian" -> "50층 · 봉인된 문을 지키는 마지막 문지기"
@@ -42,6 +43,7 @@ internal fun storyArtCaption(art: String): String = when(art) {
     "lanterns" -> "돌아오지 못한 주인의 등불과 목각 인형"
     "letter" -> "돌아오지 않은 아들이 남긴 편지"
     "prayer" -> "아래를 향해 사슬을 쥔 석상들"
+    "sealed_door" -> "심연의 문 · 틈 너머에서 들려오는 숨소리"
     else -> "던전 깊은 곳 · 아직 닫히지 않은 문"
 }
 
@@ -217,6 +219,15 @@ private class StoryPainter(private val d: DrawScope, private val state: State) {
         d.withTransform({translate(166f,112f);scale(1.5f,1.5f,Offset.Zero)}) {sprite("sword",0f,0f,32f)}
         chain(28,35,86,136);chain(299,136,354,35)
     }
+    private fun emberScene() {
+        room();hero(190,211,153)
+        glow(192,139,gold,91)
+        shape(Color(0xFFD66F3C),193,113,198,129,208,135,207,148,197,158,184,153,179,142,187,132)
+        shape(gold,194,125,198,136,202,140,198,151,188,148,187,141)
+        r(191,138,5,12,Color(0xFFFFF0C0))
+        for(i in 0..7)star(125+(i*29)%132,48+(i*23)%132,if(i%2==0)gold else teal)
+        lantern(65,163)
+    }
     private fun corridor(footprints:Boolean=false,stairs:Boolean=false) {
         room()
         for(i in 0..3) {
@@ -290,6 +301,7 @@ private class StoryPainter(private val d: DrawScope, private val state: State) {
             "record" -> {room();scroll()}
             "letter" -> {room();scroll(letter=true)}
             "flame" -> flameScene()
+            "ember" -> emberScene()
             "fragment" -> fragmentScene()
             "footprints" -> corridor(footprints=true)
             "stairs" -> corridor(stairs=true)
@@ -300,9 +312,10 @@ private class StoryPainter(private val d: DrawScope, private val state: State) {
             "water" -> water()
             "ledger" -> ledger()
             "lanterns" -> lanterns()
-            "guardian", "possessed", "door", "chains" -> {
+            "guardian", "possessed", "door", "chains", "sealed_door" -> {
                 room(Color(0xFF3B3F58));door(art in listOf("possessed","door"))
                 if(art=="chains") {chain(117,64,264,160);chain(265,64,116,160);crystal(192,113)}
+                else if(art=="sealed_door") {hero(84,215,94,true);chain(117,64,264,160);chain(265,64,116,160);glow(192,124,gold,72)}
                 else {
                     hero(84,215,94,true)
                     if(art=="door") {
