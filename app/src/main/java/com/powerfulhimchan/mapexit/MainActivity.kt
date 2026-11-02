@@ -125,13 +125,11 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     fun openMap() {
         if (storyScene != null || loadError != null || battleBusy() || engine.state.dungeon == null) return
         downContext.fill("")
-        engine.controls.reset()
         mapExpanded = true
     }
 
     fun closeMap() {
         downContext.fill("")
-        engine.controls.reset()
         mapExpanded = false
         refresh()
     }
