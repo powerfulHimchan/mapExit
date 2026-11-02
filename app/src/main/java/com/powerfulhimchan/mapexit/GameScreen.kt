@@ -277,7 +277,8 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
         val textMeasurer = rememberTextMeasurer()
         // minLines can round a padded single line differently from two actual lines.
         val combatMessageHeight = with(LocalDensity.current) {
-            textMeasurer.measure("가\n가", style = messageStyle, maxLines = 2).size.height.toDp()
+            // Leave two physical pixels for Text's line-fit rounding at fractional densities.
+            (textMeasurer.measure("가\n가", style = messageStyle, maxLines = 2).size.height + 2).toDp()
         } + messagePadding * 2
         Column(
             Modifier.fillMaxSize(),
