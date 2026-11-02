@@ -22,8 +22,10 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.powerfulhimchan.mapexit.core.*
@@ -266,6 +268,17 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
         vm.engine.controls.buttons().map { if (vm.battleBusy()) it.copy(enabled = false) else it }
     BoxWithConstraints(modifier) {
         val compact = maxHeight < 560.dp
+        val messageStyle = LocalTextStyle.current.copy(
+            fontSize = if (compact) 13.sp else 14.sp,
+            lineHeight = if (compact) 18.sp else 20.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        val messagePadding = if (compact) 4.dp else 6.dp
+        val textMeasurer = rememberTextMeasurer()
+        // minLines can round a padded single line differently from two actual lines.
+        val combatMessageHeight = with(LocalDensity.current) {
+            textMeasurer.measure("가\n가", style = messageStyle, maxLines = 2).size.height.toDp()
+        } + messagePadding * 2
         Column(
             Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 8.dp),
@@ -274,19 +287,18 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
             Text(
                 sceneMessage(s),
                 color = if (s.mode == Mode.COMBAT_DEFEND) amber else pale,
-                fontSize = if (compact) 13.sp else 14.sp,
-                lineHeight = if (compact) 18.sp else 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = messageStyle,
                 maxLines = 2,
                 // Reserve two lines throughout a fight; receipts keep their compact layout.
                 minLines = if(s.enemy != null || motion != null) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier =
                     Modifier.fillMaxWidth()
-                        .heightIn(min = if (compact) 30.dp else 34.dp)
+                        .then(if (s.enemy != null || motion != null) Modifier.height(combatMessageHeight)
+                            else Modifier.heightIn(min = if (compact) 30.dp else 34.dp))
                         .background(panel, RoundedCornerShape(6.dp))
                         .border(1.dp, amber.copy(alpha = .6f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = if (compact) 4.dp else 6.dp)
+                        .padding(horizontal = 10.dp, vertical = messagePadding)
                         .semantics { contentDescription = "현재 상황" },
             )
             Row(
