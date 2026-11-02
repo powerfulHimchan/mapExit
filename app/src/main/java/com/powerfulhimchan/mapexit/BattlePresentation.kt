@@ -284,7 +284,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
         }
         if (s.mode == Mode.EXPLORE && s.chestLoot != null)
             ChestLootCard(s.chestLoot!!, vm, Modifier.align(Alignment.Center).padding(16.dp), (maxHeight - 32.dp).coerceAtLeast(80.dp))
-        (motion?.impact ?: vm.currentImpact?.let { if(it.strikes.isNotEmpty()) vm.battleVisual?.frame(time)?.impact else it })
+        (motion?.impact ?: vm.currentImpact?.let { if(it.strikes.isNotEmpty() || it.counterHit!=null) vm.battleVisual?.frame(time)?.impact else it })
             ?.takeIf {
                 s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND) || vm.battleBusy(time)
             }

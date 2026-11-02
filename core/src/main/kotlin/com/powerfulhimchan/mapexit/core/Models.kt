@@ -3,7 +3,7 @@ package com.powerfulhimchan.mapexit.core
 import kotlin.math.max
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 
 @Serializable
 enum class Mode {
@@ -194,7 +194,7 @@ data class Gear(
           Charm.QUEST -> "미션 골드 보상 +25%"
           else -> ""
         } + if (refinements > 0) { if (charm == Charm.MAP) " · 탐지 범위 +${refinements}칸" else " · 강화 효과 +${refinements * 5}%p" } else ""
-    return Stat.entries
+    val attributes = Stat.entries
         .mapNotNull { st ->
           val f = flat.value(st)
           val p = percent.value(st)
@@ -209,6 +209,7 @@ data class Gear(
                   }
         }
         .joinToString(" / ")
+    return (if (weapon) (if(twoHanded) "양손용" else "한손용") + " · " else "") + attributes
   }
 }
 
@@ -308,6 +309,7 @@ data class BattleImpact(
     val luckyCritical: Boolean = false,
     val tactic: String = "",
     val strikes: List<AttackHit> = emptyList(),
+    val counterHit: AttackHit? = null,
 ) {
   fun label(): String {
     val base =
@@ -367,6 +369,8 @@ data class Quest(
 
 @Serializable data class ChestLootNotice(val items: List<Gear>, val gold: Int)
 
+@Serializable data class UpgradeResult(val before: Gear, val after: Gear)
+
 @Serializable
 data class Menu(val type: String, val argument: Long = 0L, val returnMode: Mode = Mode.SURFACE)
 
@@ -384,6 +388,7 @@ data class State(
     var experience: Int = 0,
     var levelUpNotice: LevelUpNotice? = null,
     var chestLoot: ChestLootNotice? = null,
+    var upgradeResult: UpgradeResult? = null,
     var quickEquipIds: List<Long> = emptyList(),
     var points: Int = 0,
     var base: Stats = Stats(),
@@ -454,8 +459,18 @@ object SaveCodec {
 
   fun encode(state: State): String = json.encodeToString(state)
 
+  private fun normalizeNames(value: JsonElement): JsonElement = when(value) {
+    is JsonArray -> JsonArray(value.map(::normalizeNames))
+    is JsonObject -> JsonObject(value.mapValues { (key,item) ->
+      if(key == "name" && "kind" in value && "id" in value && item is JsonPrimitive)
+        JsonPrimitive(item.content.replace(Regex(""" \+(\d+)$"""), " (+$1)"))
+      else normalizeNames(item)
+    })
+    else -> value
+  }
+
   fun decode(text: String): State =
-      json.decodeFromString<State>(text).also {
+      json.decodeFromJsonElement<State>(normalizeNames(json.parseToJsonElement(text))).also {
         require(it.version == 1) { "지원하지 않는 저장 버전" }
         require(it.level >= 1 && it.cycle >= 1 && it.gold >= 0 && it.bank >= 0)
         require(it.inventory.map { item -> item.id }.distinct().size == it.inventory.size)

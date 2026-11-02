@@ -249,7 +249,7 @@ object ItemFactory {
         return Gear(
             s.nextId++,
             k,
-            if (k == Kind.POTION) title else "$title +$tier",
+            if (k == Kind.POTION) title else "$title (+$tier)",
             tier,
             f,
             p,

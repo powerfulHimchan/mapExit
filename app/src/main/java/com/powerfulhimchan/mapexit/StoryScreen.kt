@@ -58,7 +58,6 @@ internal fun StoryScreen(vm: GameModel) {
                         Text(line.text,color = pale,fontSize = 17.sp,lineHeight = 28.sp)
                     }
                 }
-                item { Text("기록 → 이야기에서 다시 읽을 수 있습니다.",color = muted,fontSize = 11.sp) }
             }
             Row(Modifier.fillMaxWidth(),horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GameButton(onClick = vm::closeStory,modifier = Modifier.weight(1f)) {

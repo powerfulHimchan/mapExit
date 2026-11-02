@@ -328,6 +328,7 @@ class GameEngine(
                         }
                 }
                 "upgradeTargets" -> s.inventory.filter { it.equippable }.map { c("강화 · ${it.name}${Equipment.equippedLabel(s,it.id)}","upgradeTarget",it.id) }
+                "upgradeResult" -> listOf(c("확인", "upgradeDone"))
                 "forge" -> Forge.pairs(s).map { c("합성 선택 · ${it.base.name}","forgePair",it.base.id) }
                 "forgeConfirm" -> Forge.pairs(s).firstOrNull { it.base.id == menu.argument }?.let {
                     listOf(c("합성 실행 · ${it.base.name}","forgeDo",it.base.id))
@@ -515,8 +516,10 @@ class GameEngine(
         return true
     }
 
+    fun canOpenLevelUpGrowth() = state.levelUpNotice != null && state.mode in listOf(Mode.SURFACE, Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)
+
     fun openLevelUpGrowth(): Boolean {
-        if (state.levelUpNotice == null || state.mode !in listOf(Mode.SURFACE, Mode.EXPLORE, Mode.MOVING, Mode.FLOOR_CLEAR, Mode.VICTORY)) return false
+        if (!canOpenLevelUpGrowth()) return false
         if (state.mode == Mode.MOVING) { state.mode = Mode.EXPLORE; state.movementMs = 0 }
         state.levelUpNotice = null
         open("growth")
@@ -541,6 +544,7 @@ class GameEngine(
 
     private fun back() {
         val s = state
+        if (s.menu?.type == "upgradeResult") { finishUpgradeResult(); return }
         if (s.training && s.menu?.type == "training") {
             exitTraining()
             return
@@ -557,6 +561,15 @@ class GameEngine(
         val s = state
         s.mode = s.menu?.returnMode ?: Mode.SURFACE
         s.menu = null
+        s.menuStack.clear()
+        s.selection = 0
+    }
+
+    private fun finishUpgradeResult() {
+        val s = state
+        if (s.mode != Mode.MENU || s.menu?.type != "upgradeResult") return
+        s.upgradeResult = null
+        s.menu = Menu("inventory",returnMode = s.menu!!.returnMode)
         s.menuStack.clear()
         s.selection = 0
     }
@@ -709,6 +722,7 @@ class GameEngine(
             }
             "upgradeMenu" -> open("upgradeTargets",c.argument)
             "upgradeTarget" -> { val book=s.menu?.argument ?: return; Forge.useScroll(s,book,c.argument) }
+            "upgradeDone" -> finishUpgradeResult()
             "forge" -> if (Forge.atForge(s)) { s.note("대장간 · 같은 아이템 2개로 한 단계 합성"); open("forge") }
             "forgePair" -> if (Forge.atForge(s)) open("forgeConfirm",c.argument)
             "forgeDo" -> Forge.combine(s,c.argument)
@@ -1013,6 +1027,22 @@ class GameEngine(
         if (boss) Story.beforeBoss(s)
     }
 
+    private fun strike(enemy: Enemy, p: Stats, strong: Boolean, useOpening: Boolean): AttackHit {
+        val s = state
+        val criticalRoll = s.random()
+        val baseHit = (if (strong) GameBalance.model("strong_hit") else GameBalance.model("normal_hit")) + if (strong && useOpening) .20 else 0.0
+        val hit = s.random() < Luck.good(baseHit.coerceAtMost(.99),p.luck,.99)
+        val luck = if (hit) Luck.roll(s,p) else AttackLuck()
+        val critical = criticalRoll < Luck.criticalChance(p.crit,luck)
+        val dealt = if (!hit) 0.0 else p.attack * Luck.attackMultiplier(luck) *
+            (if (useOpening || enemy.intent == EnemyIntent.RECOVER) 1.35 else 1.0) *
+            (if (enemy.intent == EnemyIntent.GUARD && !strong) .55 else 1.0) *
+            (if (strong) GameBalance.model("strong_damage") else 1.0) *
+            100 / (100+enemy.defense) * (if (critical) p.critDamage else 1.0)
+        val beforeHp=enemy.hp; enemy.hp=max(0.0,enemy.hp-dealt)
+        return AttackHit(beforeHp-enemy.hp,critical && dealt>0,luck.attackBoost,luck.criticalBoost)
+    }
+
     fun attack(strong: Boolean) {
         val s = state
         if (s.mode != Mode.COMBAT_ATTACK) return
@@ -1021,23 +1051,9 @@ class GameEngine(
         val opening = enemy.opening
         enemy.opening = false
         val hits = mutableListOf<AttackHit>()
-        fun strike(useOpening: Boolean) {
-            val criticalRoll = s.random()
-            val baseHit = (if (strong) GameBalance.model("strong_hit") else GameBalance.model("normal_hit")) + if (strong && useOpening) .20 else 0.0
-            val hit = s.random() < Luck.good(baseHit.coerceAtMost(.99),p.luck,.99)
-            val luck = if (hit) Luck.roll(s,p) else AttackLuck()
-            val critical = criticalRoll < Luck.criticalChance(p.crit,luck)
-            val dealt = if (!hit) 0.0 else p.attack * Luck.attackMultiplier(luck) *
-                (if (useOpening || enemy.intent == EnemyIntent.RECOVER) 1.35 else 1.0) *
-                (if (enemy.intent == EnemyIntent.GUARD && !strong) .55 else 1.0) *
-                (if (strong) GameBalance.model("strong_damage") else 1.0) *
-                100 / (100+enemy.defense) * (if (critical) p.critDamage else 1.0)
-            val beforeHp=enemy.hp; enemy.hp=max(0.0,enemy.hp-dealt)
-            hits.add(AttackHit(beforeHp-enemy.hp,critical && dealt>0,luck.attackBoost,luck.criticalBoost))
-        }
-        strike(opening)
+        hits.add(strike(enemy,p,strong,opening))
         val followUp=if (!strong && enemy.hp>0) Luck.doubleAttack(p) else 0.0
-        if (followUp>0 && s.random()<followUp) strike(false)
+        if (followUp>0 && s.random()<followUp) hits.add(strike(enemy,p,strong,false))
         val damage=hits.sumOf { it.damage }
         val hit=damage>0
         val critical=hits.any { it.critical }
@@ -1145,6 +1161,15 @@ class GameEngine(
             return
         }
         e.opening = createsOpening
+        val counterChance = if (dodge) 0.0 else Luck.counter(p)
+        if (counterChance > 0 && s.random() < counterChance) {
+            // One normal strike, with the same hit/crit/luck/armor rules; no enemy turn is spent.
+            e.opening = false
+            val counter = strike(e,p,strong=false,useOpening=createsOpening)
+            s.lastImpact = s.lastImpact!!.copy(counterHit=counter)
+            s.note(s.message + if(counter.damage>0) " · 자동 반격 ${counter.amount} 피해" else " · 자동 반격 빗나감")
+            if (e.hp <= 0) { victory(); return }
+        }
         CombatTactics.advance(e)
         s.mode = Mode.COMBAT_ATTACK
         s.selection = 0

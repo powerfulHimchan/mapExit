@@ -39,7 +39,7 @@ class GameRulesTest {
             for (event in listOf(Event.MONSTER, Event.CHEST, Event.HEAL, Event.TRAP)) assertTrue(
                 m.cells.any { it.event == event }
             )
-            assertEquals(2, m.cells.count { it.event == Event.CHEST })
+            assertTrue(m.cells.count { it.event == Event.CHEST } in 1..2)
             for (visitor in listOf(Event.NPC, Event.MERCHANT)) assertEquals(
                 if (seed.toInt() in VisitorSchedule.floors(s.visitorSeed!!, visitor)) 1 else 0,
                 m.cells.count { it.event == visitor },

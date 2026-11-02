@@ -4,6 +4,7 @@ import kotlin.math.min
 
 /** Upgrade one real instance, preserving its identity, inheritance and equipped slots. */
 object Forge {
+    private fun baseName(g: Gear) = g.name.replace(Regex(""" (?:\+\d+|\(\+\d+\))$"""), "")
     data class Pairing(val base: Gear, val material: Gear)
     fun upgraded(g: Gear): Gear {
         require(g.equippable)
@@ -22,10 +23,10 @@ object Forge {
             }
             return next
         }
-        return g.copy(name=g.name.replace(Regex(" \\+\\d+$"),"")+" +${g.tier+1}",tier=g.tier+1,
+        return g.copy(name=baseName(g)+" (+${g.tier+1})",tier=g.tier+1,
             flat=improve(g.flat,false),percent=improve(g.percent,true),price=g.price+35,refinements=g.refinements+1)
     }
-    private fun family(g: Gear) = listOf(g.kind,g.name.replace(Regex(" \\+\\d+$"),""),g.tier,g.variantId,g.charm,g.bossOriginFloor,g.affixes.sortedWith(compareBy<WeaponAffix> { it.stat.ordinal }.thenBy { it.amount }))
+    private fun family(g: Gear) = listOf(g.kind,baseName(g),g.tier,g.variantId,g.charm,g.bossOriginFloor,g.affixes.sortedWith(compareBy<WeaponAffix> { it.stat.ordinal }.thenBy { it.amount }))
     fun pairs(s: State): List<Pairing> = s.inventory.filter { it.equippable }.groupBy(::family).values.mapNotNull { group ->
         val base = group.sortedWith(compareByDescending<Gear> { it.inherited }.thenByDescending { it.id in s.equipment.values }.thenByDescending { it.refinements }.thenBy { it.id }).first()
         val material = group.filter { it.id != base.id && !it.inherited }.sortedWith(compareBy<Gear> { it.id in s.equipment.values }.thenBy { it.id }).firstOrNull()
@@ -60,7 +61,8 @@ object Forge {
         s.inventory[s.inventory.indexOf(target)] = next; s.inventory.remove(scroll)
         s.hp=min(s.hp,Equipment.stats(s).hp)
         s.note("강화 성공 · ${target.name} → ${next.name} · 강화서 1개 소모")
-        s.menuStack.clear(); s.menu=Menu("inventory",returnMode=s.menu!!.returnMode); s.selection=0
+        s.upgradeResult = UpgradeResult(target,next)
+        s.menuStack.clear(); s.menu=Menu("upgradeResult",returnMode=s.menu!!.returnMode); s.selection=0
         return true
     }
 }

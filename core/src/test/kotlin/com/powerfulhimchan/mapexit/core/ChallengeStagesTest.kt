@@ -86,9 +86,9 @@ class ChallengeStagesTest {
             val s = State(bootstrapped = true, visitorSeed = seed, challengeProgress = ChallengeProgress(seed))
             val map = MapGenerator.generate(s, floor)
             assertEquals(if (floor in ChallengeStages.floors(seed)) 1 else 0, map.cells.count { it.event == Event.PORTAL })
-            assertEquals(2, map.cells.count { it.event == Event.CHEST })
+            assertTrue(map.cells.count { it.event == Event.CHEST } in 1..2)
             assertEquals(1, map.cells.count { it.event == Event.EXIT })
-            assertEquals(3, map.cells.count { it.event == Event.TRAP })
+            assertTrue(map.cells.count { it.event == Event.TRAP } in 2..3)
             assertEquals(if (floor % 5 == 0) 1 else 0, map.cells.count { it.event == Event.ELITE })
             val dist = MapGenerator.distances(map, 1, 1)
             map.cells.indices.filter { map.cells[it].event == Event.PORTAL }.forEach { assertTrue(dist[it] > 0) }

@@ -226,7 +226,7 @@ internal fun DrawScope.arena(clock: Long, horizon: Float = .45f, floor: Int = 1)
     torch(w * .82f, h * .29f, clock + 170, Color(theme.light))
 }
 
-internal fun DrawScope.drawMap(s: State) {
+internal fun DrawScope.drawMap(s: State, expanded: Boolean = false) {
     val m = s.dungeon
     if (m == null) {
         val w = size.width
@@ -236,12 +236,14 @@ internal fun DrawScope.drawMap(s: State) {
         return
     }
     val radius = 4
-    val unit = min(size.width / 9, size.height / 9)
-    val startX = m.x - radius
-    val startY = m.y - radius
-    val ox = (size.width - 9 * unit) / 2 - startX * unit
-    val oy = (size.height - 9 * unit) / 2 - startY * unit
-    for (y in startY..m.y + radius) for (x in startX..m.x + radius) {
+    val columns = if(expanded) m.width else 9
+    val rows = if(expanded) m.height else 9
+    val unit = min(size.width / columns, size.height / rows)
+    val startX = if(expanded) 0 else m.x - radius
+    val startY = if(expanded) 0 else m.y - radius
+    val ox = (size.width - columns * unit) / 2 - startX * unit
+    val oy = (size.height - rows * unit) / 2 - startY * unit
+    for (y in startY until startY+rows) for (x in startX until startX+columns) {
         val c = m.cell(x, y)
         val charm = Equipment.charm(s) == Charm.MAP && kotlin.math.abs(x-m.x)+kotlin.math.abs(y-m.y) <= 4 + (Equipment.charmRefinement(s)*20).toInt()
         if (!c.seen && !charm) continue

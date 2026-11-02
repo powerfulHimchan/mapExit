@@ -175,7 +175,9 @@ private fun DrawScope.drawPhysicalChallenge(s: State, t: TrapState) {
     if (result && t.success && t.type == 4) {
         for (i in 0..2) pixelRect(mint, heroX - 7, floor - h * .13f + i * 5, 4f, 2f)
     }
-    if (t.phase == TrapPhase.ACTIVE) {
+    if (t.type == 4) {
+        beamTimingBar(t)
+    } else if (t.phase == TrapPhase.ACTIVE) {
         pixelRect(line, w * .12f, h * .97f, w * .76f, 4f)
         pixelRect(
             amber,
@@ -185,6 +187,21 @@ private fun DrawScope.drawPhysicalChallenge(s: State, t: TrapState) {
             3f,
         )
     }
+}
+
+/** Readiness is conveyed only by the bar. The green boundary uses the collision rule's ms. */
+internal fun DrawScope.beamTimingBar(t: TrapState) {
+    val x=size.width*.10f; val y=size.height*.955f; val width=size.width*.80f
+    val start=(t.beamCrouchStartMs.toFloat()/t.limitMs.coerceAtLeast(1)).coerceIn(0f,1f)
+    val time=when(t.phase) { TrapPhase.PREPARE -> 0L; TrapPhase.RESULT -> t.actionAtMs; else -> t.elapsedMs }
+    val p=(time.toFloat()/t.limitMs.coerceAtLeast(1)).coerceIn(0f,1f)
+    pixelRect(ink,x-2,y-3,width+4,16f)
+    pixelRect(line,x,y,width,10f)
+    pixelRect(mint.copy(alpha=.75f),x+width*start,y,width*(1-start),10f)
+    pixelRect(mint,x+width*start,y,2f,10f)
+    for(i in 1..3) pixelRect(ink.copy(alpha=.5f),x+width*(start+(1-start)*i/4),y+6,1f,4f)
+    val ready=time>=t.beamCrouchStartMs && time<t.limitMs
+    pixelRect(if(ready)mint else pale,x+width*p-2,y-4,4f,18f)
 }
 
 /** Bent knees, lowered head and a horizontal torso leave visible clearance under the beam. */

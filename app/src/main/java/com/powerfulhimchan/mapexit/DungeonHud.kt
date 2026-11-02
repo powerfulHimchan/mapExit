@@ -90,8 +90,9 @@ private fun DungeonShortcut(
 }
 
 @Composable
-internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 6.dp).gameClickable(onClick = onOpen)) {
+internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Unit, canOpen: Boolean = true) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 6.dp).heightIn(min = 64.dp)
+        .background(panel, RoundedCornerShape(8.dp)).border(1.dp,mint,RoundedCornerShape(8.dp))) {
         val narrow = maxWidth < 320.dp
         Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             MenuArt("level", Modifier.size(if (narrow) 24.dp else 30.dp))
@@ -100,7 +101,7 @@ internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Uni
                     if (narrow) "LV.${notice.from} → LV.${notice.to}" else "레벨 업! LV.${notice.from} → LV.${notice.to}", color = amber,
                     fontSize = if (narrow) 13.sp else 17.sp,
                     lineHeight = if (narrow) 16.sp else 22.sp,
-                    maxLines = if (narrow) 1 else 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.semantics { contentDescription = "레벨 업 LV.${notice.from}에서 LV.${notice.to}" },
                 )
@@ -108,7 +109,7 @@ internal fun LevelUpBanner(notice: LevelUpNotice, points: Int, onOpen: () -> Uni
                     fontSize = if (narrow) 10.sp else 11.sp, lineHeight = 14.sp, maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
-            GameButton(onClick = onOpen,
+            if (canOpen) GameButton(onClick = onOpen,
                 modifier = Modifier.semantics { contentDescription = "성장 배분 열기" },
                 contentPadding = PaddingValues(horizontal = if (narrow) 6.dp else 10.dp, vertical = 8.dp)) {
                 Text("능력치 배분 ›", color = mint, fontSize = if (narrow) 10.sp else 11.sp)
