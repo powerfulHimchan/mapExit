@@ -118,6 +118,7 @@ object ChallengeStages {
             else -> Unit
         }
         s.challenge = ChallengeRun(kind, runSeed, host, s.floor, route.size - 1 + 4, sealOrder = order)
+        Consumables.leaveFloor(s)
         s.dungeon = map; s.mode = Mode.CHALLENGE; s.enemy = null; s.trap = null
         s.battleResult = null; s.chestLoot = null; s.quickEquipIds = emptyList(); s.encounter = null
         s.note("특별 도전 · ${kind.title}")
@@ -333,12 +334,13 @@ object ChallengeStages {
                 if (c.kind in listOf(ChallengeKind.COLLAPSE, ChallengeKind.HAZARDS, ChallengeKind.STEPS)) {
                     val r = stream(c.seed, 0x524557415244L)
                     val v = WeaponCatalog.all[r.nextInt(WeaponCatalog.all.size)]
-                    val g = ItemFactory.create(r, v.kind, (c.hostFloor + 10).coerceAtMost(60), v.id)
+                    val g = ItemFactory.create(r, v.kind, (c.hostFloor + 10).coerceAtMost(60), v.id,PrefixCatalog.roll(r,v.kind))
                     rewards.add(g.copy(id = s.nextId++, name = "도전자의 ${g.name}"))
                 }
                 repeat(if (rewards.isEmpty()) 2 else 1) { rewards.add(ItemFactory.potion(s, PotionGrade.GREATER)) }
+                Consumables.reward(s)?.let { rewards.add(it) }
                 c.rewards = rewards; s.gold += c.rewardGold; s.inventory.addAll(rewards)
-                s.quickEquipIds = rewards.filter { it.kind != Kind.POTION }.map { it.id }
+                s.quickEquipIds = rewards.filter { it.equippable }.map { it.id }
             }
         }
         s.note("${if (success) "도전 성공" else "도전 실패"} · ${c.kind.title} · $message")
@@ -347,6 +349,7 @@ object ChallengeStages {
     fun leave(s: State) {
         val c = s.challenge ?: return
         if (c.phase !in listOf(ChallengePhase.INTRO, ChallengePhase.RESULT)) return
+        Consumables.leaveFloor(s)
         s.dungeon = c.hostDungeon; s.floor = c.hostFloor; s.mode = Mode.EXPLORE
         s.challenge = null; s.quickEquipIds = emptyList(); s.selection = 0
         s.note(if (c.phase == ChallengePhase.INTRO) "도전을 지나갔습니다 · 나중에 다시 입장할 수 있습니다" else "특별 도전 종료 · 원래 던전으로 복귀했습니다")

@@ -17,7 +17,9 @@ object Equipment {
         for (stat in Stat.entries) {
             val flat = gear.sumOf { it.flatValue(stat) }
             val percent = gear.sumOf { it.percent.value(stat) }
-            var value = (state.base.value(stat) + flat) * (1 + percent)
+            var value = (state.base.value(stat) + state.permanentBonus.value(stat) + flat) * (1 + percent)
+            val effect=Consumables.value(state,stat)
+            value=if(stat in listOf(Stat.HP,Stat.ATTACK,Stat.DEFENSE,Stat.AGILITY)) value*(1+effect) else value+effect
             value =
                 when (stat) {
                     Stat.HP,
@@ -98,7 +100,7 @@ object Equipment {
         val slots = targetSlot?.let { listOf(it) } ?: allowedSlots(item)
         fun raw(s: State, stat: Stat): Double {
             val gear = equipped(s)
-            return (s.base.value(stat) + gear.sumOf { it.flatValue(stat) }) *
+            return (s.base.value(stat) + s.permanentBonus.value(stat) + gear.sumOf { it.flatValue(stat) }) *
                 (1 + gear.sumOf { it.percent.value(stat) })
         }
         return slots.filter { it in allowedSlots(item) }.any { slot ->
@@ -171,9 +173,12 @@ object ItemFactory {
         kind: Kind? = null,
         floor: Int = max(1, s.floor),
         variantId: String? = null,
+        prefixId: String? = null,
     ): Gear {
         if (kind == Kind.SCROLL) return scroll(s)
-        val regular = Kind.entries.filter { it != Kind.SCROLL }
+        if(kind==Kind.CONSUMABLE) return Consumables.random(s,EffectScope.FLOOR)
+        if(kind==null && s.random()<.15) return Consumables.random(s,if(s.nextInt(2)==0) EffectScope.FLOOR else EffectScope.TIMED)
+        val regular = Kind.entries.filter { it != Kind.SCROLL && it != Kind.CONSUMABLE }
         val k = kind ?: regular[s.nextInt(regular.size)]
         val tier = (1 + (floor - 1) / 10 + if (s.random() < 1-Luck.good(.5,Equipment.stats(s).luck,.80)) 0 else 1).coerceAtMost(7)
         if (k == Kind.POTION && kind == null && floor >= 11 && s.random() < Luck.good(.25,Equipment.stats(s).luck,.55))
@@ -184,6 +189,7 @@ object ItemFactory {
         var charm = Charm.NONE
         var title = k.label
         var variant: WeaponVariant? = null
+        var armorVariant: ArmorVariant? = null
         when (k) {
             Kind.SWORD,
             Kind.SPEAR,
@@ -197,16 +203,17 @@ object ItemFactory {
                 f = variant.stats(tier)
                 title = variant.name
             }
-            Kind.SHIELD -> f = f.copy(defense = GameBalance.shield("defense") * t)
-
-            Kind.HEAD,
-            Kind.BODY,
-            Kind.PANTS -> f = f.copy(defense = 4 * t, hp = 15 * t)
-            Kind.BOOTS -> f = f.copy(defense = 2 * t, agility = 3 * t)
+            Kind.SHIELD, Kind.HEAD, Kind.BODY, Kind.PANTS, Kind.BOOTS -> {
+                val variants=ArmorCatalog.of(k)
+                armorVariant=if(variantId!=null) variants.first { it.id==variantId }
+                    else if(kind==null) variants[s.nextInt(variants.size)] else variants.first()
+                f=armorVariant.stats(tier);title=armorVariant.name
+            }
+            Kind.CONSUMABLE -> error("Consumables are created separately")
             Kind.SCROLL -> error("Scroll is created separately")
             Kind.POTION -> title = "회복약"
             Kind.RING ->
-                when (s.nextInt(6)) {
+                when (s.nextInt(12)) {
                     0 -> {
                         title = "전사의 반지"
                         p = p.copy(attack = .20 + .02 * t, defense = -.15)
@@ -229,24 +236,23 @@ object ItemFactory {
                         f = f.copy(luck = 12 * t)
                         p = p.copy(attack = -.10)
                     }
-                    else -> {
+                    5 -> {
                         title = "수호의 반지"
                         p = p.copy(hp = .25, defense = .15, agility = -.20)
                     }
+                    6 -> { title="광전사의 반지"; p=p.copy(attack=.23+.02*t,defense=-.20) }
+                    7 -> { title="암살자의 반지"; f=f.copy(crit=.095+.005*t,critDamage=.15+.05*t);p=p.copy(hp=-.20) }
+                    8 -> { title="철벽의 반지";p=p.copy(defense=.33+.02*t,agility=-.20) }
+                    9 -> { title="생명의 반지";p=p.copy(hp=.33+.02*t,attack=-.10) }
+                    10 -> { title="방랑자의 반지";p=p.copy(hp=.13+.02*t,defense=-.10);f=f.copy(luck=6*t) }
+                    else -> { title="추적자의 반지";p=p.copy(agility=.18+.02*t,defense=-.15);f=f.copy(crit=.045+.005*t) }
                 }
             Kind.NECKLACE -> {
                 charm = Charm.entries[1 + s.nextInt(Charm.entries.size - 1)]
-                title =
-                    when (charm) {
-                        Charm.MAP -> "탐색의 목걸이"
-                        Charm.CHEST -> "보물의 목걸이"
-                        Charm.MERCHANT -> "상인의 목걸이"
-                        Charm.TRAP -> "함정의 목걸이"
-                        else -> "의뢰의 목걸이"
-                    }
+                title = NecklaceCatalog.names.getValue(charm)
             }
         }
-        return Gear(
+        val gear = Gear(
             s.nextId++,
             k,
             if (k == Kind.POTION) title else "$title (+$tier)",
@@ -255,14 +261,15 @@ object ItemFactory {
             p,
             charm,
             price = if (k == Kind.POTION) 25 else 35 * tier,
-            variantId = variant?.id,
+            variantId = variant?.id ?: armorVariant?.id,
         )
+        return PrefixCatalog.apply(gear, prefixId ?: if(kind==null) PrefixCatalog.roll(s,k) else null)
     }
 
     /** A guaranteed weapon with preserved base stats and distinct, additive rolled affixes. */
     fun bossWeapon(s: State, floor: Int = max(1, s.floor)): Gear {
         val variant = WeaponCatalog.all[s.nextInt(WeaponCatalog.all.size)]
-        val normal = create(s, variant.kind, floor, variant.id)
+        val normal = create(s, variant.kind, floor, variant.id, PrefixCatalog.roll(s,variant.kind))
         val pool = Stat.entries.toMutableList()
         val count = (2 + (floor.coerceIn(1, 50) - 1) / 20).coerceAtMost(4)
         val options =

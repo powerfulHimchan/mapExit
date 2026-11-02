@@ -69,6 +69,7 @@ enum class Kind(val label: String) {
   NECKLACE("목걸이"),
   POTION("회복약"),
   SCROLL("강화서"),
+  CONSUMABLE("특수 소모품"),
 }
 
 @Serializable
@@ -79,6 +80,7 @@ enum class Charm {
   MERCHANT,
   TRAP,
   QUEST,
+  HEALING, TRAINING, GOLD, DURATION, UNYIELDING,
 }
 
 @Serializable
@@ -153,8 +155,11 @@ data class Gear(
     val affixes: List<WeaponAffix> = emptyList(),
     val potionGrade: PotionGrade = PotionGrade.BASIC,
     val refinements: Int = 0,
+    val prefixId: String? = null,
+    val prefixRank: Int = 1,
+    val consumableId: String? = null,
 ) {
-  val equippable: Boolean get() = kind != Kind.POTION && kind != Kind.SCROLL
+  val equippable: Boolean get() = kind != Kind.POTION && kind != Kind.SCROLL && kind != Kind.CONSUMABLE
   val twoHanded: Boolean
     get() = kind == Kind.SPEAR || kind == Kind.HAMMER
 
@@ -162,7 +167,7 @@ data class Gear(
     get() = kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)
 
   fun flatValue(stat: Stat): Double =
-      flat.value(stat) + affixes.filter { it.stat == stat }.sumOf { it.amount }
+      flat.value(stat) + (PrefixCatalog.find(kind,prefixId)?.stats(prefixRank)?.value(stat) ?: 0.0) + affixes.filter { it.stat == stat }.sumOf { it.amount }
 
   fun affixSummary(): String =
       affixes.joinToString(" / ") { option ->
@@ -185,15 +190,8 @@ data class Gear(
   fun baseSummary(): String {
     if (kind == Kind.SCROLL) return "장비 하나를 선택해 +등급 1단계 강화 · 사용 시 1개 소모"
     if (kind == Kind.POTION) return "최대 HP의 ${(potionGrade.healRatio * 100).toInt()}% 회복"
-    if (kind == Kind.NECKLACE)
-        return when (charm) {
-          Charm.MAP -> "주변 시설 탐지"
-          Charm.CHEST -> "상자 추가 아이템 확률 +25%"
-          Charm.MERCHANT -> "구매 가격 20% 할인"
-          Charm.TRAP -> "함정 시간·목표 구간 +25%"
-          Charm.QUEST -> "미션 골드 보상 +25%"
-          else -> ""
-        } + if (refinements > 0) { if (charm == Charm.MAP) " · 탐지 범위 +${refinements}칸" else " · 강화 효과 +${refinements * 5}%p" } else ""
+    if (kind == Kind.CONSUMABLE) return Consumables.find(consumableId)?.summary() ?: "특수 소모품"
+    if (kind == Kind.NECKLACE) return NecklaceCatalog.summary(this)
     val attributes = Stat.entries
         .mapNotNull { st ->
           val f = flat.value(st)
@@ -209,7 +207,11 @@ data class Gear(
                   }
         }
         .joinToString(" / ")
-    return (if (weapon) (if(twoHanded) "양손용" else "한손용") + " · " else "") + attributes
+    val prefix = PrefixCatalog.find(kind,prefixId)?.let {
+        val detail=copy(flat=it.stats(prefixRank),percent=Stats.zero(),prefixId=null,affixes=emptyList()).baseSummary()
+        "\n접두사 · ${it.name}: $detail"
+    } ?: ""
+    return (if (weapon) (if(twoHanded) "양손용" else "한손용") + " · " else "") + attributes + prefix
   }
 }
 
@@ -392,6 +394,9 @@ data class State(
     var quickEquipIds: List<Long> = emptyList(),
     var points: Int = 0,
     var base: Stats = Stats(),
+    var permanentBonus: Stats = Stats.zero(),
+    var effects: List<ActiveEffect> = emptyList(),
+    var unyieldingUsed: Boolean = false,
     var hp: Double = 360.0,
     var gold: Int = 0,
     var bank: Int = 0,

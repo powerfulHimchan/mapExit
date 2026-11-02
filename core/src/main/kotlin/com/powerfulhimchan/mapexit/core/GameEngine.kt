@@ -25,6 +25,7 @@ class GameEngine(
             state.shop = MutableList(6) { ItemFactory.create(state, floor = 1) }
             state.shop.add(ItemFactory.create(state, Kind.POTION, 1))
             ItemFactory.rareScroll(state)
+            Consumables.stock(state)
             state.note("출정 준비: 장비와 소모품을 확인한 뒤 던전에 진입하세요")
         }
         if (
@@ -190,6 +191,8 @@ class GameEngine(
         }
     }
 
+    val inventoryCategories=listOf("전체","장비","회복","영구 성장","층 강화","시간 강화","강화서")
+
     fun choices(): List<Choice> {
         val s = state
         fun c(label: String, action: String, arg: Long = 0) = Choice(label, action, arg)
@@ -243,6 +246,7 @@ class GameEngine(
                 listOf(
                     c("일반 공격 · 명중 ${(Luck.good(GameBalance.model("normal_hit"),stats().luck,.99)*100).toInt()}%", "attack"),
                     c("강공격 · 명중 ${(Luck.good(GameBalance.model("strong_hit"),stats().luck,.99)*100).toInt()}%", "strong"),
+                    c("강화 소모품 사용", "combatItems"),
                     c("회복약 사용", "potion"),
                     c("상급 회복약 사용", "strongPotion"),
                     c("도주 시도", "flee"),
@@ -311,13 +315,17 @@ class GameEngine(
                     s.inventory.filter { Slot.entries[menu.argument.toInt()] in Equipment.allowedSlots(it) }.map {
                         c("${it.name}${if(it.id in s.equipment.values) " [착용중]" else ""}", "item", it.id)
                     }
-                "inventory" -> InventoryStacks.groups(s.inventory, s.equipment.values).map { stack ->
+                "inventory", "combatItems" -> InventoryStacks.groups(s.inventory.filter {
+                    (menu.type!="combatItems" || it.kind==Kind.CONSUMABLE) &&
+                    (menu.argument==0L || Consumables.category(it)==inventoryCategories.getOrNull(menu.argument.toInt()))
+                }, s.equipment.values).map { stack ->
                     c(InventoryStacks.inventoryLabel(stack), "item", stack.representative.id)
                 }
                 "item" -> {
                     val g = s.inventory.find { it.id == menu.argument }
                     if (g == null) emptyList()
                     else if (g.kind == Kind.SCROLL) listOf(c("강화할 장비 선택", "upgradeMenu", g.id))
+                    else if (g.kind == Kind.CONSUMABLE) listOf(c("소모품 사용", "useItem", g.id))
                     else if (g.kind == Kind.POTION) listOf(c("회복약 마시기", "useItem", g.id))
                     else
                         buildList {
@@ -407,7 +415,8 @@ class GameEngine(
                     }
                 else -> emptyList()
             }
-        return if (menu.type == "shopItem") items else items + c("돌아가기", "back")
+        return if (menu.type == "shopItem") items else items +
+            (if(menu.type=="inventory") inventoryCategories.mapIndexed { i,name -> c(name,"inventoryFilter",i.toLong()) } else emptyList()) + c("돌아가기", "back")
     }
 
     fun press(button: Int) {
@@ -464,6 +473,7 @@ class GameEngine(
     fun tick(deltaMs: Long) {
         val s = state
         val delta = deltaMs.coerceIn(0L, 250L)
+        Consumables.tick(s,delta)
         s.playMs += delta
         if (s.dungeon != null && s.mode != Mode.RUN_RESULT) s.runElapsedMs += delta
         if (s.mode == Mode.CHALLENGE) { ChallengeStages.tick(s, delta); return }
@@ -597,6 +607,11 @@ class GameEngine(
             return
         }
         when (c.action) {
+            "inventoryFilter" -> {
+                if(s.mode==Mode.MENU && s.menu?.type=="inventory" && c.argument.toInt() in inventoryCategories.indices)
+                    s.menu=s.menu!!.copy(argument=c.argument)
+            }
+            "combatItems" -> if(s.mode==Mode.COMBAT_ATTACK) open("combatItems")
             "challengeEnter" -> { ChallengeStages.open(s); controls.reset() }
             "retreat" -> endRun(retreated = true)
             "runContinue" -> {
@@ -693,8 +708,14 @@ class GameEngine(
                 returnToGearSelection()
             }
             "useItem" -> {
-                usePotion(c.argument)
-                closeMenu()
+                val g=s.inventory.firstOrNull { it.id==c.argument } ?: return
+                val combat=s.menu?.returnMode==Mode.COMBAT_ATTACK
+                if(g.kind==Kind.CONSUMABLE) {
+                    if(Consumables.use(s,c.argument)) {
+                        closeMenu()
+                        if(combat) { s.mode=Mode.COMBAT_DEFEND;s.selection=0 }
+                    }
+                } else if(usePotion(c.argument)) { closeMenu();if(combat) s.mode=Mode.COMBAT_DEFEND }
             }
             "stat" -> spendPoint(Stat.entries[c.argument.toInt()])
             "growthHeal" -> restoreWithGrowthPoint()
@@ -850,6 +871,7 @@ class GameEngine(
         if (state.challenge != null) return
         val s = state
         if (s.dungeon == null) {
+            s.unyieldingUsed=false
             s.runKills = 0
             s.runChests = 0
             s.runTraps = 0
@@ -860,6 +882,7 @@ class GameEngine(
         s.quickEquipIds = emptyList()
         s.chestLoot = null
         s.runDeepestFloor = max(s.runDeepestFloor, floor)
+        Consumables.leaveFloor(s)
         s.floor = floor
         s.highest = max(s.highest, floor)
         mapSeed?.let { s.rng = it() }
@@ -877,6 +900,7 @@ class GameEngine(
         s.shop.add(ItemFactory.create(s, Kind.POTION))
         s.shop.add(ItemFactory.potion(s, PotionGrade.GREATER))
         ItemFactory.rareScroll(s)
+        Consumables.stock(s)
         s.quest?.takeIf { it.kind == "floor" }?.let { it.progress = max(it.progress, floor) }
         s.note("지하 ${floor}층 · 갈림길에서 방향을 선택하세요")
         Story.onFloor(s)
@@ -980,7 +1004,7 @@ class GameEngine(
             s.inventory.add(bonus)
             rewards.add(bonus)
         }
-        val gold = 15 + s.floor * 3 + s.nextInt(15)
+        val gold = ((15 + s.floor * 3 + s.nextInt(15))*NecklaceCatalog.multiplier(s,Charm.GOLD,.15)).toInt()
         s.gold += gold
         s.quickEquipIds = rewards.filter { it.equippable }.map { it.id }
         s.chestLoot = ChestLootNotice(rewards, gold)
@@ -1206,8 +1230,8 @@ class GameEngine(
         val enemy = s.enemy ?: return
         MonsterCatalog.record(s, enemy, defeat = 1)
         Achievements.victory(s, enemy)
-        val gold = ((20 + s.floor * 4) * (if (enemy.elite) 1.5 else 1.0)).toInt()
-        val experience = ((25 + s.floor * 5) * (if (enemy.elite) 1.5 else 1.0)).toInt()
+        val gold = ((20 + s.floor * 4) * (if (enemy.elite) 1.5 else 1.0)*NecklaceCatalog.multiplier(s,Charm.GOLD,.15)).toInt()
+        val experience = ((25 + s.floor * 5) * (if (enemy.elite) 1.5 else 1.0)*NecklaceCatalog.multiplier(s,Charm.TRAINING,.15)).toInt()
         val items = mutableListOf<String>()
         val rewards = mutableListOf<Gear>()
         s.runKills++
@@ -1217,6 +1241,7 @@ class GameEngine(
         if (enemy.boss) {
             s.devices.add(s.floor)
             s.dungeon?.bossCleared = true
+            Consumables.reward(s)?.let { s.inventory.add(it);items.add(it.name);rewards.add(it) }
             val reward = ItemFactory.bossWeapon(s)
             s.inventory.add(reward)
             items.add(reward.name)
@@ -1225,7 +1250,7 @@ class GameEngine(
             if (enemy.elite) s.dungeon?.eliteCleared = true
             s.dungeon?.here()?.let { if (it.event != Event.EXIT) it.resolved = true }
             if (enemy.elite || s.random() < (.25 + stats().luck * .003).coerceAtMost(.65)) {
-                val reward = if (enemy.elite) ItemFactory.create(s, Kind.entries.filter { it != Kind.POTION && it != Kind.SCROLL }.let { it[s.nextInt(it.size)] }) else ItemFactory.create(s)
+                val reward = if (enemy.elite) ItemFactory.create(s, Kind.entries.filter { it != Kind.POTION && it != Kind.SCROLL && it != Kind.CONSUMABLE }.let { it[s.nextInt(it.size)] }) else ItemFactory.create(s)
                 s.inventory.add(reward)
                 items.add(reward.name)
                 rewards.add(reward)
@@ -1326,7 +1351,7 @@ class GameEngine(
             return false
         }
         s.inventory.remove(item)
-        s.hp = min(maximum, s.hp + maximum * item.potionGrade.healRatio)
+        s.hp = min(maximum, s.hp + maximum * item.potionGrade.healRatio*NecklaceCatalog.multiplier(s,Charm.HEALING,.15))
         s.note("${item.name}: HP ${(item.potionGrade.healRatio * 100).toInt()}% 회복")
         return true
     }
@@ -1359,6 +1384,10 @@ class GameEngine(
     }
 
     fun die() {
+        if(Consumables.preventDeath(state)) {
+            state.enemy?.let { CombatTactics.advance(it);state.mode=Mode.COMBAT_ATTACK }
+            return
+        }
         if (state.challenge != null) {
             if (state.challenge?.phase == ChallengePhase.INTRO) ChallengeStages.leave(state)
             else ChallengeStages.finish(state, false, "도전이 중단되었습니다")
@@ -1397,6 +1426,7 @@ class GameEngine(
 
     private fun surface(dead: Boolean) {
         val s = state
+        Consumables.clear(s)
         s.runResult = null
         if (dead) {
             s.inventory.clear()
@@ -1419,6 +1449,7 @@ class GameEngine(
         s.shop.add(ItemFactory.create(s, Kind.POTION, 1))
         s.shop.add(ItemFactory.potion(s, PotionGrade.GREATER))
         ItemFactory.rareScroll(s)
+        Consumables.stock(s)
         s.note(if (dead) "사망 · 지상 부활. 장비·아이템·소지 골드를 잃었습니다" else "지상 귀환 · 아이템과 골드를 안전하게 가져왔습니다")
         if (!dead) Story.onSurface(s)
     }
@@ -1457,7 +1488,8 @@ class GameEngine(
         s.experience = 0
         s.points = 0
         s.base = Stats()
-        s.hp = s.base.hp
+        Consumables.clear(s)
+        s.hp = stats().hp
         s.gold = 0
         s.bank = 0
         s.runResult = null
@@ -1481,8 +1513,9 @@ class GameEngine(
         s.shop.add(ItemFactory.potion(s, PotionGrade.BASIC))
         s.shop.add(ItemFactory.potion(s, PotionGrade.GREATER))
         ItemFactory.rareScroll(s)
+        Consumables.stock(s)
         Achievements.evaluate(s)
-        s.note("${s.cycle}회차 시작 · 계승 장비 ${s.inventory.size}개 · 능력치/돈/장치 초기화")
+        s.note("${s.cycle}회차 시작 · 계승 장비 ${s.inventory.size}개 · 기본 능력치/돈/장치 초기화 · 열매 보너스 유지")
         Story.onNewCycle(s)
     }
 }

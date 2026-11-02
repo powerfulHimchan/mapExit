@@ -2,6 +2,8 @@ package com.powerfulhimchan.mapexit
 
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -129,6 +131,10 @@ fun MapExitScreen(vm: GameModel) {
                     }
                 }
                 if (s.mode != Mode.CHALLENGE) ExperienceMeter(s)
+                if(s.effects.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical=3.dp),
+                    horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Consumables.labels(s).forEach { Text(it,color=mint,fontSize=11.sp,lineHeight=15.sp) }
+                }
                 AchievementNotice(vm)
                 if (s.training)
                     Row(
@@ -442,6 +448,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "trainingChallenges" -> "특별 도전 연습"
                 "training" -> "테스트 메뉴"
                 "trainingTraps" -> "장애물 선택"
+                "combatItems" -> "강화 소모품 · 사용 시 공격 차례 소비"
                 "item" -> "장비 / 아이템 상세"
                 else -> "${if (s.debug) "개발용 테스트" else "준비 메뉴"}"
             }
@@ -452,6 +459,16 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 20.dp),
         ) {
+            if(menu=="inventory") item(key="inventory-categories") {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    vm.engine.inventoryCategories.forEachIndexed { index,name ->
+                        GameButton(onClick={vm.choose(Choice(name,"inventoryFilter",index.toLong()))}) {
+                            Text(name,color=if(s.menu?.argument==index.toLong()) mint else muted,fontSize=12.sp)
+                        }
+                    }
+                }
+            }
+            if(menu=="combatItems" && ownedItems.none { it.kind==Kind.CONSUMABLE }) item { Text("사용할 강화 소모품이 없습니다",color=muted) }
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -545,7 +562,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 if (menu == "achievements") achievementCards(vm)
                 items(
                     menuChoices.filterNot {
-                        (menu in listOf("help", "shopItem")) ||
+                        it.action=="inventoryFilter" || (menu in listOf("help", "shopItem")) ||
                             (menu in listOf("forge","forgeConfirm","upgradeTargets") && it.action != "back") ||
                             (menu == "achievements" && it.action != "back") ||
                             (menu in listOf("training", "trainingTraps", "trainingChallenges", "challengeRecords") && it.action == "back") ||
@@ -563,6 +580,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                             "shop" -> shopItems.find { it.id == c.argument }
                             "slotInventory",
                             "inventory",
+                            "combatItems",
                             "sell" -> ownedItems.find { it.id == c.argument }
                             "equipment" ->
                                 ownedItems.find {
@@ -582,6 +600,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                                     ?.let {
                                         s.gold >= Equipment.buyPrice(s, it) * c.argument.toInt()
                                     } ?: false
+                            "useItem" -> ownedItems.find { it.id==c.argument }?.let { it.kind!=Kind.CONSUMABLE || Consumables.blockedReason(s,it)==null } ?: false
                             "stat" -> s.points > 0
                             "slotItem" -> s.equipment[Slot.entries[c.argument.toInt()]] != null
                             else -> true

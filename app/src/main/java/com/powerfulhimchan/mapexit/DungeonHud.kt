@@ -164,6 +164,7 @@ internal fun CombatShortcuts(vm: GameModel) {
             add("회복약 ${s.inventory.count { it.kind == Kind.POTION && it.potionGrade == PotionGrade.BASIC }}" to "potion")
             if (s.inventory.any { it.kind == Kind.POTION && it.potionGrade == PotionGrade.GREATER })
                 add("상급 ${s.inventory.count { it.kind == Kind.POTION && it.potionGrade == PotionGrade.GREATER }}" to "strongPotion")
+            if(s.inventory.any { it.kind==Kind.CONSUMABLE }) add("강화" to "combatItems")
             add("도주" to "flee")
         }
             .forEach { (label, action) ->
@@ -173,7 +174,7 @@ internal fun CombatShortcuts(vm: GameModel) {
                             vm.choose(Choice(label, action))
                         }
                         .semantics(mergeDescendants = true) {
-                            contentDescription = when (action) { "potion" -> "회복약 사용"; "strongPotion" -> "상급 회복약 사용"; else -> "도주 시도" }
+                            contentDescription = when (action) { "potion" -> "회복약 사용"; "strongPotion" -> "상급 회복약 사용"; "combatItems" -> "강화 소모품 사용"; else -> "도주 시도" }
                         }
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
