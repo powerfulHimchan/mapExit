@@ -45,6 +45,12 @@ data class Achievement(
 
 /** Save-wide milestones. Only confirmed normal-play events may change progress. */
 object Achievements {
+    fun pendingRewards(s: State): Int = all.count { it.id in s.achievements.unlocked && it.id !in s.achievements.claimed }
+
+    fun rewardBadge(s: State): String = pendingRewards(s).let { if(it > 0) " ($it)" else "" }
+
+    fun menuLabel(s: State): String = "업적" + rewardBadge(s)
+
     val all = listOf(
         Achievement("first-victory", "첫 승리", "몬스터 첫 처치", 1, "kills", gold = 30),
         Achievement("hunter-50", "익숙한 사냥꾼", "몬스터 누적 50마리 처치", 50, "kills", greaterPotions = 1, scrolls = 1),
