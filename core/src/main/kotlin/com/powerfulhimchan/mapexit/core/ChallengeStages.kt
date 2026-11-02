@@ -118,7 +118,6 @@ object ChallengeStages {
             else -> Unit
         }
         s.challenge = ChallengeRun(kind, runSeed, host, s.floor, route.size - 1 + 4, sealOrder = order)
-        Consumables.leaveFloor(s)
         s.dungeon = map; s.mode = Mode.CHALLENGE; s.enemy = null; s.trap = null
         s.battleResult = null; s.chestLoot = null; s.quickEquipIds = emptyList(); s.encounter = null
         s.note("특별 도전 · ${kind.title}")
@@ -128,6 +127,7 @@ object ChallengeStages {
     fun start(s: State) {
         val c = s.challenge ?: return
         if (c.phase != ChallengePhase.INTRO) return
+        Consumables.leaveFloor(s)
         c.phase = if (c.kind == ChallengeKind.MEMORY) ChallengePhase.PREVIEW else ChallengePhase.ACTIVE
         c.hostDungeon.here().resolved = true
         if (!s.training && !s.debug) {
@@ -175,7 +175,7 @@ object ChallengeStages {
             "challengeResume" -> resume(s)
             "challengePause" -> pause(s)
             "challengeUse" -> interact(s)
-            "challengeWait" -> tick(s, 500)
+            "challengeWait" -> { Consumables.tick(s,500);tick(s,500) }
             "challengeCross" -> cross(s)
         }
     }
@@ -349,7 +349,7 @@ object ChallengeStages {
     fun leave(s: State) {
         val c = s.challenge ?: return
         if (c.phase !in listOf(ChallengePhase.INTRO, ChallengePhase.RESULT)) return
-        Consumables.leaveFloor(s)
+        if(c.started) Consumables.leaveFloor(s)
         s.dungeon = c.hostDungeon; s.floor = c.hostFloor; s.mode = Mode.EXPLORE
         s.challenge = null; s.quickEquipIds = emptyList(); s.selection = 0
         s.note(if (c.phase == ChallengePhase.INTRO) "도전을 지나갔습니다 · 나중에 다시 입장할 수 있습니다" else "특별 도전 종료 · 원래 던전으로 복귀했습니다")

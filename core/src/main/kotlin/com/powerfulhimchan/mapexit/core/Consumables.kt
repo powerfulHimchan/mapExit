@@ -69,6 +69,7 @@ object Consumables {
     }.maxOrNull() ?: 0.0
     fun tick(s:State,delta:Long) {
         if(s.mode !in listOf(Mode.EXPLORE,Mode.MOVING,Mode.COMBAT_ATTACK,Mode.COMBAT_DEFEND,Mode.TRAP,Mode.TRAP_GUIDE,Mode.CHALLENGE)) return
+        if(s.mode==Mode.CHALLENGE && s.challenge?.phase !in listOf(ChallengePhase.PREVIEW,ChallengePhase.ACTIVE,ChallengePhase.HAZARD)) return
         val old=s.effects
         s.effects=old.map { e -> if(find(e.itemId)?.scope==EffectScope.TIMED) e.copy(remainingMs=(e.remainingMs-delta.coerceAtLeast(0)).coerceAtLeast(0)) else e }
             .filter { find(it.itemId)?.scope!=EffectScope.TIMED || it.remainingMs>0 }

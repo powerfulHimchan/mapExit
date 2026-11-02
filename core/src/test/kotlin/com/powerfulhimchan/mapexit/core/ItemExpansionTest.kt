@@ -190,4 +190,27 @@ class ItemExpansionTest {
         assertEquals(1,Forge.pairs(s).size)
     }
 
+    @Test fun challengeIntroCancelPreservesFloorEffectButStartingChallengeClearsIt() {
+        val e=dungeon();val s=e.state;s.debug=true;s.dungeon!!.here().event=Event.PORTAL
+        Consumables.use(s,item(s,"floor_attack").id)
+        assertTrue(ChallengeStages.open(s,ChallengeKind.LOST))
+        assertEquals(1,s.effects.size)
+        ChallengeStages.leave(s)
+        assertEquals(1,s.effects.size)
+        assertTrue(ChallengeStages.open(s,ChallengeKind.LOST))
+        ChallengeStages.start(s)
+        assertTrue(s.effects.isEmpty())
+    }
+    @Test fun challengeIntroPauseAndResultsDoNotDrainTimedEffects() {
+        val s=dungeon().state;s.debug=true;s.dungeon!!.here().event=Event.PORTAL
+        Consumables.use(s,item(s,"timed_attack").id)
+        assertTrue(ChallengeStages.open(s,ChallengeKind.LOST))
+        for(phase in listOf(ChallengePhase.INTRO,ChallengePhase.PAUSED,ChallengePhase.RESULT)) {
+            s.challenge!!.phase=phase;Consumables.tick(s,1000)
+            assertEquals(120000L,s.effects.single().remainingMs)
+        }
+        s.challenge!!.phase=ChallengePhase.ACTIVE;Consumables.tick(s,1000)
+        assertEquals(119000L,s.effects.single().remainingMs)
+    }
+
 }
