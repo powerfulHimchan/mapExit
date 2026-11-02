@@ -12,11 +12,11 @@ import org.junit.Test
 
 class MapRewardRefreshTest {
     private val instrumentation=InstrumentationRegistry.getInstrumentation()
-    private fun find(node:AccessibilityNodeInfo?,label:String):Rect? {
+    private fun find(node:AccessibilityNodeInfo?,label:String,textOnly:Boolean=false):Rect? {
         if(node==null)return null
-        if(node.contentDescription?.toString()==label || node.text?.toString()==label)
+        if((!textOnly && node.contentDescription?.toString()==label) || node.text?.toString()==label)
             return Rect().also{node.getBoundsInScreen(it)}
-        for(i in 0 until node.childCount)find(node.getChild(i),label)?.let{return it}
+        for(i in 0 until node.childCount)find(node.getChild(i),label,textOnly)?.let{return it}
         return null
     }
     private fun scroll(node:AccessibilityNodeInfo?):Boolean {
@@ -25,12 +25,12 @@ class MapRewardRefreshTest {
         for(i in 0 until node.childCount)if(scroll(node.getChild(i)))return true
         return false
     }
-    private fun bounds(label:String,allowScroll:Boolean=false):Rect {
+    private fun bounds(label:String,allowScroll:Boolean=false,textOnly:Boolean=false):Rect {
         val end=SystemClock.uptimeMillis()+8000
         while(SystemClock.uptimeMillis()<end){
             instrumentation.runOnMainSync{}
             val root=instrumentation.uiAutomation.rootInActiveWindow
-            find(root,label)?.let{if(it.width()>0 && it.height()>0)return it}
+            find(root,label,textOnly)?.let{if(it.width()>0 && it.height()>0)return it}
             if(allowScroll)scroll(root)
             SystemClock.sleep(50)
         }
@@ -92,10 +92,11 @@ class MapRewardRefreshTest {
             bounds("업적 (1)")
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow,"업적 (2)"))
             scenario.onActivity{it.game.engine.state.achievements.claimed.add("quests-5");it.game.refresh()}
-            bounds("업적")
+            bounds("업적",textOnly=true)
             assertNull(find(instrumentation.uiAutomation.rootInActiveWindow,"업적 (1)"))
             scenario.onActivity{it.game.choose(Choice("업적","achievements"))}
-            bounds("업적")
+            bounds("칭호: 없음")
+            bounds("업적",textOnly=true)
             scenario.onActivity{it.game.engine.state.achievements.claimed.remove("quests-5");it.game.refresh()}
             bounds("업적 (1)")
         }
