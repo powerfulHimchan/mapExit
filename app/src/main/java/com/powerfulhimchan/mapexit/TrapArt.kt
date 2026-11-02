@@ -191,7 +191,7 @@ private fun DrawScope.drawPhysicalChallenge(s: State, t: TrapState) {
 
 /** Readiness is conveyed only by the bar. The green boundary uses the collision rule's ms. */
 internal fun DrawScope.beamTimingBar(t: TrapState) {
-    val x=size.width*.10f; val y=size.height*.955f; val width=size.width*.80f
+    val x=size.width*.10f; val y=size.height-18f; val width=size.width*.80f
     val start=(t.beamCrouchStartMs.toFloat()/t.limitMs.coerceAtLeast(1)).coerceIn(0f,1f)
     val time=when(t.phase) { TrapPhase.PREPARE -> 0L; TrapPhase.RESULT -> t.actionAtMs; else -> t.elapsedMs }
     val p=(time.toFloat()/t.limitMs.coerceAtLeast(1)).coerceIn(0f,1f)
