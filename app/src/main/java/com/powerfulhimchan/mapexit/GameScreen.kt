@@ -268,7 +268,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
         val compact = maxHeight < 560.dp
         Column(
             Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 8.dp),
         ) {
             ScenePresentation(vm, clock, Modifier.fillMaxWidth().weight(1f))
             Text(
@@ -278,7 +278,8 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 lineHeight = if (compact) 18.sp else 20.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
-                minLines = 2,
+                // Reserve two lines throughout a fight; receipts keep their compact layout.
+                minLines = if(s.enemy != null || motion != null) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier =
                     Modifier.fillMaxWidth()
@@ -289,7 +290,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                         .semantics { contentDescription = "현재 상황" },
             )
             Row(
-                Modifier.fillMaxWidth().height(if (compact) 54.dp else 68.dp),
+                Modifier.fillMaxWidth().height(if (compact) 50.dp else 68.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Canvas(
@@ -346,7 +347,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 }
             }
             Row(
-                Modifier.fillMaxWidth().height(if (compact) 62.dp else 76.dp),
+                Modifier.fillMaxWidth().height(if (compact) 56.dp else 76.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 buttons.forEachIndexed { i, b -> ActionButton(vm, i, b, Modifier.weight(1f)) }
