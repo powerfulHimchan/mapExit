@@ -41,7 +41,6 @@ internal fun LazyListScope.achievementCards(vm: GameModel) {
     val p = s.achievements
     item(key = "achievement-summary") {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("달성 ${p.unlocked.size} / ${Achievements.all.size} · 보상 수령 ${p.claimed.size}", color = mint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text("진행도와 칭호는 사망·귀환·계승 후에도 유지됩니다. 보상은 지상에서 업적마다 한 번 받습니다.", color = muted, fontSize = 12.sp, lineHeight = 18.sp)
             Text("칭호: ${Achievements.title(s) ?: "없음"}", color = amber, fontSize = 14.sp)
             if (Achievements.title(s) != null) GameButton(onClick = { vm.choose(Choice("칭호 해제", "selectTitle", -1)) }) {

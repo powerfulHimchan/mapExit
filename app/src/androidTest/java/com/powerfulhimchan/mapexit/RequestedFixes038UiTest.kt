@@ -28,6 +28,12 @@ class RequestedFixes038UiTest {
         }
         error("Missing UI: $label")
     }
+    // Fractional-density accessibility bounds may differ by one physical pixel.
+    private fun assertStableBounds(expected:Rect,actual:Rect){
+        assertTrue("Layout moved: expected $expected, actual $actual",
+            listOf(expected.left-actual.left,expected.top-actual.top,
+                expected.right-actual.right,expected.bottom-actual.bottom).all{kotlin.math.abs(it)<=1})
+    }
     private fun tap(label:String){
         val r=bounds(label);val start=SystemClock.uptimeMillis()
         for(action in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_UP)){
@@ -59,15 +65,24 @@ class RequestedFixes038UiTest {
                 scenario.onActivity{it.game.choose(Choice("실행",action))}
                 SystemClock.sleep(100)
                 bounds("레벨 업 LV.2에서 LV.3")
-                assertEquals("Canvas moved during $action",canvas,bounds("메인 장면"))
-                assertEquals(message,bounds("현재 상황"))
+                assertStableBounds(canvas,bounds("메인 장면"))
+                assertStableBounds(message,bounds("현재 상황"))
                 assertNull(find(instrumentation.uiAutomation.rootInActiveWindow,"성장 배분 열기"))
                 capture("banner-$action")
                 SystemClock.sleep(BattleAnimation.DURATION_MS+100)
             }
             scenario.onActivity{it.game.engine.state.message="행운 공격 강화 · 행운 치명 확률 강화 · 빈틈 공격 · 치명타! 12345 피해 · 다음 공격 준비";it.game.refresh()}
-            assertEquals(message,bounds("현재 상황"));assertEquals(canvas,bounds("메인 장면"))
+            assertStableBounds(message,bounds("현재 상황"));assertStableBounds(canvas,bounds("메인 장면"))
             capture("two-line-message")
+            val frame=instrumentation.uiAutomation.takeScreenshot()!!
+            val caption=bounds("현재 상황")
+            var secondLineInk=0
+            for(y in caption.centerY()+3 until caption.bottom-4)for(x in caption.left+12 until caption.right-12){
+                val pixel=frame.getPixel(x,y)
+                if(android.graphics.Color.red(pixel)>190 && android.graphics.Color.green(pixel)>190 && android.graphics.Color.blue(pixel)>190)secondLineInk++
+            }
+            frame.recycle()
+            assertTrue("The second caption line must render rather than ellipsizing the first",secondLineInk>20)
             scenario.onActivity{it.game.engine.state.enemy=null;it.game.engine.state.mode=Mode.EXPLORE;it.game.refresh()}
             tap("성장 배분 열기");bounds("능력치 성장")
             scenario.onActivity{assertEquals("growth",it.game.engine.state.menu?.type);assertNull(it.game.engine.state.levelUpNotice)}

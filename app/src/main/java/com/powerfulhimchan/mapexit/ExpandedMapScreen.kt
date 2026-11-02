@@ -1,7 +1,6 @@
 package com.powerfulhimchan.mapexit
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -17,8 +16,8 @@ internal fun ExpandedMapScreen(vm: GameModel) {
     BackHandler { vm.closeMap() }
     Column(Modifier.fillMaxSize().background(ink).windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Canvas(Modifier.fillMaxWidth().weight(1f).background(panel).border(1.dp,line)
-            .semantics { contentDescription = "확대 지도" }) { drawMap(vm.engine.state,expanded = true) }
+        DungeonMap(vm,Modifier.fillMaxWidth().weight(1f).background(panel).border(1.dp,line)
+            .semantics { contentDescription = "확대 지도" },expanded = true)
         GameButton(onClick = vm::closeMap,modifier = Modifier.fillMaxWidth()) { Text("돌아가기",color = mint) }
     }
 }

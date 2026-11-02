@@ -293,16 +293,14 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 Modifier.fillMaxWidth().height(if (compact) 50.dp else 68.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Canvas(
+                DungeonMap(vm,
                     Modifier.width(if (compact) 64.dp else 80.dp)
                         .fillMaxHeight()
                         .background(panel)
                         .border(1.dp, line)
                         .gameClickable(onClick = vm::openMap)
                         .semantics { contentDescription = "주변 미니맵" }
-                ) {
-                    drawMap(s)
-                }
+                )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth()) {
                         Text(
@@ -439,7 +437,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 "help" -> "탐험 기록"
                 "storyRecords" -> "이야기"
                 "bestiary" -> "몬스터 도감"
-                "achievements" -> "업적"
+                "achievements" -> Achievements.menuLabel(s)
                 "challengeRecords" -> "특별 도전 기록"
                 "trainingChallenges" -> "특별 도전 연습"
                 "training" -> "테스트 메뉴"
@@ -536,8 +534,8 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                     item { GameButton(onClick = { vm.choose(Choice("이야기", "storyRecords")) },modifier = Modifier.fillMaxWidth()) { Text("이야기",color = mint) } }
                     item { GameButton(onClick = { vm.choose(Choice("몬스터 도감", "bestiary")) }, modifier = Modifier.fillMaxWidth()) { Text("몬스터 도감", color = mint) } }
                     item { GameButton(onClick = { vm.choose(Choice("업적", "achievements")) }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "업적" }) {
-                        val ready = s.achievements.unlocked.size - s.achievements.claimed.size
-                        Text("업적${if (ready > 0) " · 보상 $ready" else ""}", color = mint)
+                        vm.revision
+                        Text(Achievements.menuLabel(vm.engine.state), color = mint)
                     } }
                     item { GameButton(onClick = { vm.choose(Choice("특별 도전 기록", "challengeRecords")) }, modifier = Modifier.fillMaxWidth()) { Text("특별 도전 기록", color = mint) } }
                 }

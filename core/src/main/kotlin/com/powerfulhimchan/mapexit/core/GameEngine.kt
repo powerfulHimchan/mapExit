@@ -362,7 +362,7 @@ class GameEngine(
                     if (item == null) listOf(c("취소", "back"))
                     else listOf(c("구매", "purchase", item.id), c("취소", "back"))
                 }
-                "help" -> listOf(c("이야기", "storyRecords"), c("몬스터 도감", "bestiary"), c("업적", "achievements"), c("특별 도전 기록", "challengeRecords"))
+                "help" -> listOf(c("이야기", "storyRecords"), c("몬스터 도감", "bestiary"), c(Achievements.menuLabel(s), "achievements"), c("특별 도전 기록", "challengeRecords"))
                 "storyRecords" -> emptyList()
                 "challengeRecords" -> emptyList()
                 "trainingChallenges" -> ChallengeKind.entries.map { c(it.title, "trainChallenge", it.ordinal.toLong()) }
