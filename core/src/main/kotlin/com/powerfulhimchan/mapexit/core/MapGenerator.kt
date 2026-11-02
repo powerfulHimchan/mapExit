@@ -54,15 +54,15 @@ object MapGenerator {
                 }
             }
         }
-        place(Event.MONSTER, 7 + floor / 15)
-        place(Event.CHEST, 2)
+        place(Event.MONSTER, EventDensity.count(s,7 + floor / 15,80))
+        place(Event.CHEST, EventDensity.count(s,2,70))
         place(Event.HEAL, 2)
         place(
             Event.MERCHANT,
             if (floor in VisitorSchedule.floors(visitorSeed, Event.MERCHANT)) 1 else 0,
         )
         place(Event.NPC, if (floor in VisitorSchedule.floors(visitorSeed, Event.NPC)) 1 else 0)
-        place(Event.TRAP, 3)
+        place(Event.TRAP, EventDensity.count(s,3,70))
         if (floor % 20 == 0) place(Event.FORGE,1)
         val species = MonsterCatalog.forFloor(floor)
         map.cells.forEachIndexed { index, cell ->

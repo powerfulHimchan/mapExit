@@ -43,6 +43,10 @@ internal val red = Color(0xFFF29491)
 @Composable
 fun MapExitScreen(vm: GameModel) {
     vm.revision
+    if (vm.mapExpanded) {
+        MaterialTheme(colorScheme = darkColorScheme(background = ink,surface = panel,onSurface = pale,primary = mint)) { ExpandedMapScreen(vm) }
+        return
+    }
     if (vm.storyScene != null) {
         MaterialTheme(colorScheme = darkColorScheme(background = ink,surface = panel,onSurface = pale,primary = mint)) {
             StoryScreen(vm)
@@ -146,8 +150,9 @@ fun MapExitScreen(vm: GameModel) {
                         if (s.mode == Mode.MOVING) vm.choose(Choice("멈추기", "stop"))
                         confirmRetreat = true
                     }
-                if (s.levelUpNotice != null && !vm.battleBusy(now) && s.mode !in listOf(Mode.MENU, Mode.CHALLENGE))
-                    LevelUpBanner(s.levelUpNotice!!, s.points, vm::openLevelUpGrowth)
+                if (vm.engine.state.levelUpNotice != null && s.mode !in listOf(Mode.MENU, Mode.CHALLENGE))
+                    LevelUpBanner(vm.engine.state.levelUpNotice!!, vm.engine.state.points, vm::openLevelUpGrowth,
+                        canOpen = !vm.battleBusy(now) && vm.engine.canOpenLevelUpGrowth())
                 if (vm.loadError != null) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                         Text(vm.loadError!!, color = red)
@@ -256,14 +261,14 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
     val motion =
         vm.battleVisual?.takeIf {
             it.active(clock.takeIf { time -> time > 0 } ?: SystemClock.uptimeMillis())
-        }
+        }?.frame(clock.takeIf { it > 0 } ?: SystemClock.uptimeMillis())
     val buttons =
         vm.engine.controls.buttons().map { if (vm.battleBusy()) it.copy(enabled = false) else it }
     BoxWithConstraints(modifier) {
         val compact = maxHeight < 560.dp
         Column(
             Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 8.dp),
         ) {
             ScenePresentation(vm, clock, Modifier.fillMaxWidth().weight(1f))
             Text(
@@ -273,6 +278,8 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 lineHeight = if (compact) 18.sp else 20.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
+                // Reserve two lines throughout a fight; receipts keep their compact layout.
+                minLines = if(s.enemy != null || motion != null) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier =
                     Modifier.fillMaxWidth()
@@ -283,7 +290,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                         .semantics { contentDescription = "현재 상황" },
             )
             Row(
-                Modifier.fillMaxWidth().height(if (compact) 54.dp else 68.dp),
+                Modifier.fillMaxWidth().height(if (compact) 50.dp else 68.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Canvas(
@@ -291,6 +298,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                         .fillMaxHeight()
                         .background(panel)
                         .border(1.dp, line)
+                        .gameClickable(onClick = vm::openMap)
                         .semantics { contentDescription = "주변 미니맵" }
                 ) {
                     drawMap(s)
@@ -339,7 +347,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 }
             }
             Row(
-                Modifier.fillMaxWidth().height(if (compact) 62.dp else 76.dp),
+                Modifier.fillMaxWidth().height(if (compact) 56.dp else 76.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 buttons.forEachIndexed { i, b -> ActionButton(vm, i, b, Modifier.weight(1f)) }
@@ -405,6 +413,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
     val s = e.state
     val surface = s.mode == Mode.SURFACE
     val menu = s.menu?.type
+    if (menu == "upgradeResult") { UpgradeResultScreen(vm,modifier); return }
     val menuChoices = e.choices()
     val ownedItems = s.inventory.toList()
     val shopItems = s.shop.toList()

@@ -18,7 +18,7 @@ class RestorationRegressionTest {
             val exit=map.cells.indexOfFirst { it.event==Event.EXIT }
             assertEquals(1,abs(elite%map.width-exit%map.width)+abs(elite/map.width-exit/map.width))
             val dist=MapGenerator.distances(map,1,1)
-            assertEquals(dist[exit]-1,dist[elite]);assertEquals(2,map.cells.count { it.event==Event.CHEST })
+            assertEquals(dist[exit]-1,dist[elite]);assertTrue(map.cells.count { it.event==Event.CHEST } in 1..2)
         }
     }
     @Test fun eliteVictoryGivesOneGearAndExtraRewardsWithoutClearingTheBoss() {

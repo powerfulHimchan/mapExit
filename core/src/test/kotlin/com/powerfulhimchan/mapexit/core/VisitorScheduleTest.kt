@@ -60,7 +60,7 @@ class VisitorScheduleTest {
         val s = State(bootstrapped = true, rng = 777L)
         for (floor in 1..50) {
             val d = MapGenerator.generate(s, floor)
-            assertEquals(2, d.cells.count { it.event == Event.CHEST })
+            assertTrue(d.cells.count { it.event == Event.CHEST } in 1..2)
             for (event in listOf(Event.NPC, Event.MERCHANT)) assertEquals(
                 if (floor in VisitorSchedule.floors(s.visitorSeed!!, event)) 1 else 0,
                 d.cells.count { it.event == event },
@@ -115,6 +115,6 @@ class VisitorScheduleTest {
         assertNull(restored.state.visitorSeed)
         restored.enterFloor(2)
         assertNotNull(restored.state.visitorSeed)
-        assertEquals(2, restored.state.dungeon!!.cells.count { it.event == Event.CHEST })
+        assertTrue(restored.state.dungeon!!.cells.count { it.event == Event.CHEST } in 1..2)
     }
 }

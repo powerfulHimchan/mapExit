@@ -2,6 +2,8 @@ package com.powerfulhimchan.mapexit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,7 +12,47 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.powerfulhimchan.mapexit.core.*
+
+@androidx.compose.runtime.Composable
+internal fun UpgradeResultScreen(vm: GameModel, modifier: Modifier) {
+    val result = vm.engine.state.upgradeResult ?: return
+    fun value(stat: Stat, number: Double, percent: Boolean): String {
+        val scaled = if(percent || stat in listOf(Stat.CRIT,Stat.CRIT_DAMAGE)) number*100 else number
+        val rounded = kotlin.math.round(scaled*10)/10
+        val text = if(rounded==rounded.toInt().toDouble()) rounded.toInt().toString() else rounded.toString()
+        return text + if(percent) "%" else if(stat in listOf(Stat.CRIT,Stat.CRIT_DAMAGE)) "%p" else ""
+    }
+    Column(modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical=16.dp),
+            verticalArrangement=Arrangement.spacedBy(14.dp)) {
+            Text("강화 성공",color=mint,fontSize=26.sp,fontWeight=FontWeight.Black)
+            ItemArt(result.after,Modifier.size(72.dp))
+            Text("${result.before.name} → ${result.after.name}",color=amber,fontSize=18.sp,lineHeight=26.sp)
+            Column(Modifier.fillMaxWidth().background(panel,RoundedCornerShape(8.dp)).padding(14.dp),
+                verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                for(stat in Stat.entries) for(percent in listOf(false,true)) {
+                    val before=if(percent)result.before.percent.value(stat) else result.before.flatValue(stat)
+                    val after=if(percent)result.after.percent.value(stat) else result.after.flatValue(stat)
+                    if(kotlin.math.abs(after-before) > 1e-8) {
+                        Text(stat.label + if(percent) " (비율)" else "",color=pale,fontSize=14.sp)
+                        Text("${value(stat,before,percent)} → ${value(stat,after,percent)}  (+${value(stat,after-before,percent)})",
+                            color=mint,fontSize=18.sp,fontWeight=FontWeight.Bold,
+                            modifier=Modifier.semantics { contentDescription="강화 변화 · ${stat.label}${if(percent) " 비율" else ""}" })
+                    }
+                }
+                if(result.after.kind==Kind.NECKLACE) {
+                    if(result.after.charm==Charm.MAP)
+                        Text("탐지 범위 ${4+result.before.refinements} → ${4+result.after.refinements}칸 (+1)",color=mint,fontSize=18.sp)
+                    else Text("추가 강화 효과 ${result.before.refinements*5} → ${result.after.refinements*5}%p (+5%p)",color=mint,fontSize=18.sp)
+                }
+            }
+            Text("강화서 1개 사용",color=muted,fontSize=13.sp)
+        }
+        GameButton(onClick={vm.choose(Choice("확인","upgradeDone"))},modifier=Modifier.fillMaxWidth()) { Text("확인",color=mint) }
+    }
+}
 
 internal fun LazyListScope.upgradeCards(vm: GameModel, menu: String) {
     val s=vm.engine.state

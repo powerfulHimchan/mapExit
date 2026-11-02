@@ -1772,7 +1772,7 @@ class LaunchTest {
             scenario.onActivity {
                 val e = GameEngine()
                 e.enterFloor(1)
-                assertEquals(2, e.state.dungeon!!.cells.count { c -> c.event == Event.CHEST })
+                assertTrue(e.state.dungeon!!.cells.count { c -> c.event == Event.CHEST } in 1..2)
                 assertFalse(
                     e.state.dungeon!!.cells.any { c ->
                         c.event in listOf(Event.NPC, Event.MERCHANT)
@@ -3260,8 +3260,9 @@ class LaunchTest {
             }
             tap("강화서 ×2",allowScroll=true);tap("강화할 장비 선택",allowScroll=true)
             bounds("강화 · 시험 검 +2 [착용중] · 오른손",allowScroll=true);capture("upgrade-scroll-preview")
-            tap("강화 · 시험 검 +2 [착용중] · 오른손",allowScroll=true);bounds("가방")
-            bounds("시험 검 +3 [착용중]",allowScroll=true);capture("upgrade-scroll-result")
+            tap("강화 · 시험 검 +2 [착용중] · 오른손",allowScroll=true);bounds("강화 성공")
+            bounds("강화 변화 · 공격력");capture("upgrade-scroll-result");tap("확인");bounds("가방")
+            bounds("시험 검 (+3) [착용중]",allowScroll=true)
             scenario.onActivity { a ->
                 val s=a.game.engine.state
                 assertEquals(1,s.inventory.count { it.kind==Kind.SCROLL });assertEquals(3,s.inventory.first { it.id==1L }.tier)
@@ -3292,9 +3293,9 @@ class LaunchTest {
                     val e=a.game.engine;assertEquals(3,e.state.inventory.single().tier);assertTrue(e.state.message.contains("합성 성공"))
                     assertEquals(1L,e.state.equipment[Slot.BODY]);e.state.inventory.add(e.state.inventory.single().copy(id=3));a.game.refresh()
                 }
-                tap("합성 선택 · 시험 갑옷 +3",allowScroll=true)
+                tap("합성 선택 · 시험 갑옷 (+3)",allowScroll=true)
                 scenario.onActivity { it.game.engine.state.rng=0 }
-                tap("합성 실행 · 시험 갑옷 +3",allowScroll=true)
+                tap("합성 실행 · 시험 갑옷 (+3)",allowScroll=true)
                 bounds("대장간 결과",allowScroll=true);capture("forge-failure-${if(compact) "compact" else "normal"}")
                 scenario.onActivity { a -> assertEquals(3,a.game.engine.state.inventory.single().tier);assertTrue(a.game.engine.state.message.contains("합성 실패"));assertEquals(1L,a.game.engine.state.equipment[Slot.BODY]) }
             } } finally {

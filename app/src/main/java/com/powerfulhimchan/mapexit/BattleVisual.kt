@@ -8,9 +8,16 @@ internal data class BattleVisual(
     val startedAt: Long,
     val impact: BattleImpact,
 ) {
-    val duration get() = BattleAnimation.DURATION_MS * impact.strikes.size.coerceAtLeast(1)
+    val duration get() = BattleAnimation.DURATION_MS * (impact.strikes.size.coerceAtLeast(1) + if(impact.counterHit!=null) 1 else 0)
     fun active(now: Long) = now < startedAt + duration
     fun frame(now: Long): BattleVisual {
+        impact.counterHit?.let { hit ->
+            if(now < startedAt+BattleAnimation.DURATION_MS) return copy(impact=impact.copy(counterHit=null))
+            return copy(action="attack",startedAt=startedAt+BattleAnimation.DURATION_MS,
+                impact=BattleImpact(serial=impact.serial*10+1,target=ImpactTarget.ENEMY,amount=hit.amount,
+                    outcome=if(hit.damage>0) ImpactOutcome.DAMAGE else ImpactOutcome.MISS,
+                    critical=hit.critical,luckyAttack=hit.luckyAttack,luckyCritical=hit.luckyCritical,tactic="자동 반격"))
+        }
         if (impact.strikes.isEmpty()) return this
         val index=((now-startedAt).coerceAtLeast(0)/BattleAnimation.DURATION_MS).toInt().coerceAtMost(impact.strikes.lastIndex)
         val hit=impact.strikes[index]

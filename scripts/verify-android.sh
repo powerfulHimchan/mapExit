@@ -6,6 +6,9 @@ set -uo pipefail
 test_status=0
 ./gradlew :app:connectedDebugAndroidTest --no-daemon || test_status=$?
 mkdir -p app/build/device-screenshots
+adb shell 'ls /sdcard/Download/mapexit-fix038-*.png' | tr -d '\r' | while IFS= read -r path; do
+  [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true
+done
 # Include every story panel, including the narrow-phone captures, without maintaining a second list.
 adb shell 'ls /sdcard/Download/mapexit-story-*.png' | tr -d '\r' | while IFS= read -r path; do
   [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true

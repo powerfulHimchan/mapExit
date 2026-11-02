@@ -148,6 +148,12 @@ class BattleFeedbackTest {
         val e = GameEngine()
         e.enterFloor(1)
         e.startBattle(false)
+        e.state.enemy!!.intent = EnemyIntent.STRIKE
+        e.state.rng = (0L..1000L).first { seed ->
+            val rolls = State(rng=seed)
+            rolls.random()
+            rolls.random() >= Defense.zeroDamageChance(e.stats(),e.state.enemy!!.attack)
+        }
         e.state.mode = Mode.COMBAT_DEFEND
         e.state.hp = 1.0
         e.defend(false)

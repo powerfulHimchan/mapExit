@@ -119,7 +119,7 @@ class NavigationFixtureRegressionTest {
         for(floor in 1..50) {
             val map=MapGenerator.generate(State(rng=floor.toLong()),floor)
             assertEquals(if(floor%5==0)1 else 0,map.cells.count { it.event==Event.ELITE })
-            assertEquals(2,map.cells.count { it.event==Event.CHEST })
+            assertTrue(map.cells.count { it.event==Event.CHEST } in 1..2)
         }
     }
     @Test fun levelUpGrowthReturnsToThePendingRewardAndKeepsExperience() {

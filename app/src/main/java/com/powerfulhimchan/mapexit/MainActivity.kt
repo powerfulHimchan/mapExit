@@ -35,6 +35,15 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     internal fun presentationState(now: Long): State {
         val motion = battleVisual
         if (motion != null && motion.active(now)) {
+            motion.impact.counterHit?.let { hit ->
+                val frame=motion.frame(now)
+                val counterStage=now>=motion.startedAt+BattleAnimation.DURATION_MS
+                val hp=if(now<motion.startedAt+BattleAnimation.HIT_MS) motion.scene.hp else engine.state.hp
+                val enemy=motion.scene.enemy?.let { before ->
+                    before.copy(hp=(before.hp-if(counterStage && now>=frame.startedAt+BattleAnimation.HIT_MS) hit.damage else 0.0).coerceAtLeast(0.0))
+                }
+                return motion.scene.copy(mode=if(counterStage) Mode.COMBAT_ATTACK else Mode.COMBAT_DEFEND,hp=hp,enemy=enemy)
+            }
             if (motion.impact.strikes.isNotEmpty()) {
                 val frame=motion.frame(now)
                 val index=((now-motion.startedAt).coerceAtLeast(0)/BattleAnimation.DURATION_MS).toInt()
@@ -110,6 +119,20 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     var active = false
+    internal var mapExpanded by mutableStateOf(false)
+        private set
+
+    fun openMap() {
+        if (storyScene != null || loadError != null || battleBusy() || engine.state.dungeon == null) return
+        downContext.fill("")
+        mapExpanded = true
+    }
+
+    fun closeMap() {
+        downContext.fill("")
+        mapExpanded = false
+        refresh()
+    }
     // Scene-seeded regression tests may render gameplay independently of the narrative layer.
     internal var storyPlaybackEnabled by mutableStateOf(true)
     private var storyReplay by mutableStateOf<String?>(null)
@@ -176,6 +199,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun down(button: Int) {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (loadError != null) return
         downContext[button] = if (battleBusy()) "BUSY" else engine.controls.inputToken()
@@ -183,6 +207,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun up(button: Int, released: Boolean = true) {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (loadError != null) {
             if (button == 1) {
@@ -224,6 +249,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun choose(choice: Choice) {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (loadError != null) return
         if (
@@ -269,6 +295,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun purchase(itemId: Long, count: Int) {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         val item=engine.state.shop.find { it.id==itemId } ?: return
@@ -281,18 +308,21 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openLootInventory() {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         if (engine.openLootInventory()) { save(); refresh() }
     }
 
     fun openLevelUpGrowth() {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         if(engine.openLevelUpGrowth()) { save(); refresh() }
     }
 
     fun openDungeonPanel(type: String) {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (loadError != null || battleBusy()) return
         if (engine.openDungeonPanel(type)) {
@@ -308,6 +338,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun back() {
+        if (mapExpanded) { closeMap(); return }
         if (storyScene != null) { closeStory(); return }
         engine.navigateBack()
         save()
@@ -335,6 +366,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun tick(delta: Long) {
+        if (mapExpanded) return
         if (storyScene != null) return
         if (!active || loadError != null) return
         val animate =
@@ -352,7 +384,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     fun pause() {
         active = false
         dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = false)
-        engine.pause()
+        if (!mapExpanded) engine.pause()
         save(blocking = true)
         refresh()
     }

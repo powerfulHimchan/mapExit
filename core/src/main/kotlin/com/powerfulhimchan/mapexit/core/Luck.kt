@@ -3,6 +3,11 @@ package com.powerfulhimchan.mapexit.core
 data class AttackLuck(val attackBoost: Boolean = false, val criticalBoost: Boolean = false)
 
 object Luck {
+    /** Guard only: both stats contribute with diminishing returns; always below 3%. */
+    fun counter(stats: Stats): Double = .03 *
+        stats.agility.coerceAtLeast(0.0)/(stats.agility.coerceAtLeast(0.0)+100) *
+        stats.luck.coerceAtLeast(0.0)/(stats.luck.coerceAtLeast(0.0)+100)
+
     /** Helpful and harmful event rolls keep their original odds at zero luck. */
     fun good(base: Double, luck: Double, ceiling: Double = .95): Double =
         (base + (1-base) * .25 * luck.coerceAtLeast(0.0) / (luck.coerceAtLeast(0.0)+80)).coerceIn(base, maxOf(base,ceiling))
