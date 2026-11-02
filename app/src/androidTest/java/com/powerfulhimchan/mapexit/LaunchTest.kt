@@ -722,6 +722,9 @@ class LaunchTest {
                 val e = it.game.engine
                 e.state.mode = Mode.COMBAT_DEFEND
                 e.state.hp = 1.0
+                // This scenario verifies lethal-hit animation, not a random monster's recovery turn.
+                e.state.enemy!!.intent = EnemyIntent.STRIKE
+                e.state.rng = 1L // Both rolls are above critical/full-guard thresholds.
                 it.game.choose(e.choices().first { c -> c.action == "guard" })
                 assertEquals(Mode.RUN_RESULT, e.state.mode)
                 assertTrue(it.game.battleBusy())
@@ -1349,6 +1352,9 @@ class LaunchTest {
                 val e = GameEngine(State(base = Stats(defense = 400.0, luck = 200.0)))
                 e.enterFloor(1)
                 e.startBattle(false)
+                // A flurry legitimately adds opening feedback to the zero-damage label.
+                // Isolate the basic block label from randomized species/intent selection.
+                e.state.enemy!!.intent = EnemyIntent.STRIKE
                 e.state.mode = Mode.COMBAT_DEFEND
                 e.state.rng = 0L
                 it.game.engine = e

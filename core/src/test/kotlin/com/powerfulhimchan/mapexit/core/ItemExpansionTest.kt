@@ -213,4 +213,19 @@ class ItemExpansionTest {
         assertEquals(119000L,s.effects.single().remainingMs)
     }
 
+    @Test fun blockFeedbackAndLethalFixturesUseExplicitIntentsInsteadOfShopRandomness() {
+        val e=GameEngine(State(base=Stats(defense=400.0,luck=200.0)));e.enterFloor(1);e.startBattle(false)
+        e.state.mode=Mode.COMBAT_DEFEND;e.state.enemy!!.intent=EnemyIntent.STRIKE;e.state.rng=0
+        e.defend(false)
+        assertEquals(ImpactOutcome.BLOCK,e.state.lastImpact!!.outcome)
+        assertEquals("완전 방어 · 0 피해",e.state.lastImpact!!.label())
+        e.state.mode=Mode.COMBAT_DEFEND;e.state.enemy!!.intent=EnemyIntent.FLURRY;e.state.rng=0
+        e.defend(false)
+        assertTrue(e.state.lastImpact!!.label().contains("빈틈 발생"))
+        e.state.hp=1.0;e.state.mode=Mode.COMBAT_DEFEND;e.state.enemy!!.intent=EnemyIntent.RECOVER
+        e.defend(false);assertEquals(1.0,e.state.hp,.001)
+        e.state.mode=Mode.COMBAT_DEFEND;e.state.enemy!!.intent=EnemyIntent.STRIKE;e.state.rng=1
+        e.defend(false);assertEquals(Mode.RUN_RESULT,e.state.mode)
+    }
+
 }
