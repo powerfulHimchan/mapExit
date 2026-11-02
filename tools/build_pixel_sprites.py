@@ -446,6 +446,9 @@ a.poly([(9,27),(37,27),(33,31),(28,31),(29,36),(18,36),(19,31),(12,31)],4)
 a.rect(10,26,26,2,5);a.rect(25,14,3,11,14);a.rect(21,12,11,6,4);a.rect(21,12,11,2,5)
 sprites['forge']=a
 
+from item_expansion_art import add_item_art
+add_item_art(sprites, Art)
+
 header='''package com.powerfulhimchan.mapexit
 
 import android.graphics.Bitmap
@@ -466,11 +469,19 @@ internal object FineSprites {
     private const val alphabet = "'''+CHARS+'''"
     private val palette = intArrayOf(
 '''
-text=header+''.join('        0x'+c+'.toInt(),\n' for c in COLORS)+'    )\n    val all: Map<String, Art> = mapOf(\n'
-for name,a in sprites.items():
- assert all(len(r)==a.w for r in a.rows())
- text+='        '+json.dumps(name)+' to Art(listOf(\n'+''.join('            '+json.dumps(row)+',\n' for row in a.rows())+'        )),\n'
-text+='    )\n}\n'
+# Keep generated JVM methods below the bytecode size limit as the atlas grows.
+chunks=[list(sprites.items())[i:i+32] for i in range(0,len(sprites),32)]
+text=header+''.join('        0x'+c+'.toInt(),\n' for c in COLORS)+'    )\n'
+text+='    val all: Map<String, Art> = buildMap {\n'
+for i in range(len(chunks)):text+=f'        putAll(atlas{i}())\n'
+text+='    }\n'
+for i,chunk in enumerate(chunks):
+ text+=f'    private fun atlas{i}(): Map<String, Art> = mapOf(\n'
+ for name,a in chunk:
+  assert all(len(r)==a.w for r in a.rows())
+  text+='        '+json.dumps(name)+' to Art(listOf(\n'+''.join('            '+json.dumps(row)+',\n' for row in a.rows())+'        )),\n'
+ text+='    )\n'
+text+='}\n'
 p=Path('app/src/main/java/com/powerfulhimchan/mapexit/FineSprites.kt')
 if '--check' in sys.argv:
  if not p.exists() or ''.join(p.read_text().split()) != ''.join(text.split()):

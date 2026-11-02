@@ -90,6 +90,7 @@ internal fun gearSprite(kind: Kind): String =
         Kind.NECKLACE -> "necklace"
         Kind.POTION -> "potion"
         Kind.SCROLL -> "scroll"
+        Kind.CONSUMABLE -> "consumable_floor_attack"
     }
 
 internal data class HeroPose(val x: Float, val y: Float, val unit: Float)

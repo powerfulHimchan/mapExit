@@ -262,6 +262,8 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                         "dodge",
                         "potion",
                         "strongPotion",
+                        "combatItems",
+                        "useItem",
                         "flee",
                         "battleContinue",
                         "runContinue",
@@ -370,7 +372,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         if (storyScene != null) return
         if (!active || loadError != null) return
         val animate =
-            engine.state.mode == Mode.MOVING ||
+            engine.state.effects.isNotEmpty() || engine.state.mode == Mode.MOVING ||
                 engine.state.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE, Mode.CHALLENGE)
         engine.tick(delta)
         saveClock += delta

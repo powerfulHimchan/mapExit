@@ -39,7 +39,8 @@ data class Achievement(
         if (scrolls > 0) add("강화서 ${scrolls}개")
         if (points > 0) add("성장 포인트 ${points}P")
         if (title != null) add("칭호 ‘$title’")
-        if (specialGear) add("특별 반지 ‘귀환자의 인장’")
+        if (specialGear) add(if(id=="boss-50-thrice") "특별 반지 ‘심연의 인장’" else "특별 반지 ‘귀환자의 인장’")
+        if(id in listOf("boss-10","boss-30","boss-50","boss-50-twice","boss-50-thrice")) add("영구 성장 열매 1개")
     }.joinToString(" · ")
 }
 
@@ -67,6 +68,7 @@ object Achievements {
         Achievement("boss-50", "출구를 찾은 자", "50층 보스 처치", 1, "boss50", points = 3, title = "출구를 찾은 자"),
         Achievement("next-cycle", "새로운 시작", "장비 계승 후 다음 회차 시작", 1, "cycles", gold = 200, greaterPotions = 2),
         Achievement("boss-50-twice", "다시 찾은 출구", "서로 다른 회차에서 50층 보스 2회 처치", 2, "finalBossCycles", title = "다시 찾은 출구", specialGear = true),
+        Achievement("boss-50-thrice", "심연의 지배자", "서로 다른 회차에서 50층 보스 3회 처치", 3, "finalBossCycles", title="심연의 지배자", specialGear=true),
     )
 
     /** Keep catalogue indices for claim/title actions even when the visible order changes. */
@@ -155,13 +157,19 @@ object Achievements {
         repeat(a.potions) { s.inventory.add(ItemFactory.potion(s, PotionGrade.BASIC)) }
         repeat(a.greaterPotions) { s.inventory.add(ItemFactory.potion(s, PotionGrade.GREATER)) }
         if (a.specialGear) {
-            val ring = specialRing(s.nextId++)
+            val ring = if(a.id=="boss-50-thrice") abyssRing(s.nextId++) else specialRing(s.nextId++)
             s.inventory.add(ring)
             s.quickEquipIds = listOf(ring.id)
         }
+        if(a.id in listOf("boss-10","boss-30","boss-50","boss-50-twice","boss-50-thrice"))
+            s.inventory.add(Consumables.random(s,EffectScope.PERMANENT))
         s.note("업적 보상 · ${a.name} · ${a.rewardText}")
         return true
     }
+
+    fun abyssRing(id:Long)=Gear(id,Kind.RING,"심연의 인장",tier=7,
+        flat=Stats.zero().copy(luck=10.0,crit=-.05),percent=Stats.zero().copy(defense=.25,hp=.15),
+        price=1200,variantId="abyss-seal")
 
     fun specialRing(id: Long) = Gear(id, Kind.RING, "귀환자의 인장", tier = 7,
         percent = Stats.zero().copy(attack = .25, hp = .20, agility = -.15),
