@@ -18,6 +18,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class LaunchTest {
+    @get:org.junit.Rule val stallWatch = UiStallWatch()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
     @Before
@@ -519,6 +520,7 @@ class LaunchTest {
 
     @Test
     fun encounterChoicesAndMerchantSaleRefreshOnScreen() {
+        android.util.Log.w("System.err", "Encounter UI: launch")
         launchGame().use { scenario ->
             scenario.onActivity {
                 it.game.active = false
@@ -526,6 +528,7 @@ class LaunchTest {
                 it.game.refresh()
             }
             tap("↑ 앞으로 이동")
+            android.util.Log.w("System.err", "Encounter UI: NPC entered")
             bounds("여행자의 의뢰")
             bounds("수락")
             bounds("거절")
@@ -552,9 +555,12 @@ class LaunchTest {
             capture("chest-encounter")
             scenario.onActivity { it.game.engine.state.rng = 0L }
             tap("열기")
+            android.util.Log.w("System.err", "Encounter UI: chest opened")
             bounds("3인칭 전투")
             scenario.onActivity { assertTrue(it.game.engine.state.enemy!!.name.startsWith("상자 속")) }
+            android.util.Log.w("System.err", "Encounter UI: combat state inspected")
             capture("chest-ambush")
+            android.util.Log.w("System.err", "Encounter UI: combat captured")
             scenario.onActivity {
                 val e = encounterEngine(Event.MERCHANT)
                 val sword = e.state.inventory.first { gear -> gear.weapon }
