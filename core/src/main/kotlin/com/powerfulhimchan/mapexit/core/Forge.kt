@@ -26,7 +26,7 @@ object Forge {
         return g.copy(name=baseName(g)+" (+${g.tier+1})",tier=g.tier+1,
             flat=improve(g.flat,false),percent=improve(g.percent,true),price=g.price+35,refinements=g.refinements+1,prefixRank=if(g.prefixId!=null) g.prefixRank+1 else g.prefixRank)
     }
-    private fun family(g: Gear) = listOf(g.kind,baseName(g),g.tier,g.variantId ?: ArmorCatalog.of(g.kind).firstOrNull()?.id,g.prefixId,g.prefixRank,g.charm,g.bossOriginFloor,g.affixes.sortedWith(compareBy<WeaponAffix> { it.stat.ordinal }.thenBy { it.amount }))
+    private fun family(g: Gear) = listOf(g.kind,baseName(g),g.tier,g.variantId ?: ArmorCatalog.of(g.kind).firstOrNull()?.id,g.prefixId,g.prefixRank,g.prefixIntensity,g.charm,g.bossOriginFloor,g.affixes.sortedWith(compareBy<WeaponAffix> { it.stat.ordinal }.thenBy { it.amount }))
     fun pairs(s: State): List<Pairing> = s.inventory.filter { it.equippable }.groupBy(::family).values.mapNotNull { group ->
         val base = group.sortedWith(compareByDescending<Gear> { it.inherited }.thenByDescending { it.id in s.equipment.values }.thenByDescending { it.refinements }.thenBy { it.id }).first()
         val material = group.filter { it.id != base.id && !it.inherited }.sortedWith(compareBy<Gear> { it.id in s.equipment.values }.thenBy { it.id }).firstOrNull()

@@ -263,7 +263,12 @@ object ItemFactory {
             price = if (k == Kind.POTION) 25 else 35 * tier,
             variantId = variant?.id ?: armorVariant?.id,
         )
-        return PrefixCatalog.apply(gear, prefixId ?: if(kind==null) PrefixCatalog.roll(s,k) else null)
+        val rolledPrefix = prefixId ?: if (kind == null) PrefixCatalog.roll(s, k) else null
+        val intensity = if (floor > 30 && PrefixCatalog.find(k, rolledPrefix) != null &&
+            s.random() < Luck.good(.35, Equipment.stats(s).luck, .60)) {
+            PrefixIntensity.entries[1 + s.nextInt(3)]
+        } else PrefixIntensity.NONE
+        return PrefixCatalog.apply(gear, rolledPrefix, intensity)
     }
 
     /** A guaranteed weapon with preserved base stats and distinct, additive rolled affixes. */

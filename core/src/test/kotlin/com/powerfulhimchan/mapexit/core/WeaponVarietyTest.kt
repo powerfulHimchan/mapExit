@@ -58,7 +58,8 @@ class WeaponVarietyTest {
                 val variant = WeaponCatalog.all.first { it.id == g.variantId }
                 assertEquals(variant.stats(g.tier), g.flat)
                 assertTrue(g.summary().contains("보스 전리품"))
-                assertTrue(g.summary().contains("추가 옵션:"))
+                assertFalse(g.summary().contains("추가 옵션:"))
+                assertTrue(g.summary().contains(g.baseSummary()))
             }
         }
     }

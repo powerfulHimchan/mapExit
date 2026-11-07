@@ -10,11 +10,11 @@ class TrapProgressionTest {
             var previous = Long.MAX_VALUE
             for (floor in 1..50) {
                 val t = Traps.create(State(bootstrapped = true, floor = floor), type)
-                assertEquals(2000L - (floor - 1) * 10, t.limitMs)
+                assertEquals(2000L - (floor - 1) * 10 - ((floor - 1) / 10) * 50, t.limitMs)
                 assertTrue(t.limitMs < previous)
                 previous = t.limitMs
             }
-            assertEquals(1510L, Traps.create(State(floor = 1000), type).limitMs)
+            assertEquals(1310L, Traps.create(State(floor = 1000), type).limitMs)
         }
     }
 
@@ -25,9 +25,9 @@ class TrapProgressionTest {
             val pot = Traps.create(s, 0)
             val wall = Traps.create(s, 2)
             val memory = Traps.create(s, 3)
-            assertEquals(2 + (floor - 1) / 20, pot.pattern.size)
-            assertEquals(4 + (floor - 1) / 20, wall.required)
-            assertEquals(3 + (floor - 1) / 20, memory.pattern.size)
+            assertEquals(2 + (floor - 1) / 10, pot.pattern.size)
+            assertEquals(4 + (floor - 1) / 10, wall.required)
+            assertEquals(3 + (floor - 1) / 10, memory.pattern.size)
             assertTrue(memory.revealMs / memory.pattern.size >= 300)
         }
     }

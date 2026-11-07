@@ -19,20 +19,20 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun AchievementNotice(vm: GameModel) {
-    val ids = vm.engine.state.achievements.notices.toList()
-    LaunchedEffect(ids) {
-        if (ids.isNotEmpty()) {
-            delay(4000)
-            vm.dismissAchievementNotices(ids)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val id = vm.revision.let { vm.engine.state.achievements.notices.firstOrNull() }
+    LaunchedEffect(vm.engine, id) {
+        if (id != null) {
+            val name = Achievements.all.firstOrNull { it.id == id }?.name ?: "새 업적"
+            val toast = android.widget.Toast.makeText(context, "업적 달성 · $name", android.widget.Toast.LENGTH_SHORT)
+            try {
+                toast.show()
+                delay(2500)
+                vm.dismissAchievementNotices(listOf(id))
+            } finally {
+                toast.cancel()
+            }
         }
-    }
-    if (ids.isNotEmpty()) {
-        val first = Achievements.all.firstOrNull { it.id == ids.first() }
-        Text("업적 달성 · ${first?.name ?: "새 업적"}${if (ids.size > 1) " 외 ${ids.size - 1}개" else ""} · 기록에서 확인",
-            color = amber, fontSize = 11.sp, lineHeight = 15.sp,
-            modifier = Modifier.fillMaxWidth().background(panel).padding(horizontal = 8.dp, vertical = 5.dp).semantics {
-                contentDescription = "업적 달성 알림"
-            })
     }
 }
 

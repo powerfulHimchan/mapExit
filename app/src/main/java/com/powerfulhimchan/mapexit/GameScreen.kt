@@ -135,7 +135,6 @@ fun MapExitScreen(vm: GameModel) {
                     horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     Consumables.labels(s).forEach { Text(it,color=mint,fontSize=11.sp,lineHeight=15.sp) }
                 }
-                AchievementNotice(vm)
                 if (s.training)
                     Row(
                         Modifier.fillMaxWidth().height(34.dp),

@@ -1535,7 +1535,7 @@ class LaunchTest {
                 it.game.refresh()
             }
             bounds("보스 전리품", allowScroll = true)
-            bounds("추가 옵션: ${reward!!.affixSummary()}", allowScroll = true)
+            bounds(reward!!.baseSummary(), allowScroll = true)
             capture("boss-affixes")
             scenario.onActivity {
                 val e = it.game.engine
@@ -1559,8 +1559,8 @@ class LaunchTest {
                 e.state.mode = Mode.TRAP
                 e.state.trap =
                     Traps.create(e.state, 2).copy(phase = TrapPhase.ACTIVE, elapsedMs = 500)
-                assertEquals(6, e.state.trap!!.required)
-                assertEquals(1510L, e.state.trap!!.limitMs)
+                assertEquals(8, e.state.trap!!.required)
+                assertEquals(1310L, e.state.trap!!.limitMs)
                 it.game.engine = e
                 it.game.active = false
                 it.game.refresh()
@@ -1572,7 +1572,7 @@ class LaunchTest {
                 val e = it.game.engine
                 e.state.trap =
                     Traps.create(e.state, 3).copy(phase = TrapPhase.REVEAL, elapsedMs = 100)
-                assertEquals(5, e.state.trap!!.pattern.size)
+                assertEquals(7, e.state.trap!!.pattern.size)
                 it.game.refresh()
             }
             bounds("기억해라")

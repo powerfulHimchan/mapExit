@@ -200,7 +200,9 @@ class GameEngine(
             Mode.SURFACE ->
                 buildList {
                     add(c("1층부터 탐험", "enter", 1))
-                    s.devices.sorted().forEach { add(c("장치로 지하 ${it}층", "enter", it.toLong())) }
+                    s.devices.filter { it in 10..40 }.sorted().forEach {
+                        add(c("장치로 지하 ${it + 1}층", "enter", (it + 1).toLong()))
+                    }
                     add(c("가방 / 장비", "inventory"))
                     add(c("장착 현황", "equipment"))
                     add(c("성장 배분 (${s.points})", "growth"))
@@ -261,7 +263,7 @@ class GameEngine(
                         Event.NPC -> {
                             val role = NpcInteractions.role(s)
                             if (role != NpcRole.QUEST) {
-                                if (!NpcInteractions.used(s)) add(c(NpcInteractions.actionLabel(role), role.action))
+                                if (!NpcInteractions.used(s)) add(c(NpcInteractions.actionLabel(role, s.floor), role.action))
                             } else when {
                                 s.quest?.complete == true -> add(c("보상 받기", "claim"))
                                 s.quest != null -> Unit
@@ -1015,7 +1017,8 @@ class GameEngine(
         if (state.challenge != null) return
         val s = state
         val floor = max(1, s.floor)
-        val hp = (300 + floor * 26.0) * (if (boss) 1.7 else if (elite) 1.4 else 1.0)
+        val band = MonsterCatalog.band(floor)
+        val hp = (300 + floor * 26.0) * (1 + band * .10) * (if (boss) 1.7 else if (elite) 1.4 else 1.0)
         val species = when {
             boss || elite -> MonsterCatalog.special(floor, boss)
             else -> MonsterCatalog.find(s.dungeon?.here()?.takeIf { it.event == Event.MONSTER }?.monsterId)
@@ -1028,9 +1031,9 @@ class GameEngine(
                 else if (elite) "${floor}층의 정예 기사" else species.name,
                 hp,
                 hp,
-                (65 + floor * 4.0) * (if (boss) 1.2 else if (elite) 1.1 else 1.0),
-                (20 + floor * 1.8) * (if (elite) 1.1 else 1.0),
-                10.0 + floor * .3,
+                (65 + floor * 4.0) * (1 + band * .08) * (if (boss) 1.2 else if (elite) 1.1 else 1.0),
+                (20 + floor * 1.8) * (1 + band * .06) * (if (elite) 1.1 else 1.0),
+                10.0 + floor * .3 + band * 2,
                 boss,
                 elite = elite,
                 speciesId = species.id,

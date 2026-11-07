@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.powerfulhimchan.mapexit.core.*
@@ -121,15 +122,38 @@ internal fun DrawScope.adventurer(
 
     Equipment.equipped(s).forEach { gear ->
         val area = when (gear.kind) {
-            Kind.HEAD -> Triple(8f, 0f, 16f)
-            Kind.BODY -> Triple(6f, 14f, 20f)
-            Kind.PANTS -> Triple(8f, 30f, 17f)
-            Kind.BOOTS -> Triple(7f, 38f, 19f)
-            Kind.NECKLACE -> Triple(12f, 20f, 8f)
-            Kind.RING -> if (s.equipment[Slot.RING1] == gear.id) Triple(23f, 30f, 5f) else Triple(4f, 30f, 5f)
+            Kind.HEAD -> listOf(6f, 0f, 20f, 16f)
+            Kind.BODY -> listOf(4f, 15f, 24f, 22f)
+            Kind.PANTS -> listOf(8f, 31f, 17f, 13f)
+            Kind.BOOTS -> listOf(7f, 41f, 19f, 6f)
+            Kind.NECKLACE -> listOf(12f, 19f, 8f, 9f)
+            Kind.RING -> if (s.equipment[Slot.RING1] == gear.id) listOf(24f, 30f, 3f, 3f) else listOf(5f, 30f, 3f, 3f)
             else -> null
         }
-        area?.let { (xx, yy, ww) -> sprite(gearSprite(gear), x + xx * unit, y + yy * unit, ww * unit, flash = hitTint) }
+        area?.let { (xx, yy, ww, hh) ->
+            val art = wornArt(gear)
+            fun DrawScope.paint() {
+                drawImage(
+                    art.art.bitmap,
+                    srcOffset = IntOffset(art.left, art.top),
+                    srcSize = IntSize(art.width, art.height),
+                    dstOffset = IntOffset((x + xx * unit).roundToInt(), (y + yy * unit).roundToInt()),
+                    dstSize = IntSize((ww * unit).roundToInt(), (hh * unit).roundToInt()),
+                    filterQuality = FilterQuality.None,
+                    colorFilter = hitTint?.let { androidx.compose.ui.graphics.ColorFilter.tint(it, androidx.compose.ui.graphics.BlendMode.SrcAtop) },
+                )
+            }
+            if (gear.kind in listOf(Kind.PANTS, Kind.BOOTS)) {
+                val split = y + unit * 37
+                clipRect(x, y, x + actual, split) { paint() }
+                for (side in 0..1) {
+                    val shift = if (side == 0) stride else -stride
+                    withTransform({ translate(shift * unit * 3, -kotlin.math.abs(shift) * unit) }) {
+                        clipRect(x + side * unit * 16, split, x + (side + 1) * unit * 16, baseline) { paint() }
+                    }
+                }
+            } else paint()
+        }
     }
     if (back && armed) {
         val weapon = Equipment.equipped(s).firstOrNull { it.weapon }

@@ -157,6 +157,7 @@ data class Gear(
     val refinements: Int = 0,
     val prefixId: String? = null,
     val prefixRank: Int = 1,
+    val prefixIntensity: PrefixIntensity = PrefixIntensity.NONE,
     val consumableId: String? = null,
 ) {
   val equippable: Boolean get() = kind != Kind.POTION && kind != Kind.SCROLL && kind != Kind.CONSUMABLE
@@ -167,7 +168,7 @@ data class Gear(
     get() = kind in listOf(Kind.SWORD, Kind.SPEAR, Kind.HAMMER, Kind.CLAW, Kind.WHIP)
 
   fun flatValue(stat: Stat): Double =
-      flat.value(stat) + (PrefixCatalog.find(kind,prefixId)?.stats(prefixRank)?.value(stat) ?: 0.0) + affixes.filter { it.stat == stat }.sumOf { it.amount }
+      flat.value(stat) + (PrefixCatalog.find(kind,prefixId)?.stats(prefixRank, prefixIntensity)?.value(stat) ?: 0.0) + affixes.filter { it.stat == stat }.sumOf { it.amount }
 
   fun affixSummary(): String =
       affixes.joinToString(" / ") { option ->
@@ -185,7 +186,7 @@ data class Gear(
 
   fun summary(): String =
       if (affixes.isEmpty()) baseSummary()
-      else "보스 전리품 · ${bossOriginFloor}층\n기본: ${baseSummary()}\n추가 옵션: ${affixSummary()}"
+      else "보스 전리품 · ${bossOriginFloor}층\n${baseSummary()}"
 
   fun baseSummary(): String {
     if (kind == Kind.SCROLL) return "장비 하나를 선택해 +등급 1단계 강화 · 사용 시 1개 소모"
@@ -194,24 +195,22 @@ data class Gear(
     if (kind == Kind.NECKLACE) return NecklaceCatalog.summary(this)
     val attributes = Stat.entries
         .mapNotNull { st ->
-          val f = flat.value(st)
+          val f = flatValue(st)
           val p = percent.value(st)
           if (f == 0.0 && p == 0.0) null
-          else
-              st.label +
-                  when {
-                    p != 0.0 -> " ${if(p>0) "+" else ""}${number(p*100)}%"
-                    st == Stat.CRIT -> " ${if(f>0) "+" else ""}${number(f*100)}%p"
-                    st == Stat.CRIT_DAMAGE -> " ${if(f>0) "+" else ""}${number(f*100)}%p"
-                    else -> " ${if(f>0) "+" else ""}${number(f)}"
+          else {
+              val values = buildList {
+                  if (f != 0.0) {
+                      val probability = st in listOf(Stat.CRIT, Stat.CRIT_DAMAGE)
+                      add("${if (f > 0) "+" else ""}${number(if (probability) f * 100 else f)}${if (probability) "%p" else ""}")
                   }
+                  if (p != 0.0) add("${if (p > 0) "+" else ""}${number(p * 100)}%")
+              }
+              st.label + " " + values.joinToString(" · ")
+          }
         }
         .joinToString(" / ")
-    val prefix = PrefixCatalog.find(kind,prefixId)?.let {
-        val detail=copy(flat=it.stats(prefixRank),percent=Stats.zero(),prefixId=null,affixes=emptyList()).baseSummary()
-        "\n접두사 · ${it.name}: $detail"
-    } ?: ""
-    return (if (weapon) (if(twoHanded) "양손용" else "한손용") + " · " else "") + attributes + prefix
+    return (if (weapon) (if(twoHanded) "양손용" else "한손용") + " · " else "") + attributes
   }
 }
 
