@@ -51,13 +51,12 @@ class Battle042UiTest {
         fail("Missing $label")
     }
 
-    @Test fun artworkCoversAllRegionsGearAndMotionWithoutMutatingTheGame() {
-        BattleArtwork.load(instrumentation.targetContext.resources)
-        assertTrue(BattleArtwork.has("heroBack"))
+    @Test fun originalSpritesCoverAllRegionsAndGearWithoutMutatingTheGame() {
+        assertNotNull(GearSprites.get("heroBack"))
         for (row in 0..4) for (family in listOf("slime", "knight", "bat", "spider", "golem", "wisp", "boss"))
-            assertTrue(BattleArtwork.has("monster_${row}_$family"))
-        for (weapon in WeaponCatalog.all) assertTrue(BattleArtwork.has("weapon_${weapon.id}"))
-        for (gear in ArmorCatalog.all) assertTrue(BattleArtwork.has(if (gear.id == gear.kind.name.lowercase()) gear.id else "armor_${gear.id}"))
+            assertNotNull(GearSprites.get("monster_${row}_$family"))
+        for (weapon in WeaponCatalog.all) assertNotNull(GearSprites.get("weapon_${weapon.id}"))
+        for (gear in ArmorCatalog.all) assertNotNull(GearSprites.get(if (gear.id == gear.kind.name.lowercase()) gear.id else "armor_${gear.id}"))
         for (floor in listOf(1, 11, 21, 31, 41)) {
             val e = GameEngine()
             e.enterFloor(floor); e.startBattle(false)
