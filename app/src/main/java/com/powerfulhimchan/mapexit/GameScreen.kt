@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,8 +44,6 @@ internal val red = Color(0xFFF29491)
 
 @Composable
 fun MapExitScreen(vm: GameModel) {
-    val resources = LocalContext.current.resources
-    BattleArtwork.load(resources)
     vm.revision
     if (vm.mapExpanded) {
         MaterialTheme(colorScheme = darkColorScheme(background = ink,surface = panel,onSurface = pale,primary = mint)) { ExpandedMapScreen(vm) }

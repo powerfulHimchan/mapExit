@@ -45,7 +45,6 @@ internal fun DrawScope.sprite(
     val art = GearSprites.get(type) ?: FineSprites.all.getValue("npc")
     val unit = if (type.startsWith("gear:")) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
     fun DrawScope.paint() {
-        if (with(BattleArtwork) { paintSprite(type, x, y, art.width * unit, art.height * unit, flash, opacity) }) return
         drawImage(
             art.bitmap,
             srcSize = IntSize(art.width, art.height),
@@ -108,29 +107,20 @@ internal fun DrawScope.adventurer(
     articulated: Boolean = false,
     shadow: Boolean = true,
     stride: Float = 0f,
-    clock: Long = 0L,
 ): HeroPose {
     val unit = spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
-    if (HealthWarning.active(s.hp, Equipment.stats(s).hp, s.floor)) {
-        val pulse = HealthWarning.pulse(clock)
-        val glow = Color(0xFFF14C52).copy(alpha = .48f + pulse * .32f)
-        val type = if (back) "heroBack" else "hero"
-        for (offset in listOf(Offset(-unit*.65f, 0f), Offset(unit*.65f, 0f), Offset(0f, -unit*.65f)))
-            sprite(type, x + offset.x, y + offset.y, actual, flash = glow, articulated = articulated)
-        for (i in 0..5) {
-            val phase = ((clock + i * 193L) % 1450L).toFloat() / 1450f
-            val px = x + actual * (i / 5f) + kotlin.math.sin(i * 2.7f) * unit * 3
-            val py = baseline - phase * unit * 12
-            pixelRect(glow.copy(alpha = (1 - phase) * (.3f + pulse * .6f)), px, py, unit * .7f, unit * .7f)
-        }
+    if (s.hp > 0 && s.hp <= Equipment.stats(s).hp*.10) {
+        drawOval(red.copy(alpha=.20f),Offset(x-actual*.18f,y-unit*3),Size(actual*1.36f,unit*54f))
+        drawOval(red.copy(alpha=.85f),Offset(x-actual*.18f,y-unit*3),Size(actual*1.36f,unit*54f),style=androidx.compose.ui.graphics.drawscope.Stroke(unit*1.5f))
+        pixelRect(amber,x+actual*.5f,y-unit*9,unit*2,unit*5)
+        pixelRect(amber,x+actual*.5f,y-unit*3,unit*2,unit)
     }
     if(shadow) contactShadow(x, baseline + 3, actual)
     combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride)
 
     Equipment.equipped(s).forEach { gear ->
-        val detailed = back && BattleArtwork.has("heroBack")
         val area = when (gear.kind) {
             Kind.HEAD -> listOf(6f, 0f, 20f, 16f)
             Kind.BODY -> listOf(4f, 15f, 24f, 22f)
@@ -140,17 +130,9 @@ internal fun DrawScope.adventurer(
             Kind.RING -> if (s.equipment[Slot.RING1] == gear.id) listOf(24f, 30f, 3f, 3f) else listOf(5f, 30f, 3f, 3f)
             else -> null
         }
-        val fitted = if (detailed) when (gear.kind) {
-            Kind.HEAD -> listOf(8f, 4f, 15f, 12f)
-            Kind.BODY -> listOf(6f, 15f, 18f, 18f)
-            Kind.PANTS -> listOf(7f, 31f, 18f, 12f)
-            Kind.BOOTS -> listOf(6f, 42f, 20f, 5f)
-            else -> area
-        } else area
-        fitted?.let { (xx, yy, ww, hh) ->
+        area?.let { (xx, yy, ww, hh) ->
             val art = wornArt(gear)
             fun DrawScope.paint() {
-                if (back && with(BattleArtwork) { paintWorn(gear, x + xx * unit, y + yy * unit, ww * unit, hh * unit, hitTint) }) return
                 drawImage(
                     art.art.bitmap,
                     srcOffset = IntOffset(art.left, art.top),
@@ -248,7 +230,6 @@ private fun DrawScope.drawCamp(s: State, clock: Long) {
 }
 
 internal fun DrawScope.arena(clock: Long, horizon: Float = .45f, floor: Int = 1) {
-    if (with(BattleArtwork) { paintArena(floor, clock) }) return
     val theme = DungeonTheme.forFloor(floor)
     val w = size.width
     val h = size.height
