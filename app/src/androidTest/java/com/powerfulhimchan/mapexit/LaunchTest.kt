@@ -1739,7 +1739,10 @@ class LaunchTest {
     @Test
     fun luckShowsOnlyActivatedBonusesAndDoesNotChangePersistentAttackOrCriticalStats() {
         for (seed in listOf(11L, 0L)) {
-            launchGame().use { scenario ->
+            // Seed and pause before leaving the intro. The previous seed saves a
+            // live battle; starting it first makes ActivityScenario's global-idle
+            // wait compete with its continuous frame clock on software renderers.
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 var attack = 0.0
                 var crit = 0.0
                 var label = ""
@@ -1753,6 +1756,8 @@ class LaunchTest {
                     attack = e.stats().attack
                     crit = e.stats().crit
                     it.game.engine = e
+                    it.game.storyPlaybackEnabled = false
+                    it.startGame()
                     it.game.active = false
                     it.game.refresh()
                 }
