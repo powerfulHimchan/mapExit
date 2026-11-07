@@ -3,9 +3,18 @@ set -uo pipefail
 
 # The emulator action runs each script line in a separate shell. Keep the test
 # status and screenshot loop together so failures still leave visual evidence.
-test_status=0
-./gradlew :app:connectedDebugAndroidTest --no-daemon || test_status=$?
 mkdir -p app/build/device-screenshots
+test_status=0
+# Stream individual test names and Android crashes while instrumentation is running.
+# A bounded test process still reaches the screenshot/report collection on failure.
+adb logcat -c
+adb logcat -v brief TestRunner:I AndroidRuntime:E System.err:W '*:S' &
+test_logcat_pid=$!
+trap 'kill "$test_logcat_pid" 2>/dev/null || true' EXIT
+timeout 18m ./gradlew :app:connectedDebugAndroidTest --no-daemon || test_status=$?
+adb shell 'ls /sdcard/Download/mapexit-battle042-*.png' | tr -d '\r' | while IFS= read -r path; do
+  [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true
+done
 adb shell 'ls /sdcard/Download/mapexit-fix038-*.png' | tr -d '\r' | while IFS= read -r path; do
   [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true
 done

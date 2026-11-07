@@ -98,6 +98,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                 articulated = true,
                 shadow = false,
                 stride = if(attacking)pose.stride else -defense.retreat*.5f,
+                clock = clock,
             )
         val shoulder = Offset(hero.x + hero.unit * 23, hero.y + hero.unit * 23)
         val overhead = if(attacking)pose.armLift else sin(clock*.0026f)*.4f
@@ -256,9 +257,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             3f,
         )
     }
-    if (showingTell && enemy.opening) {
-        for (i in 0..2) pixelRect(mint, ex + unit * (10 + i * 6), ey - unit * 5, unit * 2, unit * 3)
-    }
+    // Openings are described in the panel, without a floating three-dot marker.
     if(enemy.elite && !dead) {
         for(i in 0..2) pixelRect(amber.copy(alpha=opacity),ex+unit*(9+i*6),ey-unit*(if(i==1)8 else 6),unit*3,unit*4)
         pixelRect(amber.copy(alpha=opacity),ex+unit*8,ey-unit*3,unit*18,unit*2)

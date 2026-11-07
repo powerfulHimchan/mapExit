@@ -32,7 +32,9 @@ internal fun Modifier.gameButtonSurface(
     enabled: Boolean = true,
     selected: Boolean = false,
     pressed: Boolean = false,
-): Modifier = clip(GameButtonStyle.shape)
+    battle: Boolean = false,
+): Modifier = if (battle) battlePanel(edge = if (selected) amber else Color(0xFF9B7C7B), pressed = pressed, enabled = enabled)
+    else clip(GameButtonStyle.shape)
     .background(when {
         !enabled -> panel.copy(alpha = .65f)
         pressed -> GameButtonStyle.pressedFill
@@ -49,11 +51,12 @@ internal fun Modifier.gameButtonSurface(
 internal fun Modifier.gameClickable(
     enabled: Boolean = true,
     selected: Boolean? = null,
+    battle: Boolean = false,
     onClick: () -> Unit,
 ): Modifier {
     val interactions = remember { MutableInteractionSource() }
     val pressed by interactions.collectIsPressedAsState()
-    return gameButtonSurface(enabled, selected == true, pressed)
+    return gameButtonSurface(enabled, selected == true, pressed, battle)
         .clickable(interactionSource = interactions, indication = null, enabled = enabled,
             role = Role.Button, onClick = onClick)
         .semantics { if (selected != null) this.selected = selected }
@@ -68,7 +71,7 @@ internal fun GameButton(
     contentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
     content: @Composable RowScope.() -> Unit,
 ) {
-    Row(modifier.heightIn(min = 40.dp).gameClickable(enabled, selected, onClick)
+    Row(modifier.heightIn(min = 40.dp).gameClickable(enabled, selected, onClick = onClick)
         .semantics(mergeDescendants = true) {}.padding(contentPadding),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides if (enabled) pale else muted) {

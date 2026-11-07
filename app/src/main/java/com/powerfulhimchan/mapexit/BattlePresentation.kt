@@ -83,8 +83,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
                     .fillMaxWidth()
                     .padding(if (compactBattle) 4.dp else 8.dp)
-                    .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
-                    .border(1.dp, line, RoundedCornerShape(6.dp))
+                    .battlePanel()
                     .padding(if (compactBattle) 4.dp else 8.dp)
                     .semantics { contentDescription = "전투 정보" },
                 verticalArrangement = Arrangement.spacedBy(if (compactBattle) 1.dp else 3.dp),
@@ -184,9 +183,6 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     )
             }
         }
-        if (s.hp > 0 && s.hp <= Equipment.stats(s).hp*.10)
-            Text("위험 · 체력 10% 이하",color=red,fontSize=12.sp,fontWeight=FontWeight.Bold,
-                modifier=Modifier.align(Alignment.BottomStart).background(ink.copy(alpha=.9f)).padding(6.dp).semantics { contentDescription="체력 위험 경고" })
         if (s.mode == Mode.ENCOUNTER) EncounterCaption(vm, Modifier.align(Alignment.TopCenter))
         if (s.mode == Mode.VICTORY && !vm.battleBusy(time)) {
             s.battleResult?.let { result ->

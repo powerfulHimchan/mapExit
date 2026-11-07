@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +45,8 @@ internal val red = Color(0xFFF29491)
 
 @Composable
 fun MapExitScreen(vm: GameModel) {
+    val resources = LocalContext.current.resources
+    BattleArtwork.load(resources)
     vm.revision
     if (vm.mapExpanded) {
         MaterialTheme(colorScheme = darkColorScheme(background = ink,surface = panel,onSurface = pale,primary = mint)) { ExpandedMapScreen(vm) }
@@ -178,6 +181,7 @@ fun MapExitScreen(vm: GameModel) {
                 }
                 vm.saveError?.let { Text(it, color = red, fontSize = 11.sp) }
             }
+            LowHealthVignette(s, now, Modifier.matchParentSize().windowInsetsPadding(WindowInsets.safeDrawing))
             if (vm.goldNoticeVisible)
                 Snackbar(
                     modifier =
@@ -263,6 +267,9 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
     vm.revision
     val s = vm.presentationState(clock.takeIf { it > 0 } ?: SystemClock.uptimeMillis())
     val p = Equipment.stats(s)
+    val inBattle = s.enemy != null || s.mode == Mode.VICTORY
+    val danger = HealthWarning.active(s.hp, p.hp, s.floor)
+    val pulse = rememberWarningPulse(clock)
     val motion =
         vm.battleVisual?.takeIf {
             it.active(clock.takeIf { time -> time > 0 } ?: SystemClock.uptimeMillis())
@@ -289,8 +296,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                 modifier =
                     Modifier.fillMaxWidth()
                         .heightIn(min = if (compact) 30.dp else 34.dp)
-                        .background(panel, RoundedCornerShape(6.dp))
-                        .border(1.dp, amber.copy(alpha = .6f), RoundedCornerShape(6.dp))
+                        .then(if (inBattle) Modifier.battlePanel() else Modifier.background(panel, RoundedCornerShape(6.dp)).border(1.dp, amber.copy(alpha = .6f), RoundedCornerShape(6.dp)))
                         .padding(horizontal = 10.dp, vertical = if (compact) 4.dp else 6.dp)
                         .semantics { contentDescription = "현재 상황" },
             )
@@ -306,11 +312,13 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                         .gameClickable(onClick = vm::openMap)
                         .semantics { contentDescription = "주변 미니맵" }
                 )
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 4.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        HealthHeart(danger, pulse)
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             "LV.${s.level}   HP ${s.hp.toInt()} / ${p.hp.toInt()}",
-                            color = mint,
+                            color = if (danger) red else mint,
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
                             fontWeight = FontWeight.Bold,
@@ -318,13 +326,7 @@ private fun DungeonScreen(vm: GameModel, clock: Long, modifier: Modifier) {
                         )
                         Text("${s.gold} G", color = amber, fontSize = 12.sp, lineHeight = 16.sp)
                     }
-                    Box(Modifier.fillMaxWidth().height(5.dp).background(line)) {
-                        Box(
-                            Modifier.fillMaxWidth((s.hp / p.hp).toFloat().coerceIn(0f, 1f))
-                                .fillMaxHeight()
-                                .background(if (s.hp < p.hp * .3) red else mint)
-                        )
-                    }
+                    HealthMeter((s.hp / p.hp).toFloat(), danger, pulse)
                     if (
                         s.enemy != null && s.mode in listOf(Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND)
                     ) {
@@ -367,7 +369,7 @@ internal fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier:
     Column(
         modifier
             .fillMaxHeight()
-            .gameButtonSurface(enabled = b.enabled, pressed = pressed)
+            .gameButtonSurface(enabled = b.enabled, pressed = pressed, battle = vm.engine.state.enemy != null)
             .semantics {
                 role = Role.Button
                 contentDescription = b.label

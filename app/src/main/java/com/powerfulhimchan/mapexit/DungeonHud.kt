@@ -130,8 +130,7 @@ internal fun CombatTurnStrip(s: State, motion: BattleVisual?, compact: Boolean) 
     val color = if (player) mint else amber
     Row(
         Modifier.fillMaxWidth()
-            .background(panel, RoundedCornerShape(5.dp))
-            .border(1.dp, color.copy(alpha = .7f), RoundedCornerShape(5.dp))
+            .battlePanel(edge = color.copy(alpha = .6f))
             .padding(horizontal = 6.dp, vertical = 2.dp)
             .semantics(mergeDescendants = true) { contentDescription = "전투 차례" },
         verticalAlignment = Alignment.CenterVertically,
@@ -170,7 +169,7 @@ internal fun CombatShortcuts(vm: GameModel) {
             .forEach { (label, action) ->
                 Row(
                     Modifier.height(30.dp)
-                        .gameClickable(enabled = enabled) {
+                        .gameClickable(enabled = enabled, battle = true) {
                             vm.choose(Choice(label, action))
                         }
                         .semantics(mergeDescendants = true) {
