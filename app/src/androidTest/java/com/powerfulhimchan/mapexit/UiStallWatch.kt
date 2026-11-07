@@ -1,6 +1,11 @@
 package com.powerfulhimchan.mapexit
 
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.test.core.app.ActivityScenario
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -24,4 +29,32 @@ class UiStallWatch : TestWatcher() {
         monitor?.shutdownNow()
         monitor = null
     }
+}
+
+/**
+ * Game animation intentionally keeps scheduling frames. ActivityScenario.onActivity waits for
+ * global idleness before posting, so software-rendered devices can starve that wait indefinitely.
+ * Post directly to the main thread and resolve the current instance (including after recreation).
+ * Assertions still run on the UI thread and their original failures propagate to the test runner.
+ */
+internal fun ActivityScenario<MainActivity>.onGameActivity(
+    action: (MainActivity) -> Unit
+): ActivityScenario<MainActivity> {
+    check(state != Lifecycle.State.DESTROYED) { "Scenario is already destroyed" }
+    var result: Result<Unit>? = null
+    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+        result = runCatching {
+            val monitor = ActivityLifecycleMonitorRegistry.getInstance()
+            val activities = Stage.values()
+                .filter { it != Stage.DESTROYED && it != Stage.PRE_ON_CREATE }
+                .flatMap { monitor.getActivitiesInStage(it) }
+                .filterIsInstance<MainActivity>()
+                .filter { !it.isDestroyed && !it.isFinishing }
+                .distinct()
+            check(activities.size == 1) { "Expected one live game activity; found ${activities.size}" }
+            action(activities.single())
+        }
+    }
+    checkNotNull(result).getOrThrow()
+    return this
 }
