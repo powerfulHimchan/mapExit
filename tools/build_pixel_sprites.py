@@ -389,22 +389,191 @@ a.poly([(16,3),(20,12),(24,9),(25,20),(22,28),(17,32),(15,27),(10,31),(7,24),(8,
 a.poly([(16,9),(19,17),(21,14),(23,22),(19,28),(13,27),(10,22),(14,16)],41)
 a.rect(11,19,3,3,1);a.rect(19,19,3,3,1);a.rect(15,25,3,2,6)
 sprites['wisp']=a
+def depth_monster(band,family):
+ # Each region has authored anatomy, with the original family retained for combat behavior.
+ a=Art(32,sprites[family].h)
+ dark,mid,light,glow=[[26,27,28,29],[37,38,40,41],[31,32,33,42],[34,35,46,47],[2,3,37,40]][band]
+ if family=='slime':
+  if band==1: # Low tidal body, fan fins and curling feelers.
+   a.poly([(2,20),(5,13),(10,11),(13,5),(20,5),(24,11),(27,12),(30,20),(27,23),(5,23)],1)
+   a.poly([(4,20),(7,14),(12,13),(15,7),(19,7),(22,14),(26,14),(28,20),(24,22),(7,22)],mid)
+   a.poly([(5,16),(0,10),(1,20),(8,21)],light);a.poly([(25,16),(31,9),(31,20),(24,21)],light)
+   a.rect(13,12,9,6,dark);a.dots([(14,13),(20,13)],glow);a.line(14,18,20,18,1)
+  elif band==2: # Asymmetric crystal cluster.
+   for x,y,w in [(2,12,8),(9,2,12),(19,8,11)]:
+    a.poly([(x,y+6),(x+w//2,y),(x+w,y+6),(x+w-2,22),(x+2,23)],1)
+    a.poly([(x+2,y+7),(x+w//2,y+2),(x+w-2,y+7),(x+w-3,21),(x+3,21)],mid)
+    a.line(x+w//2,y+3,x+w//2,20,light)
+   a.rect(12,15,3,2,glow);a.rect(19,15,3,2,glow)
+  elif band==3: # Molten quadruped with a pointed tail.
+   a.poly([(0,7),(7,11),(10,7),(24,8),(29,13),(30,20),(25,23),(20,18),(13,18),(10,23),(5,23),(6,16)],1)
+   a.poly([(3,10),(8,13),(12,10),(23,10),(27,14),(27,19),(24,21),(21,16),(12,16),(8,21),(7,20),(9,15)],mid)
+   a.poly([(10,10),(13,2),(17,10),(21,4),(24,11)],light)
+   a.rect(23,12,4,3,glow);a.line(12,12,21,14,glow)
+  else: # Open maw with a crown of tendrils.
+   for x in [2,8,23,29]:
+    a.poly([(x,1),(x+2,4),(16,13),(16,19),(x,8)],mid)
+   a.poly([(5,9),(25,9),(30,16),(27,23),(4,23),(1,16)],1)
+   a.poly([(6,10),(24,10),(28,16),(24,21),(7,21),(4,16)],light)
+   a.poly([(10,11),(23,12),(25,17),(21,20),(10,19),(7,15)],1)
+   for x in [10,15,20]:a.poly([(x,12),(x+3,12),(x+1,16)],glow)
+   a.rect(14,18,5,2,glow)
+ elif family in ['knight','boss']:
+  boss=family=='boss'
+  if band==1: # Deep diver with a spherical helmet and broad fins.
+   a.poly([(9,5),(22,5),(27,11),(26,20),(29,25),(26,37),(24,37),(26,47),(17,47),(16,36),(14,47),(5,47),(8,35),(3,26),(6,20),(5,11)],1)
+   a.poly([(10,7),(21,7),(24,12),(23,19),(9,20),(7,13)],mid)
+   a.rect(9,12,14,6,1);a.rect(11,13,10,4,glow);a.line(16,13,16,16,dark)
+   a.poly([(8,22),(23,21),(26,27),(23,35),(9,35),(6,28)],mid)
+   a.rect(12,24,8,8,dark);a.rect(14,26,4,4,glow)
+   for x in [7,20]:a.poly([(x,36),(x+5,36),(x+5,43),(x+9,46),(x-3,46),(x,42)],light)
+   a.line(7,16,3,21,light);a.line(3,21,6,32,glow)
+   if boss:
+    a.poly([(1,19),(8,23),(9,31),(3,28)],light);a.poly([(23,23),(31,16),(29,29),(24,32)],light)
+    a.poly([(12,5),(12,0),(16,3),(20,0),(21,5)],glow)
+  elif band==2: # Narrow prismatic guardian with diamond limbs.
+   a.poly([(16,0),(24,10),(21,17),(30,22),(25,29),(22,28),(24,35),(23,46),(18,47),(16,35),(13,47),(8,46),(9,35),(11,28),(5,29),(1,22),(10,17),(8,10)],1)
+   a.poly([(16,2),(22,10),(19,17),(12,17),(10,10)],mid)
+   a.line(16,3,16,14,glow);a.rect(12,11,9,2,1);a.dots([(13,11),(19,11)],glow)
+   a.poly([(11,18),(21,18),(24,25),(20,34),(12,34),(8,25)],mid)
+   a.poly([(16,19),(20,25),(16,31),(12,25)],glow)
+   for x in [4,23]:a.poly([(x,16),(x+5,21),(x+2,28),(x-2,22)],light)
+   for x in [9,19]:a.poly([(x+2,35),(x+4,40),(x+3,46),(x,45)],light)
+   if boss:
+    for x in [3,10,19,27]:a.poly([(x,2),(x+2,0),(x+3,12),(x,15)],glow)
+    a.poly([(4,27),(8,22),(10,36),(3,40)],mid);a.poly([(24,22),(29,27),(29,40),(22,36)],light)
+  elif band==3: # Horned furnace armor with massive angular shoulders.
+   a.poly([(7,16),(5,7),(1,1),(8,4),(12,10),(20,10),(25,3),(31,1),(27,10),(25,17),(31,22),(28,31),(24,33),(25,45),(18,47),(16,36),(14,47),(6,45),(8,33),(3,31),(0,22)],1)
+   a.poly([(9,17),(12,11),(20,11),(23,17),(20,22),(11,22)],mid)
+   a.rect(11,16,3,3,glow);a.rect(19,16,3,3,glow);a.rect(14,21,5,2,glow)
+   a.poly([(7,23),(12,25),(20,25),(25,22),(27,30),(22,36),(10,36),(5,30)],dark)
+   a.poly([(15,24),(21,29),(18,35),(12,32),(11,28)],light);a.line(15,26,17,32,glow)
+   for x in [6,22]:a.poly([(x,23),(x+3,16),(x+7,23),(x+4,28)],light)
+   a.rect(8,37,5,8,mid);a.rect(19,37,5,8,mid)
+   if boss:
+    a.poly([(3,25),(0,17),(7,20),(10,29)],glow);a.poly([(22,27),(26,17),(31,15),(29,27)],glow)
+    a.rect(13,2,6,8,light)
+  else: # Floating hood, hollow mask and split spectral robes.
+   a.poly([(16,0),(24,5),(27,14),(23,20),(30,25),(26,35),(30,46),(22,43),(18,48),(15,42),(10,47),(5,43),(1,46),(7,33),(2,25),(9,20),(5,14),(8,6)],1)
+   a.poly([(16,2),(22,7),(24,14),(20,20),(11,19),(8,14),(10,8)],mid)
+   a.poly([(12,9),(21,9),(22,15),(19,19),(13,18),(10,14)],glow)
+   a.rect(12,12,3,2,1);a.rect(18,12,3,2,1);a.line(16,15,16,18,1)
+   a.poly([(10,21),(21,21),(25,29),(21,34),(26,43),(19,39),(16,45),(12,38),(6,43),(10,32),(6,27)],dark)
+   a.line(16,23,13,38,light);a.line(20,25,21,36,glow)
+   if boss:
+    for x in [0,26]:a.poly([(x,3),(x+5,9),(x+6,22),(x+1,19)],glow)
+    a.poly([(13,0),(16,5),(19,0),(20,7),(12,7)],light)
+ elif family=='bat':
+  if band==1: # Manta ray, long tail and scalloped wings.
+   a.poly([(0,2),(10,9),(15,5),(20,9),(31,2),(29,16),(22,14),(17,20),(16,24),(13,20),(8,14),(2,16)],1)
+   a.poly([(2,5),(11,11),(15,7),(19,11),(29,5),(27,13),(21,12),(16,18),(14,18),(9,12),(4,13)],mid)
+   a.line(15,13,16,22,glow);a.rect(12,9,2,2,glow);a.rect(18,9,2,2,glow)
+  elif band==2: # Four diamond wings.
+   for x,y in [(0,1),(19,1),(2,13),(19,13)]:
+    a.poly([(x+6,y),(x+12,y+6),(x+6,y+11),(x,y+6)],1)
+    a.poly([(x+6,y+2),(x+10,y+6),(x+6,y+9),(x+2,y+6)],light)
+    a.line(x+6,y+2,x+6,y+9,glow)
+   a.rect(13,7,6,14,dark);a.rect(14,9,4,4,glow)
+  elif band==3: # Firebird with swept wings and three blazing tail feathers.
+   a.poly([(0,0),(8,4),(14,10),(18,7),(24,3),(31,0),(28,13),(21,15),(20,20),(16,24),(12,20),(11,15),(3,14)],1)
+   a.poly([(2,3),(9,7),(14,13),(18,10),(26,5),(29,3),(25,11),(19,13),(17,18),(14,18),(12,13),(5,12)],light)
+   a.poly([(13,19),(10,23),(15,22),(17,24),(20,22),(19,18)],glow)
+   a.rect(14,9,5,3,glow);a.poly([(18,10),(23,12),(18,13)],mid)
+  else: # A central eye borne by four ragged wings.
+   for side in [0,1]:
+    pts=[(0,1),(10,5),(13,11),(8,14),(2,12),(4,8)]
+    a.poly([(31-x if side else x,y) for x,y in pts],mid)
+    pts=[(0,22),(7,14),(13,12),(12,19),(7,23),(8,18)]
+    a.poly([(31-x if side else x,y) for x,y in pts],light)
+   a.poly([(11,7),(21,7),(25,13),(21,20),(11,20),(7,13)],1)
+   a.poly([(11,10),(21,10),(23,13),(20,17),(12,17),(9,13)],glow);a.rect(15,10,3,8,1)
+ elif family=='spider':
+  if band==1: # Armored crab with two pincers and six short legs.
+   for side in [-1,1]:
+    for i in range(3):a.line(16+side*7,17+i*2,16+side*14,20+i*3,light)
+   a.poly([(8,11),(24,11),(27,18),(22,24),(10,24),(5,18)],1)
+   a.poly([(9,13),(23,13),(24,18),(20,22),(11,22),(8,18)],mid)
+   for x in [0,23]:
+    a.poly([(x,3),(x+3,1),(x+4,6),(x+7,2),(x+8,10),(x+3,14),(x,10)],light)
+   a.line(6,12,10,16,mid);a.line(25,12,22,16,mid);a.rect(11,11,3,3,glow);a.rect(19,11,3,3,glow)
+  elif band==2: # Crystal scorpion with an arched segmented tail.
+   for x,y in [(17,1),(23,4),(25,9)]:a.poly([(x,y),(x+4,y),(x+5,y+4),(x+1,y+5)],light)
+   for side in [-1,1]:
+    for i in range(3):a.line(16+side*6,15+i*3,16+side*14,12+i*6,mid)
+   a.poly([(10,10),(22,10),(25,16),(21,25),(11,25),(7,17)],1)
+   a.poly([(16,11),(22,16),(18,23),(11,20),(10,15)],light)
+   a.line(16,12,16,22,glow);a.rect(11,22,3,2,glow);a.rect(18,22,3,2,glow)
+  elif band==3: # Broad lava beetle with hooked mandibles.
+   for side in [-1,1]:
+    for i in range(3):
+     a.line(16+side*8,9+i*5,16+side*14,6+i*8,1);a.line(16+side*14,6+i*8,16+side*15,10+i*7,light)
+   a.poly([(10,2),(22,2),(26,12),(24,23),(20,26),(11,26),(7,21),(6,12)],1)
+   a.poly([(11,4),(21,4),(24,12),(21,22),(12,23),(9,19),(8,12)],dark)
+   a.line(16,4,16,22,glow);a.line(10,10,15,14,light);a.line(22,10,17,14,light)
+   a.poly([(10,23),(6,27),(13,26),(15,22)],light);a.poly([(18,22),(20,26),(26,27),(22,23)],light)
+  else: # Long jointed shadow legs around an exposed eye.
+   for side in [-1,1]:
+    for i in range(4):
+     a.line(16+side*5,10+i*3,16+side*13,1+i*6,light);a.line(16+side*13,1+i*6,16+side*15,8+i*6,mid)
+   a.poly([(12,6),(21,7),(25,15),(20,23),(11,22),(7,14)],1)
+   a.poly([(12,9),(21,10),(23,14),(19,19),(12,18),(9,14)],glow);a.rect(15,10,3,9,1)
+ elif family=='golem':
+  if band==1: # Coral branches atop a wide reef body.
+   a.poly([(5,17),(11,13),(21,13),(27,17),(31,26),(29,36),(24,36),(25,46),(18,47),(16,36),(14,47),(6,46),(8,36),(2,36),(0,25)],1)
+   a.rect(9,15,14,15,mid);a.rect(5,25,22,10,dark);a.rect(10,37,4,9,mid);a.rect(19,37,4,9,mid)
+   for x,y in [(5,3),(14,0),(23,4)]:
+    a.rect(x,y,3,18-y,light);a.line(x,y+7,x-4,y+3,glow);a.line(x+2,y+9,x+6,y+4,glow)
+   a.rect(10,19,4,3,glow);a.rect(19,19,4,3,glow);a.rect(14,28,5,4,glow)
+  elif band==2: # Separate faceted blocks orbit a central prism.
+   for x,y,w,h in [(10,1,12,13),(4,17,24,18),(1,19,6,15),(25,19,6,15),(8,38,6,9),(19,38,6,9)]:
+    a.poly([(x+w//2,y),(x+w,y+3),(x+w-1,y+h),(x,y+h-2),(x,y+3)],1)
+    a.poly([(x+w//2,y+2),(x+w-2,y+4),(x+w-2,y+h-2),(x+2,y+h-3),(x+2,y+4)],mid)
+    a.line(x+w//2,y+2,x+w//2,y+h-3,light)
+   a.rect(12,8,3,2,glow);a.rect(18,8,3,2,glow)
+   a.poly([(16,20),(22,26),(16,32),(10,26)],glow)
+  elif band==3: # Furnace torso, chimney and square iron fists.
+   a.rect(10,0,5,10,1);a.rect(17,3,5,8,1);a.rect(11,1,3,6,light)
+   a.poly([(9,9),(24,9),(27,17),(25,23),(29,25),(30,36),(24,37),(25,47),(18,47),(16,38),(13,47),(6,47),(7,37),(1,36),(2,25),(6,22),(5,17)],1)
+   a.rect(8,11,16,11,mid);a.rect(10,15,4,3,glow);a.rect(19,15,4,3,glow)
+   a.rect(6,24,21,13,dark);a.rect(11,25,12,10,light)
+   for x in [13,17,21]:a.rect(x,26,1,8,1)
+   a.rect(2,27,5,8,mid);a.rect(26,27,4,8,mid);a.rect(8,39,5,7,mid);a.rect(19,39,5,7,mid)
+  else: # Obsidian monolith with four long hanging arms.
+   a.poly([(16,0),(24,6),(23,15),(27,21),(23,35),(20,42),(16,47),(12,41),(9,34),(6,21),(10,15),(8,6)],1)
+   a.poly([(16,2),(22,7),(20,15),(24,22),(20,34),(16,43),(12,33),(9,22),(12,15),(10,7)],mid)
+   for side in [-1,1]:
+    for i in range(2):
+     a.poly([(16+side*7,17+i*8),(16+side*14,21+i*8),(16+side*15,38+i*5),(16+side*11,34+i*5)],light)
+   a.poly([(16,10),(21,16),(16,22),(11,16)],glow);a.rect(15,12,2,8,1)
+   a.line(16,25,16,36,glow)
+ else: # Region-specific floating spirits.
+  if band==1: # Jellyfish bell with five separated tentacles.
+   a.poly([(7,2),(23,2),(29,12),(27,18),(4,18),(2,12)],1)
+   a.poly([(8,4),(22,4),(26,12),(24,16),(6,16),(5,12)],mid)
+   for x in [6,11,16,21,26]:
+    a.line(x,17,x-2,25,light);a.line(x-2,25,x+1,34,glow)
+   a.rect(11,10,3,3,glow);a.rect(19,10,3,3,glow)
+  elif band==2: # Suspended diamond surrounded by small shards.
+   a.poly([(16,0),(25,13),(20,29),(16,35),(11,28),(7,13)],1)
+   a.poly([(16,3),(22,13),(18,28),(16,31),(13,26),(10,13)],mid)
+   a.line(16,4,16,30,glow);a.line(10,13,22,13,light)
+   for x,y in [(0,11),(27,6),(2,27),(26,25)]:a.poly([(x+2,y),(x+4,y+4),(x+2,y+7),(x,y+4)],light)
+  elif band==3: # Hollow flaming wheel with a central ember.
+   a.poly([(16,0),(21,8),(27,4),(26,14),(32,17),(25,23),(28,31),(20,29),(16,36),(10,29),(3,32),(5,23),(0,18),(7,13),(5,4),(12,8)],1)
+   a.poly([(16,3),(20,11),(25,8),(23,16),(28,18),(22,22),(25,28),(19,26),(16,32),(12,26),(7,29),(9,21),(4,18),(10,15),(8,8),(13,11)],light)
+   a.poly([(14,12),(20,13),(23,19),(18,25),(12,24),(9,18)],0)
+   a.rect(14,16,5,6,glow)
+  else: # Four-pronged star with a trailing void spiral.
+   a.poly([(16,0),(20,10),(31,13),(23,19),(27,30),(17,26),(7,35),(9,23),(0,17),(10,12)],1)
+   a.poly([(16,4),(18,13),(27,14),(20,18),(23,26),(16,23),(10,30),(12,21),(4,17),(12,15)],light)
+   a.poly([(13,13),(20,13),(23,18),(19,23),(12,22),(9,18)],dark)
+   a.rect(13,16,7,4,glow);a.rect(16,16,2,4,1)
+ return a
+
 families=['slime','knight','bat','spider','golem','wisp','boss']
 for band in range(5):
  for family in families:
-  a=copy.deepcopy(sprites[family])
-  ramps=[[26,27,28,29],[37,38,40,41],[31,32,33,42],[34,35,46,47],[2,3,37,40]]
-  ramp=ramps[band]
-  mapping={26:ramp[0],27:ramp[1],28:ramp[2],29:ramp[3],31:ramp[0],32:ramp[1],33:ramp[2]}
-  if family in ['knight','golem','boss']:mapping.update({3:ramp[0],4:ramp[1],5:ramp[2]})
-  if family=='wisp':mapping.update({40:ramp[1],41:ramp[2],42:ramp[3]})
-  a.p=[[mapping.get(v,v) for v in row] for row in a.p]
-  if band==1:a.dots([(7,10),(23,10),(9,a.h-4),(22,a.h-4)],41)
-  elif band==2:a.poly([(16,0),(20,7),(16,11),(12,7)],33);a.line(16,2,16,8,42)
-  elif band==3:
-   for x in [9,21]:a.poly([(x,0),(x+3,4),(x+2,10),(x-1,7)],47)
-  elif band==4:
-   a.line(8,7,13,11,40);a.line(24,7,19,11,40);a.dots([(7,5),(25,5)],42)
+  a=copy.deepcopy(sprites[family]) if band==0 else depth_monster(band,family)
   sprites[f'monster_{band}_{family}']=a
 
 # Additional NPC roles share the same scale and have distinct clothing and props.

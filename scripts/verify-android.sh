@@ -9,6 +9,9 @@ mkdir -p app/build/device-screenshots
 adb shell 'ls /sdcard/Download/mapexit-fix038-*.png' | tr -d '\r' | while IFS= read -r path; do
   [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true
 done
+adb shell 'ls /sdcard/Download/mapexit-fix041-*.png' | tr -d '\r' | while IFS= read -r path; do
+  [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true
+done
 # Include every story panel, including the narrow-phone captures, without maintaining a second list.
 adb shell 'ls /sdcard/Download/mapexit-story-*.png' | tr -d '\r' | while IFS= read -r path; do
   [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true

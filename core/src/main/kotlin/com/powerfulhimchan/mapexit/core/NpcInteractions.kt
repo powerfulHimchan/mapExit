@@ -16,6 +16,8 @@ data class NpcOutcome(val success: Boolean, val message: String)
 
 object NpcInteractions {
     const val DONATION_GOLD = 10
+    fun donationGold(floor: Int): Int = DONATION_GOLD + MonsterCatalog.band(floor) * 5
+
     const val HEAL_RATIO = .20
     const val GIFT_CHANCE = .30
 
@@ -47,7 +49,7 @@ object NpcInteractions {
     fun blockedReason(state: State): String? {
         if (used(state)) return "이 회차에서 이미 도움을 받은 NPC입니다. 다시 이용할 수 없습니다."
         return when (role(state)) {
-            NpcRole.BEGGAR -> if (state.gold < DONATION_GOLD) "골드가 부족합니다. 기부하려면 10G가 필요합니다." else null
+            NpcRole.BEGGAR -> if (state.gold < donationGold(state.floor)) "골드가 부족합니다. 기부하려면 ${donationGold(state.floor)}G가 필요합니다." else null
             NpcRole.HEALER -> when {
                 state.hp <= 0 -> "지금은 치료를 받을 수 없습니다."
                 state.hp >= Equipment.stats(state).hp -> "체력이 가득 차 있습니다. 치료는 체력이 줄었을 때 받을 수 있습니다."
@@ -57,8 +59,8 @@ object NpcInteractions {
         }
     }
 
-    fun actionLabel(role: NpcRole): String = when (role) {
-        NpcRole.BEGGAR -> "기부하기 · 10G"
+    fun actionLabel(role: NpcRole, floor: Int = 1): String = when (role) {
+        NpcRole.BEGGAR -> "기부하기 · ${donationGold(floor)}G"
         NpcRole.HEALER -> "치료받기 · 20% 회복"
         NpcRole.HERBALIST -> "회복약 1개 받기"
         else -> ""
@@ -66,9 +68,9 @@ object NpcInteractions {
 
     fun description(state: State): String {
         val body = when (role(state)) {
-            NpcRole.BEGGAR -> "“길을 잃고 가진 것을 모두 잃었어요. 10G만 도와주시겠어요?”\n소지 ${state.gold}G"
+            NpcRole.BEGGAR -> "“길을 잃고 가진 것을 모두 잃었어요. ${donationGold(state.floor)}G만 도와주시겠어요?”\n소지 ${state.gold}G"
             NpcRole.HEALER -> "“잠시 쉬세요. 가벼운 상처는 제가 돌봐드릴게요.”\n무료로 최대 체력의 20%를 회복합니다. 현재 ${state.hp.roundToInt()} / ${Equipment.stats(state).hp.roundToInt()}"
-            NpcRole.HERBALIST -> "“직접 만든 회복약이에요. 필요할 때 쓰세요.”\n회복약 1개를 받습니다. 가방에서 사용하면 최대 체력의 35%를 회복합니다."
+            NpcRole.HERBALIST -> "“직접 만든 회복약이에요. 필요할 때 쓰세요.”\n회복약 1개를 받습니다."
             else -> ""
         }
         return blockedReason(state)?.let { "$it\n\n$body" } ?: body
@@ -86,11 +88,12 @@ object NpcInteractions {
                 val seed = state.visitorSeed ?: state.rng
                 val gift = (cell.npcGift ?: giftFor(seed,state.floor)) || bonusGift(seed,state.floor,Equipment.stats(state).luck)
                 cell.npcGift = gift
-                state.gold -= DONATION_GOLD
+                val donation = donationGold(state.floor)
+                state.gold -= donation
                 if (gift) {
                     state.inventory.add(ItemFactory.create(state, Kind.POTION))
-                    "방랑자에게 10G를 기부했습니다 · 답례로 회복약 1개를 받았습니다"
-                } else "방랑자에게 10G를 기부했습니다 · 방랑자가 고마움을 전합니다"
+                    "방랑자에게 ${donation}G를 기부했습니다 · 답례로 회복약 1개를 받았습니다"
+                } else "방랑자에게 ${donation}G를 기부했습니다 · 방랑자가 고마움을 전합니다"
             }
             NpcRole.HEALER -> {
                 val before = state.hp

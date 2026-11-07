@@ -1,10 +1,20 @@
 package com.powerfulhimchan.mapexit.core
 
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class PrefixIntensity(val label: String, val multiplier: Double) {
+    NONE("", 1.0),
+    LITTLE("조금", 1.25),
+    SLIGHT("약간", 1.50),
+    VERY("매우", 2.0),
+}
+
 /** Authored bonuses stay separate from the original item and boss rolls. */
 data class ItemPrefix(val id: String, val name: String, val bonus: Stats) {
-    fun stats(rank: Int): Stats = Stat.entries.fold(Stats.zero()) { result, stat ->
+    fun stats(rank: Int, intensity: PrefixIntensity = PrefixIntensity.NONE): Stats = Stat.entries.fold(Stats.zero()) { result, stat ->
         val value = bonus.value(stat)
-        result.add(stat, if (value > 0) value * rank.coerceAtLeast(1) else value)
+        result.add(stat, if (value > 0) value * rank.coerceAtLeast(1) * intensity.multiplier else value)
     }
 }
 
@@ -60,9 +70,11 @@ object PrefixCatalog {
         val entries = byKind[kind] ?: return null
         return (s.nextInt(entries.size + 1) - 1).takeIf { it >= 0 }?.let { entries[it].id }
     }
-    fun apply(g: Gear, id: String?): Gear {
+    fun apply(g: Gear, id: String?, intensity: PrefixIntensity = PrefixIntensity.NONE): Gear {
         val prefix = find(g.kind,id) ?: return g
-        return g.copy(name="${prefix.name} ${g.name}", prefixId=prefix.id, prefixRank=g.tier)
+        val modifier = if (intensity == PrefixIntensity.NONE) "" else "${intensity.label} "
+        return g.copy(name="$modifier${prefix.name} ${g.name}", prefixId=prefix.id,
+            prefixRank=g.tier, prefixIntensity=intensity)
     }
 }
 

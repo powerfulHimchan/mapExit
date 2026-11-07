@@ -443,6 +443,7 @@ class MainActivity : ComponentActivity() {
         game = ViewModelProvider(this)[GameModel::class.java]
         introVisible = savedInstanceState?.getBoolean("intro_visible", true) ?: true
         setContent {
+            AchievementNotice(game)
             if (introVisible) IntroScreen(onStart = ::startGame)
             else MapExitScreen(game)
         }

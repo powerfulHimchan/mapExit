@@ -258,21 +258,16 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                         fontWeight = FontWeight.Bold,
                                     )
                                     Text(
-                                        "기본: ${gear.baseSummary()}",
+                                        gear.baseSummary(),
                                         color = pale,
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                     )
-                                    Text(
-                                        "추가 옵션: ${gear.affixSummary()}",
-                                        color = mint,
-                                        fontSize = 12.sp,
-                                        lineHeight = 17.sp,
-                                    )
+
                                 }
                         if (result.enemy.boss)
                             Text(
-                                "${s.floor}층 이동 장치 해금",
+                                if (s.floor < 50) "${s.floor + 1}층 이동 장치 해금" else "마지막 관문 돌파",
                                 color = amber,
                                 fontSize = 12.sp,
                                 lineHeight = 17.sp,
