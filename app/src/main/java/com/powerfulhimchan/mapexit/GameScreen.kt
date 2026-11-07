@@ -46,7 +46,7 @@ internal val red = Color(0xFFF29491)
 @Composable
 fun MapExitScreen(vm: GameModel) {
     val resources = LocalContext.current.resources
-    remember(resources) { BattleArtwork.load(resources) }
+    BattleArtwork.load(resources)
     vm.revision
     if (vm.mapExpanded) {
         MaterialTheme(colorScheme = darkColorScheme(background = ink,surface = panel,onSurface = pale,primary = mint)) { ExpandedMapScreen(vm) }
