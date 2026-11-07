@@ -71,7 +71,7 @@ internal fun GameButton(
     contentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
     content: @Composable RowScope.() -> Unit,
 ) {
-    Row(modifier.heightIn(min = 40.dp).gameClickable(enabled, selected, onClick)
+    Row(modifier.heightIn(min = 40.dp).gameClickable(enabled, selected, onClick = onClick)
         .semantics(mergeDescendants = true) {}.padding(contentPadding),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides if (enabled) pale else muted) {
