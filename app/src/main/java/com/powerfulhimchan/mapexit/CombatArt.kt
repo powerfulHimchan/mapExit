@@ -98,7 +98,6 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                 articulated = true,
                 shadow = false,
                 stride = if(attacking)pose.stride else -defense.retreat*.5f,
-                clock = clock,
             )
         val shoulder = Offset(hero.x + hero.unit * 23, hero.y + hero.unit * 23)
         val overhead = if(attacking)pose.armLift else sin(clock*.0026f)*.4f
