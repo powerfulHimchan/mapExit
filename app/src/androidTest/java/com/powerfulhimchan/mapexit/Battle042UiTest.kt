@@ -59,7 +59,7 @@ class Battle042UiTest {
         for (weapon in WeaponCatalog.all) assertTrue(BattleArtwork.has("weapon_${weapon.id}"))
         for (gear in ArmorCatalog.all) assertTrue(BattleArtwork.has(if (gear.id == gear.kind.name.lowercase()) gear.id else "armor_${gear.id}"))
         for (floor in listOf(1, 11, 21, 31, 41)) {
-            val e = GameEngine(State(bootstrapped = true))
+            val e = GameEngine()
             e.enterFloor(floor); e.startBattle(false)
             e.state.hp = Equipment.stats(e.state).hp * .08
             val saved = SaveCodec.encode(e.state)
@@ -80,7 +80,7 @@ class Battle042UiTest {
             try {
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     scenario.onActivity { a ->
-                        val e = GameEngine(State(bootstrapped = true)); e.enterFloor(1); e.startBattle(false)
+                        val e = GameEngine(); e.enterFloor(1); e.startBattle(false)
                         val species = MonsterCatalog.forFloor(1).first { it.family == "wisp" }
                         e.state.enemy = e.state.enemy!!.copy(name = species.name, speciesId = species.id, opening = true)
                         e.state.hp = Equipment.stats(e.state).hp * .08
