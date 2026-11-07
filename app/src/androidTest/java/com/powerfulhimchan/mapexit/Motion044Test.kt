@@ -79,6 +79,11 @@ class Motion044Test {
                 assertEquals("Every stage must show its own rendered pose", 6, fingerprints.size)
                 render(e.state, action, 320, 200)
             }
+            if (kind == Kind.CLAW) {
+                val second = ItemFactory.create(e.state, Kind.CLAW)
+                e.state.inventory.add(second); Equipment.equip(e.state, second.id, Slot.LEFT)
+                for ((index, ms) in times.withIndex()) export("dual-claw-$index", render(e.state, "attack", ms, 640))
+            }
             if (kind == Kind.SWORD) {
                 for (action in listOf("guard", "dodge")) for ((index, ms) in times.withIndex())
                     export("$action-$index", render(e.state, action, ms, 640, player = true))
