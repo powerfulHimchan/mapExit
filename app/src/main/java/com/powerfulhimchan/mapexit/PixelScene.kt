@@ -72,7 +72,10 @@ internal fun DrawScope.sprite(
             y + 34 * unit,
             clipOp = androidx.compose.ui.graphics.ClipOp.Difference,
         ) {
-            paint()
+            if (detailPose != null && type == "heroBack")
+                clipRect(x + 4 * unit, y + 23 * unit, x + 9 * unit, y + 34 * unit,
+                    clipOp = androidx.compose.ui.graphics.ClipOp.Difference) { paint() }
+            else paint()
         }
     } else paint()
 }

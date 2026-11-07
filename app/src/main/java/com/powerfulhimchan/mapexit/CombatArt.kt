@@ -45,7 +45,11 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         motion?.let { (clock - it.startedAt).coerceAtLeast(0) } ?: BattleAnimation.DURATION_MS
     val attacking = motion?.impact?.target == ImpactTarget.ENEMY
     val defending = motion != null && !attacking
-    val weapon = Equipment.equipped(scene).firstOrNull { it.weapon }
+    val equipped = Equipment.equipped(scene)
+    val weapon = equipped.firstOrNull { it.weapon && it.id == scene.equipment[Slot.RIGHT] }
+        ?: equipped.firstOrNull { it.weapon }
+    val shield = equipped.firstOrNull { it.kind == Kind.SHIELD }
+    val offWeapon = equipped.firstOrNull { it.weapon && it.id != weapon?.id && it.id == scene.equipment[Slot.LEFT] }
     val kind = weapon?.kind
     val connected=motion?.impact?.outcome !in listOf(ImpactOutcome.MISS,ImpactOutcome.DODGE)
     val poseTime=BattleAnimation.motionTime(elapsed,connected)
@@ -119,6 +123,15 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                         (10 - (if (attacking) pose.advance * 5 else defense.guard * 17) - overhead) * limbScale,
                 )
         if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
+        val gripAngle = if (attacking) pose.angle else 25f + defense.guard * 65f
+        val leftShoulder = Offset(hero.x + hero.unit * (9 + bone.x - 23), hero.y + hero.unit * (22 + bone.y - 23))
+        val supportHand = when {
+            shield != null -> Offset(hero.x + hero.unit * (8 + defense.guard * 17), hero.y + hero.unit * (37 - defense.guard * 4))
+            weapon?.twoHanded == true -> hand + Offset(sin(gripAngle * PI / 180).toFloat(), -cos(gripAngle * PI / 180).toFloat()) * (hero.unit * 6)
+            offWeapon != null -> leftShoulder + Offset(hero.unit * (2 + if(attacking) pose.reach * 5 else 0f), hero.unit * (10 - overhead * .5f))
+            else -> Offset(hero.x + hero.unit * 7, hero.y + hero.unit * 31)
+        }
+        arm(leftShoulder, supportHand, hero.unit, metal = metalSleeves)
         arm(shoulder, hand, hero.unit, metal = metalSleeves)
         if (kind != null) {
             if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
@@ -153,9 +166,10 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                     gear = weapon,
                 )
         }
-        val gripAngle = if (attacking) pose.angle else 25f + defense.guard * 65f
+        offWeapon?.let { heldWeapon(it.kind, supportHand, hero.unit, -gripAngle * .65f, gear = it) }
         with(MotionArtwork) { grip(hand, hero.unit, gripAngle, 1f, metalSleeves) }
-        Equipment.equipped(scene).firstOrNull { it.kind == Kind.SHIELD }?.let { shield ->
+        if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, if(weapon?.twoHanded == true)gripAngle else if(offWeapon != null)-gripAngle*.65f else 0f, 1f, metalSleeves) }
+        shield?.let { shield ->
             val guard = defense.guard
             sprite(
                 gearSprite(shield),
