@@ -65,6 +65,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     vm.visualEffect,
                     vm.visualEffectAt,
                     battle = motion,
+                    battleTop = (headerHeight.value / maxHeight.value.coerceAtLeast(1f)).coerceIn(0f, .75f),
                 )
             }
         } else

@@ -229,6 +229,7 @@ internal fun PixelCanvas(
     effectAt: Long = 0L,
     camera: DungeonViewPose? = null,
     battle: BattleVisual? = null,
+    battleTop: Float = 0f,
 ) {
     BoxWithConstraints(
         modifier.background(ink).border(1.dp, line).semantics { contentDescription = "메인 장면" }
@@ -246,7 +247,7 @@ internal fun PixelCanvas(
                 ImageCanvas(bitmap),
                 Size(480f, logicalH.toFloat()),
             ) {
-                drawScene(s, clock, effect, effectAt, camera, battle)
+                drawScene(s, clock, effect, effectAt, camera, battle, battleTop)
             }
             drawImage(
                 bitmap,

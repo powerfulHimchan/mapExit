@@ -153,7 +153,7 @@ internal fun DrawScope.adventurer(
                     colorFilter = hitTint?.let { androidx.compose.ui.graphics.ColorFilter.tint(it, androidx.compose.ui.graphics.BlendMode.SrcAtop) },
                 )
             }
-            if (gear.kind in listOf(Kind.PANTS, Kind.BOOTS)) {
+            if (gear.kind in listOf(Kind.PANTS, Kind.BOOTS) && detailPose == null) {
                 val split = y + unit * 37
                 clipRect(x, y, x + actual, split) { paint() }
                 for (side in 0..1) {
@@ -189,13 +189,14 @@ internal fun DrawScope.drawScene(
     effectAt: Long = 0L,
     camera: DungeonViewPose? = null,
     battle: BattleVisual? = null,
+    battleTop: Float = 0f,
 ) {
     drawRect(ink)
     when {
         s.mode == Mode.ENCOUNTER -> drawEncounter(s, clock)
         s.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE) -> s.trap?.let { drawObstacle(s, clock) }
         s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) ->
-            drawAnimatedBattle(s, clock, battle)
+            drawAnimatedBattle(s, clock, battle, battleTop)
         s.floor == 0 || s.mode == Mode.INHERIT -> drawCamp(s, clock)
         else -> drawDungeonPerspective(s, clock, camera)
     }
