@@ -15,7 +15,7 @@ import kotlin.math.*
 /** Painted reference-matched assets keep their native detail through the existing battle rig. */
 internal object MotionArtwork {
     private data class Frame(val image: ImageBitmap, val offset: IntOffset, val size: IntSize, val nativeScale: Float = 4f, val logicalX: Float = 0f)
-    private data class Assets(val hero: ImageBitmap, val monsters: ImageBitmap, val gear: Bitmap, val arena: ImageBitmap)
+    private data class Assets(val hero: ImageBitmap, val monsters: ImageBitmap, val gear: Bitmap, val arena: ImageBitmap, val arms: ImageBitmap)
     @Volatile private var assets: Assets? = null
     val loaded get() = assets != null
     private val heroIndex = MotionAtlas.heroPoses.withIndex().associate { it.value to it.index }
@@ -29,7 +29,8 @@ internal object MotionArtwork {
     @Synchronized fun load(resources: Resources) {
         if (assets != null) return
         fun decode(id: Int) = requireNotNull(BitmapFactory.decodeResource(resources, id, BitmapFactory.Options().apply { inScaled = false }))
-        assets = Assets(decode(R.drawable.combat_hero_motion).asImageBitmap(), decode(R.drawable.combat_monster_motion).asImageBitmap(), decode(R.drawable.combat_equipment_motion), decode(R.drawable.combat_arena_refined).asImageBitmap())
+        assets = Assets(decode(R.drawable.combat_hero_motion).asImageBitmap(), decode(R.drawable.combat_monster_motion).asImageBitmap(), decode(R.drawable.combat_equipment_motion), decode(R.drawable.combat_arena_refined).asImageBitmap(), decode(R.drawable.combat_arms_046).asImageBitmap())
+        ObstacleArtwork.load(resources)
     }
 
     fun has(type: String, pose: String = "idle_0"): Boolean = when {
@@ -136,23 +137,31 @@ internal object MotionArtwork {
         return true
     }
 
+    private fun armPose(a: Offset, b: Offset, unit: Float): ArmKinematics.Pose =
+        ArmKinematics.solve(ArmKinematics.Point(a.x,a.y),ArmKinematics.Point(b.x,b.y),unit*6.5f,unit*6.5f)
+
     fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float, metal: Boolean = false): Boolean {
-        if (!loaded) return false
-        val elbow = (a + b) * .5f + Offset(-unit * 1.5f, unit * 3)
-        fun segment(start: Offset, end: Offset, part: String) {
-            val f = gear((if (metal) "steel_" else "cloth_") + part, false) ?: return
-            val d = end - start
-            withTransform({ rotate(atan2(d.y, d.x) * 180f / PI.toFloat() - 90f, start) }) {
-                paint(f.copy(size = IntSize(32, f.size.height)), start.x - unit * 2.5f, start.y - unit * .4f, unit * 5, sqrt(d.x * d.x + d.y * d.y) + unit, null, opacity)
+        val image=assets?.arms ?: return false
+        val pose=armPose(a,b,unit)
+        val elbow=Offset(pose.elbow.x,pose.elbow.y);val wrist=Offset(pose.wrist.x,pose.wrist.y)
+        fun segment(start: Offset,end: Offset,index: Int,width: Float) {
+            val delta=end-start
+            withTransform({ rotate(atan2(delta.y,delta.x)*180f/PI.toFloat()-90f,start) }) {
+                // Each source is vertical; its top cap is the joint pivot. Only 1px overlap.
+                paint(Frame(image,IntOffset(index*32,0),IntSize(32,64)),start.x-width/2,start.y-unit*.5f,
+                    width,hypot(delta.x,delta.y)+unit,null,opacity)
             }
         }
-        segment(a, elbow, "upper"); segment(elbow, b, "lower")
+        val base=if(metal)3 else 0
+        segment(a,elbow,base,unit*4.5f);segment(elbow,wrist,base+1,unit*3.5f)
         return true
     }
     fun DrawScope.grip(hand: Offset, unit: Float, angle: Float, opacity: Float, metal: Boolean = false) {
-        val f = gear((if (metal) "steel_" else "cloth_") + "grip", false) ?: return
-        withTransform({ rotate(angle, hand) }) {
-            paint(f.copy(size = IntSize(32, 32)), hand.x - unit * 2.5f, hand.y - unit * 2.5f, unit * 5, unit * 5, null, opacity)
+        val image=assets?.arms ?: return
+        withTransform({ rotate(angle,hand) }) {
+            // Wrist is below the compact fist; its centre coincides with the weapon handle.
+            paint(Frame(image,IntOffset((if(metal)5 else 2)*32,0),IntSize(32,32)),
+                hand.x-unit*1.8f,hand.y-unit*1.7f,unit*3.6f,unit*3.6f,null,opacity)
         }
     }
 }

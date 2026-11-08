@@ -661,3 +661,6 @@ print(f'Authored {len(sprites)} sprites; {sum(a.w*a.h for a in sprites.values())
 
 from battle_motion_art import emit as emit_battle_motion
 emit_battle_motion(sprites, COLORS, Art, check='--check' in sys.argv)
+
+from obstacle_art import emit as emit_obstacle_art
+emit_obstacle_art(check='--check' in sys.argv)
