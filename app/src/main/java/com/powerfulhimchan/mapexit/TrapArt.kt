@@ -55,16 +55,19 @@ internal fun DrawScope.drawObstacle(s: State, clock: Long) {
         }
     }
     val heroWidth = min(w * .22f, h * .20f)
-    val heroCenter=if(t.type==2) {
+    val wallSide=t.pattern.firstOrNull() ?: 0
+    val heroCenter=if(t.type==2 && t.phase !in listOf(TrapPhase.PREPARE,TrapPhase.REVEAL)) {
         val pressure=(danger*.75f-t.progress.toFloat()/t.required*.5f).coerceIn(0f,.75f)
         val wallWidth=w*(.13f+pressure*.40f)
-        if(side==0)wallWidth+heroWidth*.43f else w-wallWidth-heroWidth*.43f
+        val pushing=if(wallSide==0)wallWidth+heroWidth*.43f else w-wallWidth-heroWidth*.43f
+        val returning=if(t.phase==TrapPhase.RESULT)BattleAnimation.smooth((t.elapsedMs-400)/350f) else 0f
+        pushing+(w*.5f-pushing)*returning
     } else w*ObstacleLayout.sequenceHeroCenter(t)
     val heroX = heroCenter - spriteUnit(heroWidth) * 16f
     val pose=when {
         t.phase==TrapPhase.RESULT && !t.success->"hit"
         t.type==3->"back"
-        t.type==2->if(side==0)"push_left" else "push_right"
+        t.type==2 && (t.phase==TrapPhase.ACTIVE || t.phase==TrapPhase.RESULT && t.elapsedMs<400)->if(wallSide==0)"push_left" else "push_right"
         t.phase==TrapPhase.ACTIVE && side!=null->if(side==0)"left" else "right"
         else->"idle"
     }
