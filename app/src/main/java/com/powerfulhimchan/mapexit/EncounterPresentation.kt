@@ -48,8 +48,7 @@ internal fun EncounterCaption(vm: GameModel, modifier: Modifier) {
             Modifier.fillMaxWidth()
                 .padding(10.dp)
                 .heightIn(max = maxHeight * .48f)
-                .background(ink.copy(alpha = .96f), RoundedCornerShape(8.dp))
-                .border(1.dp, amber, RoundedCornerShape(8.dp))
+                .battlePanel(edge = amber)
                 .verticalScroll(rememberScrollState())
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),

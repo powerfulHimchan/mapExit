@@ -43,7 +43,7 @@ internal fun StoryScreen(vm: GameModel) {
                 item { Text(scene.title,color = pale,fontSize = 25.sp,fontWeight = FontWeight.Black,
                     modifier = Modifier.semantics { heading() }) }
                 item {
-                    Column(Modifier.fillMaxWidth().border(1.dp,StoryBorder)) {
+                    Column(Modifier.fillMaxWidth().battlePanel()) {
                         Canvas(Modifier.fillMaxWidth().height(illustrationHeight)
                             .semantics { contentDescription = "이야기 장면 · ${scene.title}" }) {
                             storyArt(scene.art,vm.engine.state,page)
@@ -53,7 +53,7 @@ internal fun StoryScreen(vm: GameModel) {
                     }
                 }
                 item {
-                    Column(Modifier.fillMaxWidth().background(panel).border(1.dp,StoryBorder).padding(16.dp),verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.fillMaxWidth().battlePanel().padding(16.dp),verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(line.speaker,color = amber,fontSize = 14.sp,fontWeight = FontWeight.Bold)
                         Text(line.text,color = pale,fontSize = 17.sp,lineHeight = 28.sp)
                     }

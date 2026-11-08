@@ -366,7 +366,7 @@ internal fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier:
     Column(
         modifier
             .fillMaxHeight()
-            .gameButtonSurface(enabled = b.enabled, pressed = pressed, battle = vm.engine.state.enemy != null)
+            .gameButtonSurface(enabled = b.enabled, pressed = pressed)
             .semantics {
                 role = Role.Button
                 contentDescription = b.label

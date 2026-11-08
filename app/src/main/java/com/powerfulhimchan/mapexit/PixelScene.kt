@@ -193,6 +193,8 @@ internal fun DrawScope.drawScene(
 ) {
     drawRect(ink)
     when {
+        s.mode == Mode.ENCOUNTER && s.encounter == Event.CHEST || s.mode == Mode.EXPLORE && s.chestLoot != null ->
+            drawChestEncounter(s, clock, battleTop)
         s.mode == Mode.ENCOUNTER -> drawEncounter(s, clock)
         s.mode in listOf(Mode.TRAP, Mode.TRAP_GUIDE) -> s.trap?.let { drawObstacle(s, clock) }
         s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) ->

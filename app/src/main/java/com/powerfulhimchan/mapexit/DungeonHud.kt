@@ -169,7 +169,7 @@ internal fun CombatShortcuts(vm: GameModel) {
             .forEach { (label, action) ->
                 Row(
                     Modifier.height(30.dp)
-                        .gameClickable(enabled = enabled, battle = true) {
+                        .gameClickable(enabled = enabled) {
                             vm.choose(Choice(label, action))
                         }
                         .semantics(mergeDescendants = true) {

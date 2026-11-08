@@ -1,19 +1,15 @@
 package com.powerfulhimchan.mapexit
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -21,42 +17,22 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-/** One visual language for text actions, icon tiles, cards and latched gameplay controls. */
-internal object GameButtonStyle {
-    val shape = RoundedCornerShape(8.dp)
-    val pressedFill = Color(0xFF294C49)
-    val selectedFill = Color(0xFF1D343A)
-}
-
+/** Shared engraved metal frame for every action, menu tile and selected control. */
 internal fun Modifier.gameButtonSurface(
     enabled: Boolean = true,
     selected: Boolean = false,
     pressed: Boolean = false,
-    battle: Boolean = false,
-): Modifier = if (battle) battlePanel(edge = if (selected) amber else Color(0xFF9B7C7B), pressed = pressed, enabled = enabled)
-    else clip(GameButtonStyle.shape)
-    .background(when {
-        !enabled -> panel.copy(alpha = .65f)
-        pressed -> GameButtonStyle.pressedFill
-        selected -> GameButtonStyle.selectedFill
-        else -> panel
-    })
-    .border(1.dp, when {
-        !enabled -> line
-        selected -> amber
-        else -> mint
-    }, GameButtonStyle.shape)
+): Modifier = battlePanel(edge = if (selected) amber else Color(0xFF9B7C7B), pressed = pressed, enabled = enabled)
 
 @Composable
 internal fun Modifier.gameClickable(
     enabled: Boolean = true,
     selected: Boolean? = null,
-    battle: Boolean = false,
     onClick: () -> Unit,
 ): Modifier {
     val interactions = remember { MutableInteractionSource() }
     val pressed by interactions.collectIsPressedAsState()
-    return gameButtonSurface(enabled, selected == true, pressed, battle)
+    return gameButtonSurface(enabled, selected == true, pressed)
         .clickable(interactionSource = interactions, indication = null, enabled = enabled,
             role = Role.Button, onClick = onClick)
         .semantics { if (selected != null) this.selected = selected }

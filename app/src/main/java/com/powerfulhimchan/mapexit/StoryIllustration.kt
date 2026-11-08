@@ -12,6 +12,7 @@ import kotlin.math.min
 
 /** Fixed scene coordinates keep people, paper and doorways readable at every screen size. */
 internal fun DrawScope.storyArt(art: String, state: State, page: Int = 0) {
+    if (with(NarrativeArtwork) { paintStory(art) }) return
     drawRect(Color(0xFF101B28))
     val unit = min(size.width / 384f,size.height / 224f)
     clipRect {
