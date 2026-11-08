@@ -57,11 +57,14 @@ class StoryScreenTest {
             val region = illustrationBounds(instrumentation.uiAutomation.rootInActiveWindow)
                 ?: Rect(frame.width/8,frame.height/5,frame.width*7/8,frame.height*4/5)
             val colors = mutableSetOf<Int>()
-            for (iy in 1..12) for (ix in 1..16) {
-                val x = (region.left + region.width()*ix/17).coerceIn(0,frame.width-1)
-                val y = (region.top + region.height()*iy/13).coerceIn(0,frame.height-1)
-                colors.add(frame.getPixel(x,y))
-            }
+            // Dense sampling also sees text and engraved buttons in illustration-free journal pages.
+            val left=region.left.coerceIn(0,frame.width-1)
+            val top=region.top.coerceIn(0,frame.height-1)
+            val right=region.right.coerceIn(left+1,frame.width)
+            val bottom=region.bottom.coerceIn(top+1,frame.height)
+            for (y in top until bottom step ((bottom-top)/192).coerceAtLeast(1))
+                for (x in left until right step ((right-left)/192).coerceAtLeast(1))
+                    colors.add(frame.getPixel(x,y))
             if (colors.size > 20) {
                 val resolver = instrumentation.targetContext.contentResolver
                 val values = android.content.ContentValues().apply {
