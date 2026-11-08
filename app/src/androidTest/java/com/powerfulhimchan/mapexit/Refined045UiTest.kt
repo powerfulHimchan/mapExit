@@ -50,14 +50,15 @@ class Refined045UiTest {
                 launchGame().use { scenario ->
                     scenario.onGameActivity { a ->
                         val e = GameEngine(); e.enterFloor(1)
-                        val sword = ItemFactory.create(e.state, Kind.SWORD, variantId = "longsword")
-                        val shield = ItemFactory.create(e.state, Kind.SHIELD)
+                        val sword = ItemFactory.create(e.state, Kind.SWORD, variantId = "longsword").copy(tier = 1)
+                        val shield = ItemFactory.create(e.state, Kind.SHIELD, variantId = "shield").copy(tier = 1)
                         e.state.inventory.addAll(listOf(sword, shield))
                         Equipment.equip(e.state, sword.id, Slot.RIGHT)
                         Equipment.equip(e.state, shield.id, Slot.LEFT)
                         e.startBattle(false)
                         val species = MonsterCatalog.forFloor(1).first { it.family == "wisp" }
                         e.state.enemy = e.state.enemy!!.copy(name = species.name, speciesId = species.id, hp = 326.0, maxHp = 326.0)
+                        e.state.message = "${species.name} 조우"
                         e.state.hp = Equipment.stats(e.state).hp * .08
                         a.game.engine = e; a.game.active = false; a.game.refresh()
                     }
