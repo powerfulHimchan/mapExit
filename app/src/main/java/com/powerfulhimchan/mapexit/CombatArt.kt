@@ -137,7 +137,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             val rad=angle*PI.toFloat()/180
             return Offset(-sin(rad),cos(rad))*hero.unit*1.25f
         }
-        val supportShift=Offset(sin(gripAngle*PI.toFloat()/180),-cos(gripAngle*PI.toFloat()/180))*hero.unit*4
+        val supportShift=Offset(sin(gripAngle*PI.toFloat()/180),-cos(gripAngle*PI.toFloat()/180))*hero.unit*4f
         val rightShift=wristShift(gripAngle)
         val requested=if(weapon?.twoHanded==true) offset(ArmKinematics.sharedTarget(point(shoulder),point(leftShoulder),
             point(wantedHand+rightShift),point(supportShift),hero.unit*12.8f)) else wantedHand+rightShift
