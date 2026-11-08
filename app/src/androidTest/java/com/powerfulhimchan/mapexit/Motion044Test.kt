@@ -46,13 +46,17 @@ class Motion044Test {
     @Test fun allAuthoredCellsAreVisibleAndFitMobileTextureLimits() {
         MotionArtwork.load(context.resources)
         assertTrue(MotionArtwork.loaded)
-        for ((id, columns, count) in listOf(Triple(R.drawable.combat_hero_motion, 12, MotionAtlas.heroPoses.size), Triple(R.drawable.combat_monster_motion, 24, MotionAtlas.monsters.size * MotionAtlas.monsterPoses.size), Triple(R.drawable.combat_equipment_motion, 10, MotionAtlas.gear.size))) {
+        val layouts = listOf(
+            listOf(R.drawable.combat_hero_motion, 12, MotionAtlas.heroPoses.size, 192, 192),
+            listOf(R.drawable.combat_monster_motion, 24, MotionAtlas.monsters.size * MotionAtlas.monsterPoses.size, 144, 144),
+            listOf(R.drawable.combat_equipment_motion, 10, MotionAtlas.gear.size, 128, 192))
+        for ((id, columns, count, width, height) in layouts) {
             val atlas = requireNotNull(BitmapFactory.decodeResource(context.resources, id, BitmapFactory.Options().apply { inScaled = false }))
             assertTrue(atlas.width <= 4096 && atlas.height <= 4096)
             for (i in 0 until count) {
-                val pixels = IntArray(64 * 96)
-                atlas.getPixels(pixels, 0, 64, i % columns * 64, i / columns * 96, 64, 96)
-                assertTrue("Empty authored frame $id/$i", pixels.count { it ushr 24 > 0 } > 32)
+                val pixels = IntArray(width * height)
+                atlas.getPixels(pixels, 0, width, i % columns * width, i / columns * height, width, height)
+                assertTrue("Empty painted frame $id/$i", pixels.count { it ushr 24 > 0 } > 32)
             }
         }
         for (pose in MotionAtlas.heroPoses) {
