@@ -118,7 +118,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
-    var active = false
+    var active by mutableStateOf(false)
     internal var mapExpanded by mutableStateOf(false)
         private set
 

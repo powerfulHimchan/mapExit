@@ -41,10 +41,12 @@ internal fun DrawScope.sprite(
     flash: Color? = null,
     articulated: Boolean = false,
     opacity: Float = 1f,
+    detailPose: String? = null,
 ) {
     val art = GearSprites.get(type) ?: FineSprites.all.getValue("npc")
     val unit = if (type.startsWith("gear:")) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
     fun DrawScope.paint() {
+        if (detailPose != null && with(MotionArtwork) { paintSprite(type, detailPose, x, y, unit, flash, opacity) }) return
         drawImage(
             art.bitmap,
             srcSize = IntSize(art.width, art.height),
@@ -70,7 +72,10 @@ internal fun DrawScope.sprite(
             y + 34 * unit,
             clipOp = androidx.compose.ui.graphics.ClipOp.Difference,
         ) {
-            paint()
+            if (detailPose != null && type == "heroBack")
+                clipRect(x + 4 * unit, y + 23 * unit, x + 9 * unit, y + 34 * unit,
+                    clipOp = androidx.compose.ui.graphics.ClipOp.Difference) { paint() }
+            else paint()
         }
     } else paint()
 }
@@ -107,6 +112,7 @@ internal fun DrawScope.adventurer(
     articulated: Boolean = false,
     shadow: Boolean = true,
     stride: Float = 0f,
+    detailPose: String? = null,
 ): HeroPose {
     val unit = spriteUnit(width)
     val actual = unit * 32
@@ -118,7 +124,7 @@ internal fun DrawScope.adventurer(
         pixelRect(amber,x+actual*.5f,y-unit*3,unit*2,unit)
     }
     if(shadow) contactShadow(x, baseline + 3, actual)
-    combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride)
+    combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
 
     Equipment.equipped(s).forEach { gear ->
         val area = when (gear.kind) {
@@ -132,7 +138,10 @@ internal fun DrawScope.adventurer(
         }
         area?.let { (xx, yy, ww, hh) ->
             val art = wornArt(gear)
+            val shift = detailPose?.let { MotionArtwork.wornOffset(gear.kind, yy, it) } ?: Offset.Zero
+            val scale = detailPose?.let(MotionArtwork::bodyScale) ?: 1f
             fun DrawScope.paint() {
+                if (detailPose != null && with(MotionArtwork) { paintWorn(gear, x + (xx + shift.x) * unit, y + (yy + shift.y) * unit, ww * unit, hh * unit * scale, hitTint) }) return
                 drawImage(
                     art.art.bitmap,
                     srcOffset = IntOffset(art.left, art.top),

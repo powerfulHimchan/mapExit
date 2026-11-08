@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +45,7 @@ internal val red = Color(0xFFF29491)
 
 @Composable
 fun MapExitScreen(vm: GameModel) {
+    MotionArtwork.load(LocalContext.current.resources)
     vm.revision
     if (vm.mapExpanded) {
         MaterialTheme(colorScheme = darkColorScheme(background = ink,surface = panel,onSurface = pale,primary = mint)) { ExpandedMapScreen(vm) }
@@ -60,25 +62,22 @@ fun MapExitScreen(vm: GameModel) {
     val now = clock.takeIf { it > 0 } ?: SystemClock.uptimeMillis()
     val s = vm.presentationState(now)
     val canRetreat = s.dungeon != null && s.mode in listOf(Mode.EXPLORE, Mode.MOVING)
-    LaunchedEffect(vm) {
+    // A paused scene must stop requesting vsync. When active, leave an idle gap between
+    // rendered frames instead of recomposing the entire scene on every 60 Hz callback.
+    val pausedMotionStart = if (vm.active) 0L else vm.battleVisual?.startedAt ?: 0L
+    LaunchedEffect(vm, vm.active, pausedMotionStart) {
         var previous = 0L
-        while (true) {
-            withFrameNanos { now ->
-                if (previous != 0L && now - previous >= 33_000_000) {
-                    if (vm.active) {
-                        vm.tick(((now - previous) / 1_000_000).coerceAtMost(100))
-                    }
-                    previous = now
-                } else if (previous == 0L) previous = now
-                val uptime = SystemClock.uptimeMillis()
-                    if (
-                        vm.active ||
-                            vm.battleVisual?.let {
-                                uptime - it.startedAt <= it.duration + 100
-                            } == true
-                    )
-                        clock = uptime
+        while (vm.active || vm.battleVisual?.let {
+            SystemClock.uptimeMillis() - it.startedAt <= it.duration + 100
+        } == true) {
+            withFrameNanos { frameTime ->
+                if (previous != 0L && vm.active) {
+                    vm.tick(((frameTime - previous) / 1_000_000).coerceAtMost(100))
+                }
+                previous = frameTime
+                clock = SystemClock.uptimeMillis()
             }
+            delay(16)
         }
     }
     LaunchedEffect(vm.currentImpact?.serial) {

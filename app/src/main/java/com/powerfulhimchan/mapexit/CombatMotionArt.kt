@@ -9,25 +9,25 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import com.powerfulhimchan.mapexit.core.*
 import kotlin.math.*
 
-internal fun DrawScope.combatBody(type:String,x:Float,y:Float,width:Float,tint:Color?,articulated:Boolean,stride:Float,opacity:Float=1f) {
+internal fun DrawScope.combatBody(type:String,x:Float,y:Float,width:Float,tint:Color?,articulated:Boolean,stride:Float,opacity:Float=1f,detailPose:String?=null) {
     val u=spriteUnit(width)
     val height=spriteHeight(type,width)
-    if(type.substringAfterLast('_') !in listOf("hero","heroBack","knight","boss")) { sprite(type,x,y,width,flash=tint,opacity=opacity);return }
+    if(type.substringAfterLast('_') !in listOf("hero","heroBack","knight","boss")) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose);return }
     val split=y+height-u*11
-    clipRect(x,y,x+32*u,split) { sprite(type,x,y,width,flash=tint,articulated=articulated,opacity=opacity) }
+    clipRect(x,y,x+32*u,split) { sprite(type,x,y,width,flash=tint,articulated=articulated,opacity=opacity,detailPose=detailPose) }
     for(side in 0..1) {
         val shift=if(side==0)stride else -stride
         withTransform({translate(shift*u*3,-abs(shift)*u)}) {
-            clipRect(x+side*16*u,split,x+(side+1)*16*u,y+height) { sprite(type,x,y,width,flash=tint,opacity=opacity) }
+            clipRect(x+side*16*u,split,x+(side+1)*16*u,y+height) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose) }
         }
     }
 }
 
-internal fun DrawScope.batBody(x:Float,y:Float,width:Float,clock:Long,tint:Color?,opacity:Float,type:String="bat") {
+internal fun DrawScope.batBody(x:Float,y:Float,width:Float,clock:Long,tint:Color?,opacity:Float,type:String="bat",detailPose:String?=null) {
     val u=spriteUnit(width);val h=spriteHeight(type,width)
-    clipRect(x+11*u,y,x+21*u,y+h) { sprite(type,x,y,width,flash=tint,opacity=opacity) }
+    clipRect(x+11*u,y,x+21*u,y+h) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose) }
     for(side in 0..1) withTransform({scale(1f,1+sin(clock*.022f)*.20f,Offset(x+16*u,y+h*.45f))}) {
-        clipRect(x+side*21*u,y,x+(if(side==0)11 else 32)*u,y+h) { sprite(type,x,y,width,flash=tint,opacity=opacity) }
+        clipRect(x+side*21*u,y,x+(if(side==0)11 else 32)*u,y+h) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose) }
     }
 }
 

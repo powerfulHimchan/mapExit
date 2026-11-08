@@ -12,6 +12,9 @@ adb logcat -v brief TestRunner:I AndroidRuntime:E System.err:W '*:S' &
 test_logcat_pid=$!
 trap 'kill "$test_logcat_pid" 2>/dev/null || true' EXIT
 timeout 18m ./gradlew :app:connectedDebugAndroidTest --no-daemon || test_status=$?
+adb shell 'ls /sdcard/Download/mapexit-motion044-*.png' | tr -d '\r' | while IFS= read -r path; do
+  [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true
+done
 adb shell 'ls /sdcard/Download/mapexit-battle042-*.png' | tr -d '\r' | while IFS= read -r path; do
   [ -n "$path" ] && adb pull "$path" "app/build/device-screenshots/$(basename "${path#*/mapexit-}")" || true
 done
