@@ -50,7 +50,7 @@ internal object MotionArtwork {
             val phase = monsterPoseIndex[pose] ?: return null
             return tile(a.monsters, index * MotionAtlas.monsterPoses.size + phase, 24, 144, 144, MotionAtlas.monsterHeights[index], 3f, -8f)
         }
-        return gear(type, badge = true)
+        return gear(type, badge = false)
     }
 
     @Synchronized private fun gear(type: String, badge: Boolean): Frame? {
