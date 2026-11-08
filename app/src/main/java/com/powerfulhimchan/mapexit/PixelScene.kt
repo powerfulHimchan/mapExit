@@ -28,8 +28,8 @@ internal fun DrawScope.pixelRect(color: Color, x: Float, y: Float, w: Float, h: 
 
 internal fun spriteUnit(width: Float) = (width / 32).toInt().coerceAtLeast(1).toFloat()
 
-internal fun spriteHeight(type: String, width: Float) =
-    (GearSprites.get(type)?.height ?: 48) * spriteUnit(width)
+internal fun spriteHeight(type: String, width: Float, detailed: Boolean = false) =
+    (GearSprites.get(type)?.height ?: 48) * if (detailed) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
 
 @Suppress("UNUSED_PARAMETER")
 internal fun DrawScope.sprite(
@@ -44,7 +44,7 @@ internal fun DrawScope.sprite(
     detailPose: String? = null,
 ) {
     val art = GearSprites.get(type) ?: FineSprites.all.getValue("npc")
-    val unit = if (type.startsWith("gear:")) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
+    val unit = if (type.startsWith("gear:") || detailPose != null && MotionArtwork.loaded) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
     fun DrawScope.paint() {
         if (detailPose != null && with(MotionArtwork) { paintSprite(type, detailPose, x, y, unit, flash, opacity) }) return
         drawImage(
@@ -63,7 +63,7 @@ internal fun DrawScope.sprite(
                 },
         )
     }
-    if (articulated) {
+    if (articulated && !(type == "heroBack" && detailPose != null && MotionArtwork.loaded)) {
         val right = type == "heroBack"
         clipRect(
             x + (if (right) 24 else 4) * unit,
@@ -114,7 +114,7 @@ internal fun DrawScope.adventurer(
     stride: Float = 0f,
     detailPose: String? = null,
 ): HeroPose {
-    val unit = spriteUnit(width)
+    val unit = if (detailPose != null && MotionArtwork.loaded) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
     if (s.hp > 0 && s.hp <= Equipment.stats(s).hp*.10) {
@@ -127,7 +127,8 @@ internal fun DrawScope.adventurer(
     combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
 
     Equipment.equipped(s).forEach { gear ->
-        val area = when (gear.kind) {
+        val placement = detailPose?.let { MotionArtwork.wornPlacement(gear.kind, it) }
+        val area = placement?.area ?: when (gear.kind) {
             Kind.HEAD -> listOf(6f, 0f, 20f, 16f)
             Kind.BODY -> listOf(4f, 15f, 24f, 22f)
             Kind.PANTS -> listOf(8f, 31f, 17f, 13f)
@@ -138,10 +139,10 @@ internal fun DrawScope.adventurer(
         }
         area?.let { (xx, yy, ww, hh) ->
             val art = wornArt(gear)
-            val shift = detailPose?.let { MotionArtwork.wornOffset(gear.kind, yy, it) } ?: Offset.Zero
-            val scale = detailPose?.let(MotionArtwork::bodyScale) ?: 1f
+            val shift = Offset.Zero
+            val scale = 1f
             fun DrawScope.paint() {
-                if (detailPose != null && with(MotionArtwork) { paintWorn(gear, x + (xx + shift.x) * unit, y + (yy + shift.y) * unit, ww * unit, hh * unit * scale, hitTint) }) return
+                if (detailPose != null && with(MotionArtwork) { paintWorn(gear, x + (xx + shift.x) * unit, y + (yy + shift.y) * unit, ww * unit, hh * unit * scale, hitTint, placement?.angle ?: 0f) }) return
                 drawImage(
                     art.art.bitmap,
                     srcOffset = IntOffset(art.left, art.top),
@@ -239,6 +240,7 @@ private fun DrawScope.drawCamp(s: State, clock: Long) {
 }
 
 internal fun DrawScope.arena(clock: Long, horizon: Float = .45f, floor: Int = 1) {
+    if (with(MotionArtwork) { paintArena(clock, floor) }) return
     val theme = DungeonTheme.forFloor(floor)
     val w = size.width
     val h = size.height

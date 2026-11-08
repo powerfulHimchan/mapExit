@@ -10,6 +10,7 @@ import com.powerfulhimchan.mapexit.core.*
 import kotlin.math.*
 
 internal fun DrawScope.combatBody(type:String,x:Float,y:Float,width:Float,tint:Color?,articulated:Boolean,stride:Float,opacity:Float=1f,detailPose:String?=null) {
+    if (detailPose != null && MotionArtwork.loaded) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose); return }
     val u=spriteUnit(width)
     val height=spriteHeight(type,width)
     if(type.substringAfterLast('_') !in listOf("hero","heroBack","knight","boss")) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose);return }
@@ -24,6 +25,7 @@ internal fun DrawScope.combatBody(type:String,x:Float,y:Float,width:Float,tint:C
 }
 
 internal fun DrawScope.batBody(x:Float,y:Float,width:Float,clock:Long,tint:Color?,opacity:Float,type:String="bat",detailPose:String?=null) {
+    if (detailPose != null && MotionArtwork.loaded) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose); return }
     val u=spriteUnit(width);val h=spriteHeight(type,width)
     clipRect(x+11*u,y,x+21*u,y+h) { sprite(type,x,y,width,flash=tint,opacity=opacity,detailPose=detailPose) }
     for(side in 0..1) withTransform({scale(1f,1+sin(clock*.022f)*.20f,Offset(x+16*u,y+h*.45f))}) {
