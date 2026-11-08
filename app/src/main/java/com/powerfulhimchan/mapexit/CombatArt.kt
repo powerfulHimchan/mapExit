@@ -20,24 +20,25 @@ private fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float = 1f
 
 private fun DrawScope.heldWeapon(kind: Kind, hand: Offset, unit: Float, angle: Float, opacity: Float = 1f, gear: Gear? = null) {
     val scale = unit * GearAppearance.heldScale(kind)
-    val gripX = if (kind == Kind.WHIP) 7 else 16
-    val gripY = if (kind == Kind.SPEAR) 40 else if (kind == Kind.WHIP) 25 else 27
+    val grip = MotionArtwork.weaponGrip(gear?.let { gearSprite(it) } ?: gearSprite(kind))
+    val gripX = grip?.x ?: if (kind == Kind.WHIP) 7f else 16f
+    val gripY = grip?.y ?: if (kind == Kind.SPEAR) 40f else if (kind == Kind.WHIP) 25f else 27f
     withTransform({ rotate(angle, hand) }) {
         sprite(gear?.let { gearSprite(it) } ?: gearSprite(kind), hand.x - gripX * scale, hand.y - gripY * scale, 32 * scale, opacity=opacity, detailPose="idle_0")
     }
 }
 
-internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleVisual?) {
+internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleVisual?, battleTop: Float = 0f) {
     val age=visual?.let { clock-it.startedAt-BattleAnimation.HIT_MS } ?: -1L
     val connected=visual?.impact?.outcome !in listOf(ImpactOutcome.MISS,ImpactOutcome.DODGE)
     val strength=if(visual?.action=="strong" || visual?.impact?.critical==true)2.5f else 1.3f
     val shake=if(connected && age in 0..220) sin(age*.18).toFloat()*(1-age/220f)*strength else 0f
     withTransform({ translate(shake,shake*.4f);scale(1+abs(shake)*.003f,1+abs(shake)*.003f,center) }) {
-        drawBattleActors(s,clock,visual)
+        drawBattleActors(s,clock,visual,battleTop)
     }
 }
 
-private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?) {
+private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?, battleTop: Float) {
     val motion = visual?.takeIf { it.active(clock) }
     val scene = motion?.scene ?: s
     val enemy = scene.enemy ?: s.enemy ?: s.battleResult?.enemy ?: return
@@ -68,6 +69,10 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val enemyDamage = attacking && motion!!.impact.outcome != ImpactOutcome.MISS
     val w = size.width
     val h = size.height
+    // Fit painted actors into the arena below the measured information panel.
+    val stageTop = h * (battleTop + .04f).coerceAtMost(.79f)
+    val stageHeight = (h * .94f - stageTop).coerceAtLeast(h * .15f)
+    val heroFloor = stageTop + stageHeight * .92f
     arena(clock, floor = s.floor)
     val heroRecoil = if (playerDamage) BattleAnimation.reaction(elapsed) else 0f
     val heroFrame = SpriteFrames.hero(motion?.action, kind, poseTime, clock,
@@ -75,16 +80,16 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val metalSleeves = Equipment.equipped(scene).any { it.kind == Kind.BODY && it.variantId in listOf("chainmail", "platearmor") }
     val defense = BattleAnimation.defense(if (defending) motion!!.action else "", elapsed)
     val dodge = defense.retreat
-    val heroWidth = min(w * .34f, h * .32f)
+    val heroWidth = min(w * .34f, stageHeight * .48f)
     val advanceDistance=w*.17f+(5-spriteUnit(heroWidth)).coerceAtLeast(0f)*10
     val heroX =
         w * .18f + (if (attacking) pose.advance * advanceDistance else 0f) -
             heroRecoil * 15 -
             dodge * w * .11f
     val heroBase =
-        h * .90f - (if (attacking) pose.advance * h * .11f + pose.lift * h else 0f) +
+        heroFloor - (if (attacking) pose.advance * stageHeight * .11f + pose.lift * stageHeight else 0f) +
             defense.crouch * h * .045f + if(motion==null)sin(clock*.0026f)*spriteUnit(min(w*.34f,h*.32f))*.4f else 0f
-    contactShadow(heroX,h*.90f+3,32*spriteUnit(heroWidth))
+    contactShadow(heroX,heroFloor+3,heroWidth)
     var hero = HeroPose(heroX, heroBase, spriteUnit(heroWidth))
     val flash =
         if (playerDamage && elapsed in BattleAnimation.HIT_MS..BattleAnimation.HIT_MS + 100) red.copy(alpha=.9f*(1-(elapsed-BattleAnimation.HIT_MS)/100f))
@@ -124,9 +129,11 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                 )
         if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
         val gripAngle = if (attacking) pose.angle else 25f + defense.guard * 65f
-        val leftShoulder = Offset(hero.x + hero.unit * (9 + bone.x - 23), hero.y + hero.unit * (22 + bone.y - 23))
+        val leftBone = MotionArtwork.leftShoulder(heroFrame)
+        val leftShoulder = Offset(hero.x + hero.unit * leftBone.x, hero.y + hero.unit * leftBone.y)
+        val fallen = heroFrame.startsWith("death_")
         val supportHand = when {
-            shield != null -> Offset(hero.x + hero.unit * (8 + defense.guard * 17), hero.y + hero.unit * (37 - defense.guard * 4))
+            shield != null -> Offset(hero.x + hero.unit * (if(fallen)12f else 10 + defense.guard * 17), hero.y + hero.unit * (if(fallen)40f else 33 - defense.guard * 4))
             weapon?.twoHanded == true -> hand + Offset(sin(gripAngle * PI / 180).toFloat(), -cos(gripAngle * PI / 180).toFloat()) * (hero.unit * 6)
             offWeapon != null -> leftShoulder + Offset(hero.unit * (2 + if(attacking) pose.reach * 5 else 0f), hero.unit * (10 - overhead * .5f))
             else -> Offset(hero.x + hero.unit * 7, hero.y + hero.unit * 31)
@@ -171,13 +178,12 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, if(weapon?.twoHanded == true)gripAngle else if(offWeapon != null)-gripAngle*.65f else 0f, 1f, metalSleeves) }
         shield?.let { shield ->
             val guard = defense.guard
-            sprite(
-                gearSprite(shield),
-                hero.x - hero.unit * 4 + guard * hero.unit * 17,
-                hero.y + hero.unit * 24 - guard * hero.unit * 4,
-                hero.unit * 24,
-                detailPose = "idle_0",
-            )
+            val sx = hero.x + hero.unit * (if (fallen) 4f else -1 + guard * 17)
+            val sy = hero.y + hero.unit * (if (fallen) 32f else 22 - guard * 4)
+            val sw = hero.unit * if (fallen) 16f else 22f
+            withTransform({ rotate(if (fallen) 70f else 0f, Offset(sx + sw / 2, sy + sw / 2)) }) {
+                sprite(gearSprite(shield), sx, sy, sw, detailPose = "idle_0")
+            }
         }
     }
     if (defending && motion!!.action == "dodge") {
@@ -199,24 +205,24 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val species = MonsterCatalog.describe(enemy, s.floor)
     val type = species.sprite
     val family = species.family
-    val enemyWidth = min(w * (if (enemy.boss) .34f else .28f), h * (if (enemy.boss) .26f else .20f))
-    val unit = spriteUnit(enemyWidth)
+    val enemyWidth = min(w * (if (enemy.boss) .38f else .28f), stageHeight * (if (enemy.boss) .44f else .25f))
+    val unit = if (MotionArtwork.loaded) (enemyWidth / 32).coerceAtLeast(.25f) else spriteUnit(enemyWidth)
     val advance = if (defending) monsterPose.advance else 0f
     val recoil = if (enemyDamage) BattleAnimation.reaction(elapsed) else 0f
     val enemyHome=min(w*.64f,w-32*unit-50)
     val ex=(enemyHome-advance*w*.30f).coerceAtMost(w-32*unit-(if(enemy.boss)50 else 28))+recoil*16
     val jump =
         if (defending && family in listOf("slime", "boss") && elapsed <= BattleAnimation.HIT_MS)
-            sin(elapsed.toFloat() / BattleAnimation.HIT_MS * PI).toFloat() * h * .10f
+            sin(elapsed.toFloat() / BattleAnimation.HIT_MS * PI).toFloat() * stageHeight * .10f
         else 0f
     val baseline =
-        h * (if (family == "bat") .57f else .73f) + advance * h * .14f - jump +
+        stageTop + stageHeight * (if (family == "bat") .43f else .65f) + advance * stageHeight * .14f - jump +
             if (showingTell) tell.bob * h * tellWeight else 0f
-    val ey = baseline - spriteHeight(type, enemyWidth)
+    val ey = baseline - spriteHeight(type, enemyWidth, detailed = MotionArtwork.loaded)
     val death=if(s.mode==Mode.VICTORY) if(motion==null)1f else BattleAnimation.smooth((elapsed-BattleAnimation.HIT_MS-80)/360f) else 0f
     val opacity=1-death
     val dead=death>=1f
-    contactShadow(ex, h * .74f + advance * h * .14f, unit * 32)
+    contactShadow(ex, stageTop + stageHeight * .66f + advance * stageHeight * .14f, unit * 32)
     if (enemy.boss && s.floor == 50 && s.cycle > 1 && !dead) {
         drawOval(Color(0xFFAC80DA).copy(alpha = .16f * opacity),Offset(ex-unit*3,ey-unit*3),Size(unit*38,baseline-ey+unit*7))
         for(i in 0..4) pixelRect(Color(0xFFB38AE0).copy(alpha=.55f*opacity),ex+unit*(i*8-1),ey+unit*(8+i*4),unit*2,unit*6)
@@ -253,13 +259,14 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             if (showingTell && tell.guard > 0f && family in listOf("knight", "boss"))
                 sprite("shield", ex - unit * 2, ey + unit * 17, unit * 25, opacity=opacity*tellWeight, detailPose="idle_0")
             if (family in listOf("knight", "boss")) {
-                val hand =
+                val paintedHand = MotionArtwork.monsterHand(type, monsterFrame)
+                val hand = paintedHand?.let { Offset(ex + unit * it.x, ey + unit * it.y) } ?:
                     Offset(
                         ex + unit * 8 - advance * unit * 4,
                         ey + unit * (28 - if (showingTell) tell.armLift*tellWeight else 0f),
                     )
                 if(defending) weaponTrail(if(family=="boss")Kind.HAMMER else Kind.SWORD,hand,unit,elapsed,enemy.intent==EnemyIntent.HEAVY,-1f)
-                arm(Offset(ex + unit * 12, ey + unit * 22), hand, unit,opacity,metal=true)
+                if (!MotionArtwork.loaded) arm(Offset(ex + unit * 12, ey + unit * 22), hand, unit,opacity,metal=true)
                 heldWeapon(
                     if (family == "boss") Kind.HAMMER else Kind.SWORD,
                     hand,
