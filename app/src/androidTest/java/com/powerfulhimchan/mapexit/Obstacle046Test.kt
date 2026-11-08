@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
@@ -20,6 +21,28 @@ import org.junit.Test
 class Obstacle046Test {
     private val instrumentation=InstrumentationRegistry.getInstrumentation()
     private val context=instrumentation.targetContext
+    private fun hasLabel(node: AccessibilityNodeInfo?, label: String): Boolean {
+        if(node==null)return false
+        if(node.text?.toString()==label || node.contentDescription?.toString()==label)return true
+        return (0 until node.childCount).any { hasLabel(node.getChild(it),label) }
+    }
+    private fun captureUi(name:String,label:String) {
+        val deadline=SystemClock.uptimeMillis()+10000
+        while(SystemClock.uptimeMillis()<deadline) {
+            instrumentation.runOnMainSync { }
+            if(hasLabel(instrumentation.uiAutomation.rootInActiveWindow,label)) {
+                // Accessibility may lead the compositor by a frame after wm size/activity recreation.
+                SystemClock.sleep(120)
+                val bitmap=requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+                val colors=mutableSetOf<Int>()
+                for(y in bitmap.height/5 until bitmap.height/2 step 8)
+                    for(x in bitmap.width/4 until bitmap.width*3/4 step 8)colors.add(bitmap.getPixel(x,y))
+                if(colors.size>20) { export(name,bitmap);return }
+            }
+            SystemClock.sleep(40)
+        }
+        error("Production scene did not finish drawing: $name / $label")
+    }
     private fun export(name:String,bitmap:Bitmap) {
         val values=android.content.ContentValues().apply {
             put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME,"mapexit-obstacle046-$name.png")
@@ -61,8 +84,8 @@ class Obstacle046Test {
                         e.state.trap=Traps.create(e.state,type).copy(pattern=listOf(0),phase=if(type==3)TrapPhase.REVEAL else TrapPhase.ACTIVE,elapsedMs=1000,stepStartedMs=600)
                         a.game.engine=e;a.game.active=false;a.game.refresh()
                     }
-                    SystemClock.sleep(180)
-                    export("ui-$type-active-${if(compact)"compact" else "normal"}",requireNotNull(instrumentation.uiAutomation.takeScreenshot()))
+                    captureUi("ui-$type-active-${if(compact)"compact" else "normal"}",
+                        if(type==3)"기억해라" else listOf("솥을 살피세요","칼날을 살피세요","벽을 밀어내세요","기억해라","나무봉을 살피세요")[type])
                     scenario.onGameActivity { a ->
                         val t=requireNotNull(a.game.engine.state.trap)
                         t.phase=TrapPhase.ACTIVE;t.elapsedMs=1000
@@ -70,8 +93,7 @@ class Obstacle046Test {
                         assertTrue("Obstacle $type should accept its existing correct action",t.success)
                         t.elapsedMs=320;a.game.refresh()
                     }
-                    SystemClock.sleep(100)
-                    export("ui-$type-result-${if(compact)"compact" else "normal"}",requireNotNull(instrumentation.uiAutomation.takeScreenshot()))
+                    captureUi("ui-$type-result-${if(compact)"compact" else "normal"}","회피 성공")
                 }
             } } finally { if(compact)shell("wm size reset") }
         }
