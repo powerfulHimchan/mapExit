@@ -117,7 +117,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         val shoulder = Offset(hero.x + hero.unit * bone.x, hero.y + hero.unit * bone.y)
         val limbScale = MotionArtwork.bodyScale(heroFrame)
         val overhead = if(attacking)pose.armLift else sin(clock*.0026f)*.4f
-        val hand =
+        val wantedHand =
             shoulder +
                 Offset(
                     hero.unit *
@@ -127,19 +127,36 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                     hero.unit *
                         (10 - (if (attacking) pose.advance * 5 else defense.guard * 17) - overhead) * limbScale,
                 )
-        if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
         val gripAngle = if (attacking) pose.angle else 25f + defense.guard * 65f
         val leftBone = MotionArtwork.leftShoulder(heroFrame)
         val leftShoulder = Offset(hero.x + hero.unit * leftBone.x, hero.y + hero.unit * leftBone.y)
         val fallen = heroFrame.startsWith("death_")
-        val supportHand = when {
-            shield != null -> Offset(hero.x + hero.unit * (if(fallen)12f else 10 + defense.guard * 17), hero.y + hero.unit * (if(fallen)40f else 33 - defense.guard * 4))
-            weapon?.twoHanded == true -> hand + Offset(sin(gripAngle * PI / 180).toFloat(), -cos(gripAngle * PI / 180).toFloat()) * (hero.unit * 6)
-            offWeapon != null -> leftShoulder + Offset(hero.unit * (2 + if(attacking) pose.reach * 5 else 0f), hero.unit * (10 - overhead * .5f))
-            else -> Offset(hero.x + hero.unit * 7, hero.y + hero.unit * 31)
+        fun point(p: Offset)=ArmKinematics.Point(p.x,p.y)
+        fun offset(p: ArmKinematics.Point)=Offset(p.x,p.y)
+        fun wristShift(angle: Float): Offset {
+            val rad=angle*PI.toFloat()/180
+            return Offset(-sin(rad),cos(rad))*hero.unit*1.25f
         }
-        arm(leftShoulder, supportHand, hero.unit, metal = metalSleeves)
-        arm(shoulder, hand, hero.unit, metal = metalSleeves)
+        val supportShift=Offset(sin(gripAngle*PI.toFloat()/180),-cos(gripAngle*PI.toFloat()/180))*hero.unit*4
+        val rightShift=wristShift(gripAngle)
+        val requested=if(weapon?.twoHanded==true) offset(ArmKinematics.sharedTarget(point(shoulder),point(leftShoulder),
+            point(wantedHand+rightShift),point(supportShift),hero.unit*12.8f)) else wantedHand+rightShift
+        val rightArm=ArmKinematics.solve(point(shoulder),point(requested),hero.unit*6.5f,hero.unit*6.5f)
+        val rightWrist=offset(rightArm.wrist)
+        val hand=rightWrist-rightShift
+        val offAngle=if(weapon?.twoHanded==true)gripAngle else if(offWeapon!=null)-gripAngle*.65f else 0f
+        val requestedSupport = when {
+            shield != null -> Offset(hero.x + hero.unit * (if(fallen)12f else 10 + defense.guard * 17), hero.y + hero.unit * (if(fallen)40f else 33 - defense.guard * 4))
+            weapon?.twoHanded == true -> hand+supportShift
+            offWeapon != null -> leftShoulder+Offset(hero.unit*(2+if(attacking)pose.reach*5 else 0f),hero.unit*(10-overhead*.5f))
+            else -> Offset(hero.x+hero.unit*7,hero.y+hero.unit*31)
+        }
+        val leftArm=ArmKinematics.solve(point(leftShoulder),point(requestedSupport+wristShift(offAngle)),hero.unit*6.5f,hero.unit*6.5f)
+        val leftWrist=offset(leftArm.wrist)
+        val supportHand=leftWrist-wristShift(offAngle)
+        if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
+        arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
+        arm(shoulder, rightWrist, hero.unit, metal = metalSleeves)
         if (kind != null) {
             if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
                 val chain = weapon?.variantId == "chainwhip"
