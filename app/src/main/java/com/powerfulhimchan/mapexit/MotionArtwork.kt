@@ -25,6 +25,9 @@ internal object MotionArtwork {
     private val gearCache = object : LinkedHashMap<String, Frame>(128, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Frame>?) = size > 128
     }
+    private val dressedCache=object : LinkedHashMap<String,Frame>(32,.75f,true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String,Frame>?)=size>32
+    }
 
     @Synchronized fun load(resources: Resources) {
         if (assets != null) return
@@ -104,6 +107,18 @@ internal object MotionArtwork {
         paint(f, x + f.logicalX * unit, y, f.size.width / f.nativeScale * unit, f.size.height / f.nativeScale * unit, flash, opacity)
         return true
     }
+    @Synchronized fun DrawScope.paintDressedBody(item: Gear,pose: String,x: Float,y: Float,unit: Float,flash: Color?): Boolean {
+        val original=frame("heroBack",pose) ?: return false
+        val key="${item.variantId}:${item.tier}:$pose"
+        val dressed=dressedCache[key] ?: run {
+            val body=Bitmap.createBitmap(original.image.asAndroidBitmap(),original.offset.x,original.offset.y,original.size.width,original.size.height)
+            val fitted=PreparationArtwork.dressedBody(item,body,pose) ?: return false
+            body.recycle()
+            original.copy(image=fitted.asImageBitmap(),offset=IntOffset.Zero).also { dressedCache[key]=it }
+        }
+        paint(dressed,x+dressed.logicalX*unit,y,dressed.size.width/dressed.nativeScale*unit,dressed.size.height/dressed.nativeScale*unit,flash,1f)
+        return true
+    }
     fun DrawScope.paintWorn(item: Gear, x: Float, y: Float, width: Float, height: Float, flash: Color?, angle: Float = 0f, back: Boolean = false): Boolean {
         if (back && with(PreparationArtwork) { paintWorn(item,x,y,width,height,flash,angle) }) return true
         val type = if(item.kind == Kind.NECKLACE) "necklace" else gearSprite(item)
@@ -116,8 +131,8 @@ internal object MotionArtwork {
         return true
     }
 
-    fun shoulder(pose: String): Offset = MotionAtlas.heroShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, it[1] * .25f) }
-    fun leftShoulder(pose: String): Offset = MotionAtlas.heroLeftShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, it[1] * .25f) }
+    fun shoulder(pose: String): Offset = MotionAtlas.heroShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, (it[1]+EquipmentFit.bob(pose)) * .25f) }
+    fun leftShoulder(pose: String): Offset = MotionAtlas.heroLeftShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, (it[1]+EquipmentFit.bob(pose)) * .25f) }
     fun bodyScale(pose: String) = if (pose.startsWith("death_")) .55f else 1f
     data class WornPlacement(val area: List<Float>, val angle: Float)
     fun wornPlacement(kind: Kind, pose: String): WornPlacement? {
