@@ -28,10 +28,14 @@ class AShieldReview051Test {
             val e=battle();val item=ItemFactory.create(e.state,Kind.BODY,variantId=variant)
             val original=Bitmap.createBitmap(sheet,index%12*192,index/12*192,192,192)
             val dressed=requireNotNull(PreparationArtwork.dressedBody(item,original,pose))
+            val head=MotionAtlas.worn[EquipmentFit.cell(pose)][0]
             var changed=0
             for(y in 0 until 192) for(x in 0 until 192) {
                 val a=original.getPixel(x,y);val b=dressed.getPixel(x,y)
                 assertEquals("$variant/$pose contour at $x,$y",a ushr 24,b ushr 24)
+                if(x>=head[0] && x<head[0]+head[2] && y>=head[1] && y<head[1]+head[3]-5 &&
+                    android.graphics.Color.green(a)<=android.graphics.Color.red(a)*1.05f)
+                    assertEquals("Armor must preserve hair and skin",a,b)
                 if(a!=b)changed++
             }
             assertTrue("Armor material must replace the native clothing",changed>150)
