@@ -43,15 +43,54 @@ internal fun DrawScope.drawChestEncounter(s: State, clock: Long, battleTop: Floa
 }
 
 internal fun DrawScope.drawPreparationCamp(s: State, clock: Long) {
-    drawBattleActors(s,clock,null,0f,campEncounter=true)
+    if(!PresentationArtwork.loaded) { drawBattleActors(s,clock,null,0f,campEncounter=true);return }
+    with(PreparationArtwork) { paintCamp(clock) }
+    val width=min(size.width*.22f,size.height*.94f*.48f)
+    val baseline=size.height*.865f
+    val x=size.width*.49f-width/2
+    val hero=with(PresentationArtwork) { frontBody(s,x,baseline,width) }
+    val items=Equipment.equipped(s)
+    val weapon=items.firstOrNull { it.weapon && it.id==s.equipment[Slot.RIGHT] } ?: items.firstOrNull { it.weapon }
+    val off=items.firstOrNull { it.weapon && it.id!=weapon?.id && it.id==s.equipment[Slot.LEFT] }
+    val shield=items.firstOrNull { it.kind==Kind.SHIELD }
+    val metal=items.any { it.kind==Kind.BODY && it.variantId in listOf("chainmail","platearmor") }
+    // In a front view the player's right arm is on the viewer's left.
+    val rightShoulder=Offset(x+hero.unit*8.5f,hero.y+hero.unit*19f)
+    val leftShoulder=Offset(x+hero.unit*23.5f,hero.y+hero.unit*19f)
+    val angle=-20f
+    val axis=Offset(sin(angle*PI.toFloat()/180),-cos(angle*PI.toFloat()/180))
+    val supportShift=axis*hero.unit*4f
+    fun point(p: Offset)=ArmKinematics.Point(p.x,p.y)
+    fun offset(p: ArmKinematics.Point)=Offset(p.x,p.y)
+    val wanted=Offset(x+hero.unit*6,hero.y+hero.unit*30)
+    val target=if(weapon?.twoHanded==true)offset(ArmKinematics.sharedTarget(point(rightShoulder),point(leftShoulder),point(wanted),point(supportShift),hero.unit*12.8f)) else wanted
+    val right=ArmKinematics.solve(point(rightShoulder),point(target),hero.unit*6.5f,hero.unit*6.5f)
+    val hand=offset(right.wrist)
+    val support=if(weapon?.twoHanded==true)hand+supportShift else Offset(x+hero.unit*26,hero.y+hero.unit*30)
+    val left=ArmKinematics.solve(point(leftShoulder),point(support),hero.unit*6.5f,hero.unit*6.5f)
+    val leftHand=offset(left.wrist)
+    arm(rightShoulder,hand,hero.unit,metal=metal)
+    arm(leftShoulder,leftHand,hero.unit,metal=metal)
+    weapon?.let { heldWeapon(it.kind,hand,hero.unit,angle,gear=it) }
+    off?.let { heldWeapon(it.kind,leftHand,hero.unit,20f,gear=it) }
+    with(MotionArtwork) { grip(hand,hero.unit,angle,1f,metal);grip(leftHand,hero.unit,if(weapon?.twoHanded==true)angle else 20f,1f,metal) }
+    shield?.let {
+        // The shield's outer face is visible from the front; the same hand holds its rear strap.
+        val w=hero.unit*20
+        sprite(gearSprite(it),leftHand.x-w/2,leftHand.y-hero.unit*15,w,detailPose="idle_0")
+    }
 }
 
-private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?, battleTop: Float, chestEncounter: Boolean = false, campEncounter: Boolean = false) {
+internal fun DrawScope.drawDialogueEncounter(s: State,clock: Long,battleTop: Float) {
+    drawBattleActors(s,clock,null,battleTop,npcEncounter=true)
+}
+
+private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?, battleTop: Float, chestEncounter: Boolean = false, campEncounter: Boolean = false, npcEncounter: Boolean = false) {
     val motion = visual?.takeIf { it.active(clock) }
     val scene = motion?.scene ?: s
     // The inert placeholder supplies no game state or combat: prop scenes return after the hero.
     val enemy = scene.enemy ?: s.enemy ?: s.battleResult?.enemy
-        ?: if (chestEncounter || campEncounter) Enemy("장면", 1.0, 1.0, 0.0, 0.0, 0.0) else return
+        ?: if (chestEncounter || campEncounter || npcEncounter) Enemy("장면", 1.0, 1.0, 0.0, 0.0, 0.0) else return
     val elapsed =
         motion?.let { (clock - it.startedAt).coerceAtLeast(0) } ?: BattleAnimation.DURATION_MS
     val attacking = motion?.impact?.target == ImpactTarget.ENEMY
@@ -236,6 +275,15 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         )
     }
     if (campEncounter) return
+    if (npcEncounter) {
+        val width=min(w*.30f,stageHeight*.44f)
+        val x=w*.73f-width/2
+        val baseline=stageTop+stageHeight*.79f
+        val type=if(s.encounter==Event.MERCHANT) "merchant" else NpcInteractions.role(s).sprite
+        contactShadow(x,baseline+3,width)
+        with(PresentationArtwork) { person(type,x,baseline,width) }
+        return
+    }
     if (chestEncounter) {
         val chestWidth = min(w * .30f, stageHeight * .48f)
         val baseline = stageTop + stageHeight * .72f

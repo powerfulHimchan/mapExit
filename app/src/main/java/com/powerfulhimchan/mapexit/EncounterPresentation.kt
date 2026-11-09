@@ -64,7 +64,8 @@ internal fun EncounterCaption(vm: GameModel, modifier: Modifier) {
 }
 
 /** The near player and far encounter use the same over-the-shoulder viewpoint as combat. */
-internal fun DrawScope.drawEncounter(s: State, clock: Long) {
+internal fun DrawScope.drawEncounter(s: State, clock: Long, battleTop: Float = 0f) {
+    if(PresentationArtwork.loaded) { drawDialogueEncounter(s,clock,battleTop);return }
     val w = size.width
     val h = size.height
     arena(clock, .52f, s.floor)

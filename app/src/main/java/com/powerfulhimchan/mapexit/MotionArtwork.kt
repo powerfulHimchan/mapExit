@@ -33,6 +33,7 @@ internal object MotionArtwork {
         ObstacleArtwork.load(resources)
         NarrativeArtwork.load(resources)
         PreparationArtwork.load(resources)
+        PresentationArtwork.load(resources)
     }
 
     fun has(type: String, pose: String = "idle_0"): Boolean = when {
@@ -105,7 +106,7 @@ internal object MotionArtwork {
     }
     fun DrawScope.paintWorn(item: Gear, x: Float, y: Float, width: Float, height: Float, flash: Color?, angle: Float = 0f, back: Boolean = false): Boolean {
         if (back && with(PreparationArtwork) { paintWorn(item,x,y,width,height,flash,angle) }) return true
-        val type = gearSprite(item)
+        val type = if(item.kind == Kind.NECKLACE) "necklace" else gearSprite(item)
         val index = gearIndex[base(type)] ?: return false
         val f = gear(type, badge = false) ?: return false
         val b = MotionAtlas.gearBounds[index]
