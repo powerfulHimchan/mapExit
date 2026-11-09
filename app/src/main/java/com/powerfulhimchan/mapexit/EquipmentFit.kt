@@ -30,6 +30,16 @@ internal object EquipmentFit {
         listOf(92f,130f,117f,126f,137f,142f,110f,153f, 108f,143f,126f,135f,150f,153f,132f,165f, 112f,151f,133f,143f,155f,169f,134f,178f),
         listOf(86f,135f,139f,135f,137f,146f,83f,146f, 85f,143f,108f,145f,101f,172f,78f,171f, 116f,144f,138f,143f,141f,172f,117f,172f),
     )
+    private val boots = listOf(
+        listOf(65f,153f,91f,153f,94f,184f,61f,184f, 110f,153f,134f,153f,147f,184f,109f,184f),
+        listOf(65f,153f,87f,164f,75f,184f,49f,184f, 121f,151f,142f,151f,151f,184f,120f,184f),
+        listOf(48f,151f,68f,162f,58f,183f,33f,183f, 111f,153f,134f,153f,149f,184f,110f,184f),
+        listOf(45f,156f,65f,166f,53f,184f,29f,184f, 112f,159f,134f,159f,146f,184f,111f,184f),
+        listOf(28f,166f,47f,172f,30f,187f,4f,187f, 126f,165f,146f,165f,165f,187f,126f,187f),
+        listOf(50f,154f,72f,166f,59f,184f,31f,184f, 119f,150f,138f,150f,154f,181f,123f,184f),
+        listOf(117f,144f,137f,136f,163f,155f,148f,172f, 135f,160f,151f,148f,181f,161f,170f,179f),
+        listOf(72f,153f,98f,153f,101f,184f,68f,184f, 117f,153f,141f,153f,154f,184f,116f,184f),
+    )
     fun cell(pose: String): Int = MotionAtlas.heroSourceCells[MotionAtlas.heroPoses.indexOf(pose).coerceAtLeast(0)]
     fun patches(kind: Kind, pose: String): List<Patch>? {
         val cell = cell(pose)
@@ -39,6 +49,10 @@ internal object EquipmentFit {
                 Patch(listOf(0f,0f,1f,.32f),p.subList(0,8)),
                 Patch(listOf(0f,.28f,.50f,1f),p.subList(8,16)),
                 Patch(listOf(.50f,.28f,1f,1f),p.subList(16,24)),
+            ) }
+            Kind.BOOTS -> boots[cell].let { p -> listOf(
+                Patch(listOf(0f,0f,.50f,1f),p.subList(0,8)),
+                Patch(listOf(.50f,0f,1f,1f),p.subList(8,16)),
             ) }
             // Helmets use the head silhouette dimensions.
             Kind.HEAD -> {

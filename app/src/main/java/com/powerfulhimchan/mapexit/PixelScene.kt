@@ -128,7 +128,9 @@ internal fun DrawScope.adventurer(
         val path=Path()
         for(i in 0..3) {
             val p=EquipmentFit.point(head.corners,i*2,x,y,unit,detailPose!!)
-            if(i==0)path.moveTo(p.x,p.y) else path.lineTo(p.x,p.y)
+            // Keep the original neck/collar visible below a fitted helmet.
+            val py=if(i>=2)p.y-(head.corners[5]-head.corners[1])*unit*.025f else p.y
+            if(i==0)path.moveTo(p.x,py) else path.lineTo(p.x,py)
         }
         path.close()
         clipPath(path,ClipOp.Difference) { paintBody() }
