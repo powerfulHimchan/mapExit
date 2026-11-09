@@ -97,7 +97,9 @@ internal object PreparationArtwork {
         }
         // Opaque backing prevents the old green coat showing through an icon's armholes.
         for(i in backing.indices) backing[i]=backing[i] or 0xff000000.toInt()
-        val fitted=Bitmap.createBitmap(backing,width,height,Bitmap.Config.ARGB_8888)
+        val fitted=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).apply {
+            setPixels(backing,0,width,0,0,width,height)
+        }
         val target=EquipmentFit.torso(pose).toFloatArray()
         for(i in 1 until target.size step 2)target[i]+=bob
         val source=floatArrayOf(0f,0f,material.size.width.toFloat(),0f,material.size.width.toFloat(),material.size.height.toFloat(),0f,material.size.height.toFloat())
