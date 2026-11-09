@@ -87,6 +87,17 @@ internal object PreparationArtwork {
             return IntArray(width*height).also { bitmap.getPixels(it,0,width,0,0,width,height);bitmap.recycle() }
         }
         val coat=mask(EquipmentFit.coat(pose));val belt=mask(EquipmentFit.belt(pose))
+        fun greenCloth(color: Int): Boolean {
+            val r=android.graphics.Color.red(color);val g=android.graphics.Color.green(color);val b=android.graphics.Color.blue(color)
+            return color ushr 24>0 && g>25 && g>r*1.06f && g>b*1.04f
+        }
+        // Follow the painted cloth as well as the measured contour. Idle breathing and
+        // the asymmetric far shoulder contain small folds beyond a polygon's corners.
+        for(i in original.indices) if(greenCloth(original[i])) {
+            val x=i%width;val y=i/width
+            for(yy in (y-2).coerceAtLeast(0)..(y+2).coerceAtMost(height-1))
+                for(xx in (x-2).coerceAtLeast(0)..(x+2).coerceAtMost(width-1))coat[yy*width+xx]=-1
+        }
         val backing=original.copyOf()
         val steel=item.variantId in listOf("platearmor","chainmail")
         if(steel) for(i in backing.indices) {
@@ -112,7 +123,7 @@ internal object PreparationArtwork {
             val inHead=px>=head[0] && px<head[0]+head[2] && py>=head[1] && py<head[1]+head[3]-5
             val hairOrSkin=inHead && android.graphics.Color.green(original[i])<=android.graphics.Color.red(original[i])*1.05f
             // The original alpha is the final clothing outline in every frame.
-            pixels[i]=if(coat[i]!=0 && belt[i]==0 && !hairOrSkin && original[i] ushr 24>0)
+            pixels[i]=if(coat[i]!=0 && (belt[i]==0 || greenCloth(original[i])) && !hairOrSkin && original[i] ushr 24>0)
                 (original[i] and 0xff000000.toInt()) or (pixels[i] and 0x00ffffff) else original[i]
         }
         return Bitmap.createBitmap(pixels,width,height,Bitmap.Config.ARGB_8888)
