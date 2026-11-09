@@ -27,10 +27,14 @@ private fun Modifier.card(
     enabled: Boolean,
     label: String,
     compact: Boolean = false,
+    accessibilityState: String? = null,
     action: () -> Unit,
 ): Modifier =
     gameClickable(enabled = enabled, onClick = action)
-        .semantics(mergeDescendants = true) { contentDescription = label }
+        .semantics(mergeDescendants = true) {
+            contentDescription = label
+            if(accessibilityState!=null) stateDescription=accessibilityState
+        }
         .padding(if (compact) 6.dp else 12.dp)
 
 internal fun LazyListScope.growthCards(vm: GameModel) {
@@ -180,9 +184,8 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                 val enabled = choice != null
                 val affordable = menu == "sell" || gold >= price
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().semantics {
-                        if(menu=="shop") stateDescription="구매 가격 ${price}G"
-                    }.card(enabled, choice?.label ?: gear.name) {
+                    Modifier.weight(1f).fillMaxHeight().card(enabled, choice?.label ?: gear.name,
+                        accessibilityState=if(menu=="shop") "구매 가격 ${price}G" else null) {
                         choice?.let(vm::choose)
                     },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
