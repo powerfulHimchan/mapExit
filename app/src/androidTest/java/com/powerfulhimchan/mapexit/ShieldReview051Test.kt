@@ -19,6 +19,40 @@ import org.junit.Test
 class AShieldReview051Test {
     private val instrumentation=InstrumentationRegistry.getInstrumentation()
     private val context=instrumentation.targetContext
+    @Test fun bodyArmorKeepsEveryNativeBodyPixelAndDoesNotCreateASecondSilhouette() {
+        MotionArtwork.load(context.resources)
+        val sheet=requireNotNull(android.graphics.BitmapFactory.decodeResource(context.resources,R.drawable.combat_hero_motion,
+            android.graphics.BitmapFactory.Options().apply { inScaled=false }))
+        val poses=MotionAtlas.heroPoses.withIndex().distinctBy { MotionAtlas.heroSourceCells[it.index] }
+        for(variant in listOf("leatherarmor","chainmail","platearmor")) for((index,pose) in poses) {
+            val e=battle();val item=ItemFactory.create(e.state,Kind.BODY,variantId=variant)
+            val original=Bitmap.createBitmap(sheet,index%12*192,index/12*192,192,192)
+            val dressed=requireNotNull(PreparationArtwork.dressedBody(item,original,pose))
+            var changed=0
+            for(y in 0 until 192) for(x in 0 until 192) {
+                val a=original.getPixel(x,y);val b=dressed.getPixel(x,y)
+                assertEquals("$variant/$pose contour at $x,$y",a ushr 24,b ushr 24)
+                if(a!=b)changed++
+            }
+            assertTrue("Armor material must replace the native clothing",changed>150)
+            original.recycle();dressed.recycle()
+        }
+        sheet.recycle()
+    }
+    @Test fun everyShieldHandleAndForearmStrapShareTheActualArmAnchors() {
+        MotionArtwork.load(context.resources)
+        val e=battle()
+        val hand=androidx.compose.ui.geometry.Offset(100f,100f)
+        for(variant in listOf("shield","buckler","tower","spiked")) {
+            val item=ItemFactory.create(e.state,Kind.SHIELD,variantId=variant)
+            for(elbow in listOf(androidx.compose.ui.geometry.Offset(96f,80f),androidx.compose.ui.geometry.Offset(80f,90f),androidx.compose.ui.geometry.Offset(110f,90f))) {
+                val mount=requireNotNull(PreparationArtwork.mountShield(item,hand,elbow))
+                assertTrue((mount.project(mount.grip)-hand).getDistance()<.001f)
+                assertTrue("The forearm strap must stay on the elbow, not float over the back",
+                    (mount.project(mount.brace)-elbow).getDistance()<.001f)
+            }
+        }
+    }
     private fun equip(e: GameEngine,kind: Kind,variant: String) {
         val item=ItemFactory.create(e.state,kind,variantId=variant).copy(tier=1)
         e.state.inventory.add(item)
