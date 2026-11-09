@@ -664,3 +664,6 @@ emit_battle_motion(sprites, COLORS, Art, check='--check' in sys.argv)
 
 from obstacle_art import emit as emit_obstacle_art
 emit_obstacle_art(check='--check' in sys.argv)
+
+from preparation_art import emit as emit_preparation_art
+emit_preparation_art(check='--check' in sys.argv)

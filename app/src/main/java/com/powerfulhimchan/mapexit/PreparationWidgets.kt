@@ -1,5 +1,6 @@
 package com.powerfulhimchan.mapexit
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -14,6 +15,10 @@ import com.powerfulhimchan.mapexit.core.*
 
 @Composable
 internal fun MenuArt(action: String, modifier: Modifier = Modifier) {
+    if (PreparationArtwork.loaded && action in PreparationAtlas.menuKeys) {
+        Canvas(modifier) { with(PreparationArtwork) { paintIcon(action) } }
+        return
+    }
     val rows =
         when (action) {
             "enter" ->

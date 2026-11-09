@@ -127,6 +127,8 @@ internal fun DrawScope.adventurer(
     combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
 
     Equipment.equipped(s).forEach { gear ->
+        // A front pendant and palm-side rings are occluded by a rear-facing body.
+        if (back && gear.kind in listOf(Kind.NECKLACE,Kind.RING)) return@forEach
         val placement = detailPose?.let { MotionArtwork.wornPlacement(gear.kind, it) }
         val area = placement?.area ?: when (gear.kind) {
             Kind.HEAD -> listOf(6f, 0f, 20f, 16f)
@@ -142,7 +144,7 @@ internal fun DrawScope.adventurer(
             val shift = Offset.Zero
             val scale = 1f
             fun DrawScope.paint() {
-                if (detailPose != null && with(MotionArtwork) { paintWorn(gear, x + (xx + shift.x) * unit, y + (yy + shift.y) * unit, ww * unit, hh * unit * scale, hitTint, placement?.angle ?: 0f) }) return
+                if ((detailPose != null || back) && with(MotionArtwork) { paintWorn(gear, x + (xx + shift.x) * unit, y + (yy + shift.y) * unit, ww * unit, hh * unit * scale, hitTint, placement?.angle ?: 0f, back = back) }) return
                 drawImage(
                     art.art.bitmap,
                     srcOffset = IntOffset(art.left, art.top),
@@ -205,6 +207,18 @@ internal fun DrawScope.drawScene(
 }
 
 private fun DrawScope.drawCamp(s: State, clock: Long) {
+    if (PreparationArtwork.loaded) {
+        drawPreparationCamp(s,clock)
+        if (s.mode == Mode.INHERIT) {
+            val candidates = s.inventory.filter { !it.inherited && it.equippable }.take(3)
+            candidates.forEachIndexed { i, gear ->
+                val x = size.width * (.25f + i * .18f)
+                pixelRect(amber.copy(alpha=.20f),x-4,size.height*.18f-4,40f,40f)
+                sprite(gearSprite(gear),x,size.height*.18f,32f,detailPose="idle_0")
+            }
+        }
+        return
+    }
     val w = size.width
     val h = size.height
     masonry(0f, 0f, w, h * .66f, Color(0xff293d47))
