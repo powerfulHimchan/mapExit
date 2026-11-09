@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.IntOffset
@@ -130,7 +131,7 @@ internal fun DrawScope.adventurer(
             if(i==0)path.moveTo(p.x,p.y) else path.lineTo(p.x,p.y)
         }
         path.close()
-        androidx.compose.ui.graphics.drawscope.clipPath(path,ClipOp.Difference) { paintBody() }
+        clipPath(path,ClipOp.Difference) { paintBody() }
     } else paintBody()
 
     Equipment.equipped(s).forEach { gear ->

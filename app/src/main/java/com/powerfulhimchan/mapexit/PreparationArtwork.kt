@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.powerfulhimchan.mapexit.core.*
@@ -84,7 +85,7 @@ internal object PreparationArtwork {
         if(braceOnly) {
             if(rearKey(item)=="armor_buckler") return true
             val strap=if(rearKey(item)=="armor_spiked") .40f else .35f
-            androidx.compose.ui.graphics.drawscope.clipRect(x+width*.40f,y+height*(strap-.035f),x+width*.62f,y+height*(strap+.035f)) {
+            clipRect(x+width*.40f,y+height*(strap-.035f),x+width*.62f,y+height*(strap+.035f)) {
                 paint(r,x,y,width,height,tint)
             }
         } else paint(r,x,y,width,height,tint)
