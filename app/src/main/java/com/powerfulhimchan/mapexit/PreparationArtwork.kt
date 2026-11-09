@@ -104,9 +104,13 @@ internal object PreparationArtwork {
         val matrix=android.graphics.Matrix();check(matrix.setPolyToPoly(source,0,target,0,4))
         android.graphics.Canvas(fitted).drawBitmap(material.image.asAndroidBitmap(),matrix,android.graphics.Paint().apply { isFilterBitmap=false;isAntiAlias=false })
         val pixels=IntArray(width*height);fitted.getPixels(pixels,0,width,0,0,width,height);fitted.recycle()
+        val head=MotionAtlas.worn[EquipmentFit.cell(pose)][0]
         for(i in pixels.indices) {
+            val px=i%width;val py=i/width-bob
+            val inHead=px>=head[0] && px<head[0]+head[2] && py>=head[1] && py<head[1]+head[3]-5
+            val hairOrSkin=inHead && android.graphics.Color.green(original[i])<=android.graphics.Color.red(original[i])*1.05f
             // The original alpha is the final clothing outline in every frame.
-            pixels[i]=if(coat[i]!=0 && belt[i]==0 && original[i] ushr 24>0)
+            pixels[i]=if(coat[i]!=0 && belt[i]==0 && !hairOrSkin && original[i] ushr 24>0)
                 (original[i] and 0xff000000.toInt()) or (pixels[i] and 0x00ffffff) else original[i]
         }
         return Bitmap.createBitmap(pixels,width,height,Bitmap.Config.ARGB_8888)
