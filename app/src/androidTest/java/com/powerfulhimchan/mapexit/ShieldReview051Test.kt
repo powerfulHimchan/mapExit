@@ -29,7 +29,10 @@ class AShieldReview051Test {
             val original=Bitmap.createBitmap(sheet,index%12*192,index/12*192,192,192)
             val dressed=requireNotNull(PreparationArtwork.dressedBody(item,original,pose))
             val head=MotionAtlas.worn[EquipmentFit.cell(pose)][0]
-            var changed=0
+            var changed=0;var originalGreen=0;var remainingGreen=0
+            fun green(color: Int)=color ushr 24>96 && android.graphics.Color.green(color)>25 &&
+                android.graphics.Color.green(color)>android.graphics.Color.red(color)*1.06f &&
+                android.graphics.Color.green(color)>android.graphics.Color.blue(color)*1.04f
             for(y in 0 until 192) for(x in 0 until 192) {
                 val a=original.getPixel(x,y);val b=dressed.getPixel(x,y)
                 assertEquals("$variant/$pose contour at $x,$y",a ushr 24,b ushr 24)
@@ -37,8 +40,11 @@ class AShieldReview051Test {
                     android.graphics.Color.green(a)<=android.graphics.Color.red(a)*1.05f)
                     assertEquals("Armor must preserve hair and skin",a,b)
                 if(a!=b)changed++
+                if(green(a)) { originalGreen++;if(green(b))remainingGreen++ }
             }
             assertTrue("Armor material must replace the native clothing",changed>150)
+            if(variant!="leatherarmor")assertTrue("The old green coat must not protrude from metal armor: $remainingGreen/$originalGreen",
+                remainingGreen<originalGreen*.02f)
             original.recycle();dressed.recycle()
         }
         sheet.recycle()
