@@ -16,7 +16,7 @@ import com.powerfulhimchan.mapexit.core.State
 import org.junit.Assert.*
 import org.junit.Test
 
-class Presentation049Test {
+class APresentation049Test {
     private val instrumentation=InstrumentationRegistry.getInstrumentation()
     private val context=instrumentation.targetContext
     private fun render(width: Int=480,height: Int=640,paint: androidx.compose.ui.graphics.drawscope.DrawScope.()->Unit): Bitmap {
@@ -97,6 +97,18 @@ class Presentation049Test {
         }
         error("No clickable ancestor for ${node.contentDescription ?: node.text}")
     }
+    private fun tap(node: AccessibilityNodeInfo) {
+        val bounds=android.graphics.Rect().also(node::getBoundsInScreen)
+        SystemClock.sleep(200)
+        val down=SystemClock.uptimeMillis()
+        fun send(action: Int) {
+            android.view.MotionEvent.obtain(down,SystemClock.uptimeMillis(),action,bounds.exactCenterX(),bounds.exactCenterY(),0).also {
+                instrumentation.sendPointerSync(it);it.recycle()
+            }
+        }
+        send(android.view.MotionEvent.ACTION_DOWN);SystemClock.sleep(60);send(android.view.MotionEvent.ACTION_UP)
+        instrumentation.runOnMainSync { }
+    }
     private fun shell(command: String) {
         android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
     }
@@ -144,9 +156,11 @@ class Presentation049Test {
                 // Compose may expose the label as a synthetic child of the merged card.
                 val card=actionNode(await(name))
                 if(android.os.Build.VERSION.SDK_INT>=30)assertEquals("구매 가격 ${expected}G",card.stateDescription?.toString())
-                assertTrue(card.performAction(AccessibilityNodeInfo.ACTION_CLICK))
-                val purchase=actionNode(await("구매"))
-                SystemClock.sleep(180);assertTrue(purchase.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+                tap(card)
+                SystemClock.sleep(500)
+                export("shop-detail-$discount-$compact",requireNotNull(instrumentation.uiAutomation.takeScreenshot()))
+                scenario.onGameActivity { a -> assertEquals("shopItem",a.game.engine.state.menu?.type) }
+                tap(await("구매"))
                 await("소지 ${5000-expected}G")
                 scenario.onGameActivity { a ->
                     assertEquals(5000-expected,a.game.engine.state.gold)
