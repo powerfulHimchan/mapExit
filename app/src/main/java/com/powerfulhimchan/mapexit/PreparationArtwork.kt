@@ -102,12 +102,22 @@ internal object PreparationArtwork {
                 f[2]*r.size.width,f[3]*r.size.height,f[0]*r.size.width,f[3]*r.size.height)
             val target=FloatArray(8)
             for(i in 0..3) EquipmentFit.point(patch.corners,i*2,x,y,unit,pose).let { target[i*2]=it.x;target[i*2+1]=it.y }
-            // A helmet follows the skull without inheriting the torso's tilt a second time.
+            // Follow the skull angle while fitting the rotated silhouette inside its measured bounds.
             if(item.kind==Kind.HEAD) {
                 val w=target[2]-target[0];val h=target[5]-target[1]
-                if(item.variantId=="headband")
-                    paint(r,target[0]+w*.05f,target[1]+h*.45f,w*.9f,h*.32f,tint)
-                else paint(r,target[0],target[1],w,h,tint)
+                val angle=MotionAtlas.worn[EquipmentFit.cell(pose)][0][4].toFloat()
+                val pivot=Offset(target[0]+w/2,target[1]+h/2)
+                withTransform({ rotate(angle,pivot) }) {
+                    if(item.variantId=="headband")
+                        paint(r,target[0]+w*.05f,target[1]+h*.45f,w*.9f,h*.32f,tint)
+                    else {
+                        val rad=angle*PI.toFloat()/180
+                        val c=abs(cos(rad));val s=abs(sin(rad))
+                        val scale=min(w/(r.size.width*c+r.size.height*s),h/(r.size.width*s+r.size.height*c))
+                        val width=r.size.width*scale;val height=r.size.height*scale
+                        paint(r,pivot.x-width/2,pivot.y-height/2,width,height,tint)
+                    }
+                }
                 continue
             }
             val matrix=android.graphics.Matrix()
