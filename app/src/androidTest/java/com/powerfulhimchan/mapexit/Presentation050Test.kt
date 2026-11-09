@@ -16,7 +16,7 @@ import com.powerfulhimchan.mapexit.core.State
 import org.junit.Assert.*
 import org.junit.Test
 
-class Presentation050Test {
+class APresentation050Test {
     private val instrumentation=InstrumentationRegistry.getInstrumentation()
     private val context=instrumentation.targetContext
     private fun render(width: Int=480,height: Int=640,paint: androidx.compose.ui.graphics.drawscope.DrawScope.()->Unit): Bitmap {
@@ -38,7 +38,8 @@ class Presentation050Test {
     }
     private fun equip(e: GameEngine,kind: Kind,variant: String) {
         val item=ItemFactory.create(e.state,kind,variantId=variant).copy(tier=1)
-        e.state.inventory.add(item);assertTrue(Equipment.equip(e.state,item.id,Equipment.allowedSlots(item).first()))
+        val slot=if(item.weapon)Slot.RIGHT else if(kind==Kind.SHIELD)Slot.LEFT else Equipment.allowedSlots(item).first()
+        e.state.inventory.add(item);assertTrue(Equipment.equip(e.state,item.id,slot))
     }
     private fun battle(shield: String="shield",steel: Boolean=false): GameEngine = GameEngine().also { e ->
         e.enterFloor(1);e.state.equipment.clear()
