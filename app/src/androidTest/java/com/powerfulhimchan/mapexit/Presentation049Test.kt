@@ -89,6 +89,14 @@ class Presentation049Test {
         await(label);SystemClock.sleep(500)
         export(name,requireNotNull(instrumentation.uiAutomation.takeScreenshot()))
     }
+    private fun actionNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo {
+        var current: AccessibilityNodeInfo?=node
+        while(current!=null) {
+            if(current.isClickable && current.isEnabled)return current
+            current=current.parent
+        }
+        error("No clickable ancestor for ${node.contentDescription ?: node.text}")
+    }
     private fun shell(command: String) {
         android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
     }
@@ -132,11 +140,12 @@ class Presentation049Test {
                     assertEquals(if(discount)100 else 125,expected)
                     e.choose(Choice("상점","shop"));a.game.engine=e;a.game.active=false;a.game.storyPlaybackEnabled=false;a.game.refresh()
                 }
-                val card=await(name)
-                if(android.os.Build.VERSION.SDK_INT>=30)assertEquals("구매 가격 ${expected}G",card.stateDescription?.toString())
                 capture("shop-$discount-$compact",name)
+                // Compose may expose the label as a synthetic child of the merged card.
+                val card=actionNode(await(name))
+                if(android.os.Build.VERSION.SDK_INT>=30)assertEquals("구매 가격 ${expected}G",card.stateDescription?.toString())
                 assertTrue(card.performAction(AccessibilityNodeInfo.ACTION_CLICK))
-                val purchase=await("구매")
+                val purchase=actionNode(await("구매"))
                 SystemClock.sleep(180);assertTrue(purchase.performAction(AccessibilityNodeInfo.ACTION_CLICK))
                 await("소지 ${5000-expected}G")
                 scenario.onGameActivity { a ->
