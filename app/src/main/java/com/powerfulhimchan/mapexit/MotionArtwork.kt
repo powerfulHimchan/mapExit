@@ -31,6 +31,7 @@ internal object MotionArtwork {
         fun decode(id: Int) = requireNotNull(BitmapFactory.decodeResource(resources, id, BitmapFactory.Options().apply { inScaled = false }))
         assets = Assets(decode(R.drawable.combat_hero_motion).asImageBitmap(), decode(R.drawable.combat_monster_motion).asImageBitmap(), decode(R.drawable.combat_equipment_motion), decode(R.drawable.combat_arena_refined).asImageBitmap(), decode(R.drawable.combat_arms_046).asImageBitmap())
         ObstacleArtwork.load(resources)
+        NarrativeArtwork.load(resources)
     }
 
     fun has(type: String, pose: String = "idle_0"): Boolean = when {

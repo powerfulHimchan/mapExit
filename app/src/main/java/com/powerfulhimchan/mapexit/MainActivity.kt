@@ -69,7 +69,9 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                 impact.serial == before.impactSequence
         )
             return
-        battleVisual = BattleVisual(before, action!!, now, impact)
+        val preparation = if (action in listOf("guard", "dodge") && impact.target == ImpactTarget.PLAYER)
+            BattleAnimation.DEFENSE_DELAY_MS else 0L
+        battleVisual = BattleVisual(before, action!!, now + preparation, impact, selectedAt = now)
         visualEffect = action
         visualEffectAt = now
     }

@@ -18,6 +18,7 @@ data class AttackPose(
 object BattleAnimation {
     const val DURATION_MS = 760L
     const val HIT_MS = 320L
+    const val DEFENSE_DELAY_MS = 500L
 
     fun smooth(t: Float): Float = t.coerceIn(0f,1f).let { (it*it*it*(it*(it*6-15)+10)).coerceIn(0f,1f) }
     private fun ease(t: Float) = smooth(t)

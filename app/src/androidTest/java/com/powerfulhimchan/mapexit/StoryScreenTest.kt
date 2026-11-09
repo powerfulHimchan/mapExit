@@ -41,21 +41,52 @@ class StoryScreenTest {
     private fun shell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
         instrumentation.uiAutomation.executeShellCommand(command)
     ).use { it.readBytes() }
+    private fun illustrationBounds(node: AccessibilityNodeInfo?): Rect? {
+        if (node == null) return null
+        if (node.contentDescription?.toString()?.startsWith("이야기 장면 · ") == true)
+            return Rect().also { node.getBoundsInScreen(it) }
+        for (i in 0 until node.childCount) illustrationBounds(node.getChild(i))?.let { return it }
+        return null
+    }
     private fun capture(name: String) {
         SystemClock.sleep(350)
-        var rendered = false
-        for(attempt in 0..29) {
+        // Sample the actual artwork instead of three text pixels at a fixed screen height.
+        // Dialogue length and image aspect ratio can place all three old samples on pale glyphs.
+        repeat(30) {
             val frame = instrumentation.uiAutomation.takeScreenshot() ?: error("No story frame")
-            rendered = listOf(1,2,3).any { x ->
-                val pixel=frame.getPixel(frame.width*x/4,frame.height*2/3)
-                android.graphics.Color.red(pixel)<220 || android.graphics.Color.green(pixel)<220 || android.graphics.Color.blue(pixel)<220
+            val region = illustrationBounds(instrumentation.uiAutomation.rootInActiveWindow)
+                ?: Rect(frame.width/8,frame.height/5,frame.width*7/8,frame.height*4/5)
+            val colors = mutableSetOf<Int>()
+            // Dense sampling also sees text and engraved buttons in illustration-free journal pages.
+            val left=region.left.coerceIn(0,frame.width-1)
+            val top=region.top.coerceIn(0,frame.height-1)
+            val right=region.right.coerceIn(left+1,frame.width)
+            val bottom=region.bottom.coerceIn(top+1,frame.height)
+            for (y in top until bottom step ((bottom-top)/192).coerceAtLeast(1))
+                for (x in left until right step ((right-left)/192).coerceAtLeast(1))
+                    colors.add(frame.getPixel(x,y))
+            if (colors.size > 20) {
+                val resolver = instrumentation.targetContext.contentResolver
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME,"mapexit-$name.png")
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE,"image/png")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,android.os.Environment.DIRECTORY_DOWNLOADS)
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING,1)
+                }
+                val uri = requireNotNull(resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,values))
+                requireNotNull(resolver.openOutputStream(uri)).use { output ->
+                    assertTrue(frame.compress(android.graphics.Bitmap.CompressFormat.PNG,100,output))
+                }
+                resolver.update(uri,android.content.ContentValues().apply { put(android.provider.MediaStore.MediaColumns.IS_PENDING,0) },null,null)
+                frame.recycle()
+                return
             }
             frame.recycle()
-            if(rendered) break
             SystemClock.sleep(100)
         }
-        assertTrue("Story must render before capture: $name",rendered)
-        shell("screencap -p /sdcard/Download/mapexit-$name.png")
+        // Keep evidence when drawing really fails, rather than dropping the failing frame.
+        shell("screencap -p /sdcard/Download/mapexit-$name-failed.png")
+        fail("Story must render before capture: $name")
     }
     private fun seed(a: MainActivity, id: String = "prologue", cycle: Int = 1) {
         val e=GameEngine(State(cycle=cycle))

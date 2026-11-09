@@ -3,7 +3,6 @@ package com.powerfulhimchan.mapexit
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -12,7 +11,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -33,7 +31,7 @@ internal fun StoryScreen(vm: GameModel) {
     LaunchedEffect(scene.id,page) { scroll.scrollToItem(0) }
     BackHandler { vm.closeStory() }
     BoxWithConstraints(Modifier.fillMaxSize().background(ink).windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)) {
-        val illustrationHeight = if (maxHeight < 520.dp) 144.dp else (maxWidth * .60f).coerceIn(200.dp,320.dp)
+        val illustrationHeight = if (maxHeight < 520.dp) 132.dp else (maxWidth * .43f).coerceIn(144.dp,240.dp)
         Column(Modifier.fillMaxSize(),verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(if(vm.replayingStory) "이야기 다시 보기" else "한 층만 더 · 이야기",color = mint,fontSize = 12.sp)
@@ -43,7 +41,7 @@ internal fun StoryScreen(vm: GameModel) {
                 item { Text(scene.title,color = pale,fontSize = 25.sp,fontWeight = FontWeight.Black,
                     modifier = Modifier.semantics { heading() }) }
                 item {
-                    Column(Modifier.fillMaxWidth().border(1.dp,StoryBorder)) {
+                    Column(Modifier.fillMaxWidth().battlePanel()) {
                         Canvas(Modifier.fillMaxWidth().height(illustrationHeight)
                             .semantics { contentDescription = "이야기 장면 · ${scene.title}" }) {
                             storyArt(scene.art,vm.engine.state,page)
@@ -53,7 +51,7 @@ internal fun StoryScreen(vm: GameModel) {
                     }
                 }
                 item {
-                    Column(Modifier.fillMaxWidth().background(panel).border(1.dp,StoryBorder).padding(16.dp),verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.fillMaxWidth().battlePanel().padding(16.dp),verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(line.speaker,color = amber,fontSize = 14.sp,fontWeight = FontWeight.Bold)
                         Text(line.text,color = pale,fontSize = 17.sp,lineHeight = 28.sp)
                     }
@@ -72,8 +70,6 @@ internal fun StoryScreen(vm: GameModel) {
         }
     }
 }
-
-private val StoryBorder = Color(0xFF3D4B54)
 
 internal fun LazyListScope.storyRecordCards(vm: GameModel) {
     val scenes = Story.history(vm.engine.state)

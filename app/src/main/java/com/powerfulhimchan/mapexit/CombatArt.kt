@@ -38,14 +38,23 @@ internal fun DrawScope.drawAnimatedBattle(s: State, clock: Long, visual: BattleV
     }
 }
 
-private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?, battleTop: Float) {
+internal fun DrawScope.drawChestEncounter(s: State, clock: Long, battleTop: Float) {
+    drawBattleActors(s, clock, null, battleTop, chestEncounter = true)
+}
+
+private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?, battleTop: Float, chestEncounter: Boolean = false) {
     val motion = visual?.takeIf { it.active(clock) }
     val scene = motion?.scene ?: s
-    val enemy = scene.enemy ?: s.enemy ?: s.battleResult?.enemy ?: return
+    // The inert placeholder supplies no game state or combat: the renderer returns after the hero.
+    val enemy = scene.enemy ?: s.enemy ?: s.battleResult?.enemy
+        ?: if (chestEncounter) Enemy("상자", 1.0, 1.0, 0.0, 0.0, 0.0) else return
     val elapsed =
         motion?.let { (clock - it.startedAt).coerceAtLeast(0) } ?: BattleAnimation.DURATION_MS
     val attacking = motion?.impact?.target == ImpactTarget.ENEMY
     val defending = motion != null && !attacking
+    val monsterAttacking = defending && clock >= motion!!.startedAt
+    val defenseTime = if (!defending) elapsed else if (clock < motion!!.startedAt)
+        (clock - motion.selectedAt).coerceIn(0L, 180L) else elapsed.coerceAtLeast(180L)
     val equipped = Equipment.equipped(scene)
     val weapon = equipped.firstOrNull { it.weapon && it.id == scene.equipment[Slot.RIGHT] }
         ?: equipped.firstOrNull { it.weapon }
@@ -75,10 +84,10 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val heroFloor = stageTop + stageHeight * .92f
     arena(clock, floor = s.floor)
     val heroRecoil = if (playerDamage) BattleAnimation.reaction(elapsed) else 0f
-    val heroFrame = SpriteFrames.hero(motion?.action, kind, poseTime, clock,
+    val heroFrame = SpriteFrames.hero(motion?.action, kind, if (defending && elapsed < BattleAnimation.HIT_MS) defenseTime else poseTime, clock,
         damaged = playerDamage, dead = s.hp <= 0 && elapsed >= BattleAnimation.HIT_MS)
     val metalSleeves = Equipment.equipped(scene).any { it.kind == Kind.BODY && it.variantId in listOf("chainmail", "platearmor") }
-    val defense = BattleAnimation.defense(if (defending) motion!!.action else "", elapsed)
+    val defense = BattleAnimation.defense(if (defending) motion!!.action else "", defenseTime)
     val dodge = defense.retreat
     val heroWidth = min(w * .34f, stageHeight * .48f)
     val advanceDistance=w*.17f+(5-spriteUnit(heroWidth)).coerceAtLeast(0f)*10
@@ -219,17 +228,24 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             style = androidx.compose.ui.graphics.drawscope.Stroke(4f),
         )
     }
+    if (chestEncounter) {
+        val chestWidth = min(w * .30f, stageHeight * .48f)
+        val baseline = stageTop + stageHeight * .72f
+        contactShadow(w * .64f, baseline + 2, chestWidth)
+        with(NarrativeArtwork) { paintChest(s.chestLoot != null, w * .64f, baseline, chestWidth) }
+        return
+    }
     val species = MonsterCatalog.describe(enemy, s.floor)
     val type = species.sprite
     val family = species.family
     val enemyWidth = min(w * (if (enemy.boss) .38f else .28f), stageHeight * (if (enemy.boss) .44f else .25f))
     val unit = if (MotionArtwork.loaded) (enemyWidth / 32).coerceAtLeast(.25f) else spriteUnit(enemyWidth)
-    val advance = if (defending) monsterPose.advance else 0f
+    val advance = if (monsterAttacking) monsterPose.advance else 0f
     val recoil = if (enemyDamage) BattleAnimation.reaction(elapsed) else 0f
     val enemyHome=min(w*.64f,w-32*unit-50)
     val ex=(enemyHome-advance*w*.30f).coerceAtMost(w-32*unit-(if(enemy.boss)50 else 28))+recoil*16
     val jump =
-        if (defending && family in listOf("slime", "boss") && elapsed <= BattleAnimation.HIT_MS)
+        if (monsterAttacking && family in listOf("slime", "boss") && elapsed <= BattleAnimation.HIT_MS)
             sin(elapsed.toFloat() / BattleAnimation.HIT_MS * PI).toFloat() * stageHeight * .10f
         else 0f
     val baseline =
@@ -252,7 +268,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         withTransform({
             val pivot = Offset(ex + unit * 16, baseline)
             rotate(
-                if (defending) (-monsterPose.lean).coerceAtMost(if(enemy.boss)8f else 18f)+tell.lean*tellWeight else if (showingTell) tell.lean+recoil*12 else recoil * 12,
+                if (monsterAttacking) (-monsterPose.lean).coerceAtMost(if(enemy.boss)8f else 18f)+tell.lean*tellWeight else if (showingTell) tell.lean+recoil*12 else recoil * 12,
                 pivot,
             )
             scale(1f,1-death*.65f,pivot)
@@ -263,15 +279,15 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                     1f,
                     pivot,
                 )
-            if (family == "slime" && defending)
+            if (family == "slime" && monsterAttacking)
                 scale(1f + monsterPose.impact * .2f, 1f - monsterPose.impact * .18f, pivot)
-            if (family == "bat" && defending)
+            if (family == "bat" && monsterAttacking)
                 scale(1f + sin(elapsed * .03).toFloat() * .16f, 1f, pivot)
         }) {
-            val monsterFrame = SpriteFrames.monster(defending, poseTime, clock, hit = enemyDamage,
+            val monsterFrame = SpriteFrames.monster(monsterAttacking, poseTime, clock, hit = enemyDamage,
                 dying = death > 0f, guarding = enemy.intent == EnemyIntent.GUARD && showingTell)
             if(family=="bat") batBody(ex,ey,enemyWidth,clock,tint,opacity,type,monsterFrame)
-            else combatBody(type,ex,ey,enemyWidth,tint,family in listOf("knight","boss"),if(defending)monsterPose.stride else sin(clock*.0026f)*.06f,opacity,monsterFrame)
+            else combatBody(type,ex,ey,enemyWidth,tint,family in listOf("knight","boss"),if(monsterAttacking)monsterPose.stride else sin(clock*.0026f)*.06f,opacity,monsterFrame)
 
             if (showingTell && tell.guard > 0f && family in listOf("knight", "boss"))
                 sprite("shield", ex - unit * 2, ey + unit * 17, unit * 25, opacity=opacity*tellWeight, detailPose="idle_0")
@@ -282,24 +298,24 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                         ex + unit * 8 - advance * unit * 4,
                         ey + unit * (28 - if (showingTell) tell.armLift*tellWeight else 0f),
                     )
-                if(defending) weaponTrail(if(family=="boss")Kind.HAMMER else Kind.SWORD,hand,unit,elapsed,enemy.intent==EnemyIntent.HEAVY,-1f)
+                if(monsterAttacking) weaponTrail(if(family=="boss")Kind.HAMMER else Kind.SWORD,hand,unit,elapsed,enemy.intent==EnemyIntent.HEAVY,-1f)
                 if (!MotionArtwork.loaded) arm(Offset(ex + unit * 12, ey + unit * 22), hand, unit,opacity,metal=true)
                 heldWeapon(
                     if (family == "boss") Kind.HAMMER else Kind.SWORD,
                     hand,
                     unit,
-                    if (defending) -monsterPose.angle
+                    if (monsterAttacking) -monsterPose.angle
                     else if (showingTell) tell.weaponAngle else -25f,
                     opacity=opacity,
                 )
-                with(MotionArtwork) { grip(hand, unit, if (defending) -monsterPose.angle else if (showingTell) tell.weaponAngle else -25f, opacity, metal=true) }
+                with(MotionArtwork) { grip(hand, unit, if (monsterAttacking) -monsterPose.angle else if (showingTell) tell.weaponAngle else -25f, opacity, metal=true) }
             }
         }
     } else {
         pixelRect(Color(0xff3c524a), ex, baseline - 5, unit * 32, 5f)
         sprite("coin", ex + unit * 12, baseline - 35, 32f)
     }
-    if (defending && enemy.intent == EnemyIntent.FLURRY) {
+    if (monsterAttacking && enemy.intent == EnemyIntent.FLURRY) {
         for (i in 0..2) drawLine(
             amber.copy(alpha = monsterPose.impact * .8f),
             Offset(heroX + heroWidth * .8f, heroBase - heroWidth * .65f + i * 12),

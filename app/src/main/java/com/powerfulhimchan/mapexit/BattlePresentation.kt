@@ -32,7 +32,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
     val time = clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis()
     val s = vm.presentationState(time).copy()
     val motion = vm.battleVisual?.takeIf { it.active(time) }?.frame(time)
-    val inBattle = s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null)
+    val inBattle = s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) || s.mode == Mode.ENCOUNTER && s.encounter == Event.CHEST || s.mode == Mode.EXPLORE && s.chestLoot != null
     val enemy =
         if (
             motion?.impact?.target == ImpactTarget.ENEMY &&
@@ -184,7 +184,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     )
             }
         }
-        if (s.mode == Mode.ENCOUNTER) EncounterCaption(vm, Modifier.align(Alignment.TopCenter))
+        if (s.mode == Mode.ENCOUNTER) EncounterCaption(vm, Modifier.align(Alignment.TopCenter).onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
         if (s.mode == Mode.VICTORY && !vm.battleBusy(time)) {
             s.battleResult?.let { result ->
                 val feedbackSpace = if (vm.currentImpact?.critical == true) 80.dp else 56.dp
@@ -408,8 +408,7 @@ private fun ChestLootCard(loot: ChestLootNotice, vm: GameModel, modifier: Modifi
         modifier
             .fillMaxWidth()
             .heightIn(max = minOf(300.dp, availableHeight))
-            .background(ink.copy(alpha = .97f), RoundedCornerShape(8.dp))
-            .border(2.dp, amber, RoundedCornerShape(8.dp))
+            .battlePanel(edge = amber)
             .verticalScroll(rememberScrollState())
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),

@@ -7,6 +7,7 @@ internal data class BattleVisual(
     val action: String,
     val startedAt: Long,
     val impact: BattleImpact,
+    val selectedAt: Long = startedAt,
 ) {
     val duration get() = BattleAnimation.DURATION_MS * (impact.strikes.size.coerceAtLeast(1) + if(impact.counterHit!=null) 1 else 0)
     fun active(now: Long) = now < startedAt + duration
