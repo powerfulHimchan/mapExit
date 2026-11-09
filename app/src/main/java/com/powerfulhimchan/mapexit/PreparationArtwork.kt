@@ -69,6 +69,48 @@ internal object PreparationArtwork {
         withTransform({ rotate(angle,Offset(x+width/2,y+height/2)) }) { paint(r,x,y,width,height,tint) }
         return true
     }
+    /** Dress the existing body silhouette at native resolution, rather than layering a
+     * differently shaped inventory coat over it. Hair, limbs, belt and body size are retained. */
+    fun dressedBody(item: Gear, body: Bitmap, pose: String): Bitmap? {
+        val material=rear(item) ?: return null
+        val width=body.width;val height=body.height
+        val original=IntArray(width*height);body.getPixels(original,0,width,0,0,width,height)
+        val bob=EquipmentFit.bob(pose)
+        fun path(points: List<Float>)=android.graphics.Path().apply {
+            moveTo(points[0],points[1]+bob)
+            for(i in 2 until points.size step 2)lineTo(points[i],points[i+1]+bob)
+            close()
+        }
+        fun mask(points: List<Float>): IntArray {
+            val bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888)
+            android.graphics.Canvas(bitmap).drawPath(path(points),android.graphics.Paint().apply { color=android.graphics.Color.WHITE;isAntiAlias=false })
+            return IntArray(width*height).also { bitmap.getPixels(it,0,width,0,0,width,height);bitmap.recycle() }
+        }
+        val coat=mask(EquipmentFit.coat(pose));val belt=mask(EquipmentFit.belt(pose))
+        val backing=original.copyOf()
+        val steel=item.variantId in listOf("platearmor","chainmail")
+        if(steel) for(i in backing.indices) {
+            val color=original[i];val r=android.graphics.Color.red(color);val g=android.graphics.Color.green(color);val b=android.graphics.Color.blue(color)
+            val luminance=(r*3+g*6+b)/10f
+            val value=(if(luminance<30)luminance*1.15f else luminance*.95f+30).toInt().coerceIn(0,225)
+            backing[i]=android.graphics.Color.rgb((value*.90f).toInt(),value,(value*1.07f).toInt().coerceAtMost(255))
+        }
+        // Opaque backing prevents the old green coat showing through an icon's armholes.
+        for(i in backing.indices) backing[i]=backing[i] or 0xff000000.toInt()
+        val fitted=Bitmap.createBitmap(backing,width,height,Bitmap.Config.ARGB_8888)
+        val target=EquipmentFit.torso(pose).toFloatArray()
+        for(i in 1 until target.size step 2)target[i]+=bob
+        val source=floatArrayOf(0f,0f,material.size.width.toFloat(),0f,material.size.width.toFloat(),material.size.height.toFloat(),0f,material.size.height.toFloat())
+        val matrix=android.graphics.Matrix();check(matrix.setPolyToPoly(source,0,target,0,4))
+        android.graphics.Canvas(fitted).drawBitmap(material.image.asAndroidBitmap(),matrix,android.graphics.Paint().apply { isFilterBitmap=false;isAntiAlias=false })
+        val pixels=IntArray(width*height);fitted.getPixels(pixels,0,width,0,0,width,height);fitted.recycle()
+        for(i in pixels.indices) {
+            // The original alpha is the final clothing outline in every frame.
+            pixels[i]=if(coat[i]!=0 && belt[i]==0 && original[i] ushr 24>0)
+                (original[i] and 0xff000000.toInt()) or (pixels[i] and 0x00ffffff) else original[i]
+        }
+        return Bitmap.createBitmap(pixels,width,height,Bitmap.Config.ARGB_8888)
+    }
     /** Coordinates are measured on each cropped inward-facing shield image (lower grip). */
     internal fun shieldGrip(item: Gear): Offset = when(rearKey(item)) {
         "armor_buckler" -> Offset(.51f,.54f)
@@ -76,20 +118,41 @@ internal object PreparationArtwork {
         "armor_spiked" -> Offset(.50f,.68f)
         else -> Offset(.53f,.69f)
     }
-    fun DrawScope.paintShield(item: Gear, hand: Offset, unit: Float, tint: Color? = null, foreshorten: Float = 1f, braceOnly: Boolean = false): Boolean {
-        val r = rear(item) ?: return false
-        // A hand-held shield reaches shoulder to knee, leaving the back and face readable.
-        val scale = min(unit*16/r.size.width,unit*20/r.size.height)
-        val width = r.size.width*scale*foreshorten; val height = r.size.height*scale
-        val grip=shieldGrip(item)
-        val x=hand.x-width*grip.x;val y=hand.y-height*grip.y
-        if(braceOnly) {
-            if(rearKey(item)=="armor_buckler") return true
-            val strap=if(rearKey(item)=="armor_spiked") .40f else .35f
-            clipRect(x+width*.40f,y+height*(strap-.035f),x+width*.62f,y+height*(strap+.035f)) {
-                paint(r,x,y,width,height,tint)
-            }
-        } else paint(r,x,y,width,height,tint)
+    internal fun shieldBrace(item: Gear): Offset = when(rearKey(item)) {
+        "armor_buckler" -> Offset(.50f,.21f)
+        "armor_tower" -> Offset(.51f,.36f)
+        "armor_spiked" -> Offset(.50f,.36f)
+        else -> Offset(.51f,.35f)
+    }
+    data class ShieldMount(val hand: Offset,val grip: Offset,val brace: Offset,val width: Float,val height: Float,val angle: Float) {
+        fun project(point: Offset): Offset {
+            val p=Offset((point.x-grip.x)*width,(point.y-grip.y)*height)
+            val rad=angle*PI.toFloat()/180
+            return hand+Offset(p.x*cos(rad)-p.y*sin(rad),p.x*sin(rad)+p.y*cos(rad))
+        }
+    }
+    /** The hand and elbow jointly constrain position, angle and scale. A shield can no
+     * longer pivot independently while its upper strap floats away from the forearm. */
+    fun mountShield(item: Gear,hand: Offset,elbow: Offset,foreshorten: Float=.90f): ShieldMount? {
+        val r=rear(item) ?: return null
+        val grip=shieldGrip(item);val brace=shieldBrace(item)
+        val local=Offset((grip.x-brace.x)*r.size.width*foreshorten,(grip.y-brace.y)*r.size.height)
+        val forearm=hand-elbow
+        val scale=forearm.getDistance()/local.getDistance().coerceAtLeast(.001f)
+        val angle=(atan2(forearm.y,forearm.x)-atan2(local.y,local.x))*180f/PI.toFloat()
+        return ShieldMount(hand,grip,brace,r.size.width*scale*foreshorten,r.size.height*scale,angle)
+    }
+    fun DrawScope.paintShield(item: Gear,mount: ShieldMount,tint: Color?=null,braceOnly: Boolean=false): Boolean {
+        val r=rear(item) ?: return false
+        val width=mount.width;val height=mount.height
+        val x=mount.hand.x-width*mount.grip.x;val y=mount.hand.y-height*mount.grip.y
+        withTransform({ rotate(mount.angle,mount.hand) }) {
+            if(braceOnly) {
+                if(rearKey(item)!="armor_buckler") clipRect(x+width*.40f,y+height*(mount.brace.y-.035f),x+width*.62f,y+height*(mount.brace.y+.035f)) {
+                    paint(r,x,y,width,height,tint)
+                }
+            } else paint(r,x,y,width,height,tint)
+        }
         return true
     }
 
