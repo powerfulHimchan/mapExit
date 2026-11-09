@@ -76,11 +76,18 @@ class APresentation049Test {
         for(i in 0 until node.childCount)find(node.getChild(i),label)?.let { return it }
         return null
     }
-    private fun await(label: String): AccessibilityNodeInfo {
+    private fun scroll(node: AccessibilityNodeInfo?): Boolean {
+        if(node==null)return false
+        if(node.isScrollable && node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD))return true
+        for(i in 0 until node.childCount)if(scroll(node.getChild(i)))return true
+        return false
+    }
+    private fun await(label: String,allowScroll: Boolean=false): AccessibilityNodeInfo {
         val end=SystemClock.uptimeMillis()+10000
         while(SystemClock.uptimeMillis()<end) {
             instrumentation.runOnMainSync { }
             find(instrumentation.uiAutomation.rootInActiveWindow,label)?.let { return it }
+            if(allowScroll)scroll(instrumentation.uiAutomation.rootInActiveWindow)
             SystemClock.sleep(50)
         }
         error("Missing control: $label")
@@ -160,7 +167,7 @@ class APresentation049Test {
                 SystemClock.sleep(500)
                 export("shop-detail-$discount-$compact",requireNotNull(instrumentation.uiAutomation.takeScreenshot()))
                 scenario.onGameActivity { a -> assertEquals("shopItem",a.game.engine.state.menu?.type) }
-                tap(await("구매"))
+                tap(await("구매",allowScroll=true))
                 await("소지 ${5000-expected}G")
                 scenario.onGameActivity { a ->
                     assertEquals(5000-expected,a.game.engine.state.gold)
