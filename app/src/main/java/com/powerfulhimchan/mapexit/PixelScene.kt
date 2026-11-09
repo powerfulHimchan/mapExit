@@ -2,6 +2,8 @@ package com.powerfulhimchan.mapexit
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -117,14 +119,19 @@ internal fun DrawScope.adventurer(
     val unit = if (detailPose != null && MotionArtwork.loaded) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
     val actual = unit * 32
     val y = baseline - unit * 48
-    if (s.hp > 0 && s.hp <= Equipment.stats(s).hp*.10) {
-        drawOval(red.copy(alpha=.20f),Offset(x-actual*.18f,y-unit*3),Size(actual*1.36f,unit*54f))
-        drawOval(red.copy(alpha=.85f),Offset(x-actual*.18f,y-unit*3),Size(actual*1.36f,unit*54f),style=androidx.compose.ui.graphics.drawscope.Stroke(unit*1.5f))
-        pixelRect(amber,x+actual*.5f,y-unit*9,unit*2,unit*5)
-        pixelRect(amber,x+actual*.5f,y-unit*3,unit*2,unit)
-    }
     if(shadow) contactShadow(x, baseline + 3, actual)
-    combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
+    fun paintBody() = combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
+    val helmet = Equipment.equipped(s).firstOrNull { it.kind==Kind.HEAD && it.variantId!="headband" }
+    val head = if(back && detailPose!=null && helmet!=null) EquipmentFit.patches(Kind.HEAD,detailPose)?.firstOrNull() else null
+    if(head!=null) {
+        val path=Path()
+        for(i in 0..3) {
+            val p=EquipmentFit.point(head.corners,i*2,x,y,unit,detailPose!!)
+            if(i==0)path.moveTo(p.x,p.y) else path.lineTo(p.x,p.y)
+        }
+        path.close()
+        androidx.compose.ui.graphics.drawscope.clipPath(path,ClipOp.Difference) { paintBody() }
+    } else paintBody()
 
     Equipment.equipped(s).forEach { gear ->
         // A front pendant and palm-side rings are occluded by a rear-facing body.
@@ -139,6 +146,7 @@ internal fun DrawScope.adventurer(
             Kind.RING -> if (s.equipment[Slot.RING1] == gear.id) listOf(24f, 30f, 3f, 3f) else listOf(5f, 30f, 3f, 3f)
             else -> null
         }
+        if (back && detailPose != null && with(PreparationArtwork) { paintFitted(gear,x,y,unit,detailPose,hitTint) }) return@forEach
         area?.let { (xx, yy, ww, hh) ->
             val art = wornArt(gear)
             val shift = Offset.Zero

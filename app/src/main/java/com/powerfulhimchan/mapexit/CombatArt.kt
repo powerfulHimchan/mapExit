@@ -146,135 +146,139 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val flash =
         if (playerDamage && elapsed in BattleAnimation.HIT_MS..BattleAnimation.HIT_MS + 100) red.copy(alpha=.9f*(1-(elapsed-BattleAnimation.HIT_MS)/100f))
         else null
-    withTransform({
-        rotate(
-            if (attacking) pose.lean else defense.lean - heroRecoil * 10,
-            Offset(heroX + heroWidth / 2, heroBase),
-        )
-    }) {
-        hero =
-            adventurer(
-                scene,
-                heroX,
-                heroBase,
-                heroWidth,
-                armed = false,
-                hitTint = flash,
-                articulated = true,
-                shadow = false,
-                stride = if(attacking)pose.stride else -defense.retreat*.5f,
-                detailPose = heroFrame,
+    // The player stands on the nearer floor plane. Draw the complete rig after the far actor.
+    fun paintHero() {
+        withTransform({
+            rotate(
+                if (attacking) pose.lean else defense.lean - heroRecoil * 10,
+                Offset(heroX + heroWidth / 2, heroBase),
             )
-        val bone = if (MotionArtwork.loaded) MotionArtwork.shoulder(heroFrame) else Offset(23f, 23f)
-        val shoulder = Offset(hero.x + hero.unit * bone.x, hero.y + hero.unit * bone.y)
-        val limbScale = MotionArtwork.bodyScale(heroFrame)
-        val overhead = if(attacking)pose.armLift else sin(clock*.0026f)*.4f
-        val wantedHand =
-            shoulder +
-                Offset(
-                    hero.unit *
-                        (4 +
-                            if (attacking) pose.reach * (if (kind == Kind.SPEAR) 3 else 7)
-                            else defense.guard * 8),
-                    hero.unit *
-                        (10 - (if (attacking) pose.advance * 5 else defense.guard * 17) - overhead) * limbScale,
+        }) {
+            hero =
+                adventurer(
+                    scene,
+                    heroX,
+                    heroBase,
+                    heroWidth,
+                    armed = false,
+                    hitTint = flash,
+                    articulated = true,
+                    shadow = false,
+                    stride = if(attacking)pose.stride else -defense.retreat*.5f,
+                    detailPose = heroFrame,
                 )
-        val gripAngle = if (attacking) pose.angle else 25f + defense.guard * 65f
-        val leftBone = MotionArtwork.leftShoulder(heroFrame)
-        val leftShoulder = Offset(hero.x + hero.unit * leftBone.x, hero.y + hero.unit * leftBone.y)
-        val fallen = heroFrame.startsWith("death_")
-        fun point(p: Offset)=ArmKinematics.Point(p.x,p.y)
-        fun offset(p: ArmKinematics.Point)=Offset(p.x,p.y)
-        fun wristShift(angle: Float): Offset {
-            val rad=angle*PI.toFloat()/180
-            return Offset(-sin(rad),cos(rad))*hero.unit*1.25f
-        }
-        val supportShift=Offset(sin(gripAngle*PI.toFloat()/180),-cos(gripAngle*PI.toFloat()/180))*hero.unit*4f
-        val rightShift=wristShift(gripAngle)
-        val requested=if(weapon?.twoHanded==true) offset(ArmKinematics.sharedTarget(point(shoulder),point(leftShoulder),
-            point(wantedHand+rightShift),point(supportShift),hero.unit*12.8f)) else wantedHand+rightShift
-        val rightArm=ArmKinematics.solve(point(shoulder),point(requested),hero.unit*6.5f,hero.unit*6.5f)
-        val rightWrist=offset(rightArm.wrist)
-        val hand=rightWrist-rightShift
-        val offAngle=if(weapon?.twoHanded==true)gripAngle else if(offWeapon!=null)-gripAngle*.65f else 0f
-        val requestedSupport = when {
-            shield != null -> Offset(hero.x + hero.unit * (if(fallen)12f else 10 + defense.guard * 17), hero.y + hero.unit * (if(fallen)40f else 33 - defense.guard * 4))
-            weapon?.twoHanded == true -> hand+supportShift
-            offWeapon != null -> leftShoulder+Offset(hero.unit*(2+if(attacking)pose.reach*5 else 0f),hero.unit*(10-overhead*.5f))
-            else -> Offset(hero.x+hero.unit*7,hero.y+hero.unit*31)
-        }
-        val leftArm=ArmKinematics.solve(point(leftShoulder),point(requestedSupport+wristShift(offAngle)),hero.unit*6.5f,hero.unit*6.5f)
-        val leftWrist=offset(leftArm.wrist)
-        val supportHand=leftWrist-wristShift(offAngle)
-        if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
-        arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
-        arm(shoulder, rightWrist, hero.unit, metal = metalSleeves)
-        if (kind != null) {
-            if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
-                val chain = weapon?.variantId == "chainwhip"
-                val thorn = weapon?.variantId == "thornwhip"
-                val whipColor = when { chain -> pale; thorn -> mint; weapon?.variantId == "flexiblewhip" -> muted; else -> amber }
-                val target = Offset(w * .71f, h * .60f)
-                var previous = hand
-                for (i in 1..28) {
-                    val t = i / 28f
-                    val end =
-                        hand +
-                            (target - hand) * (t * pose.reach.coerceIn(.15f, 1f)) +
-                            Offset(
-                                0f,
-                                sin(t * PI * 2 + elapsed * .018).toFloat() *
-                                    30 *
-                                    sin(t * PI).toFloat(),
-                            )
-                    drawLine(whipColor, previous, end, if (chain) 4f else 3f)
-                    if (chain && i % 2 == 0) drawCircle(ink, 1.5f, end)
-                    if (thorn && i % 4 == 0) drawLine(mint, end, end + Offset(4f, -6f), 2f)
-                    previous = end
-                }
-                heldWeapon(kind, hand, hero.unit, pose.angle, gear = weapon)
-            } else
-                heldWeapon(
-                    kind,
-                    hand,
-                    hero.unit,
-                    if (attacking) pose.angle else 25f + defense.guard * 65f,
-                    gear = weapon,
-                )
-        }
-        offWeapon?.let { heldWeapon(it.kind, supportHand, hero.unit, -gripAngle * .65f, gear = it) }
-        with(MotionArtwork) { grip(hand, hero.unit, gripAngle, 1f, metalSleeves) }
-        if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, if(weapon?.twoHanded == true)gripAngle else if(offWeapon != null)-gripAngle*.65f else 0f, 1f, metalSleeves) }
-        shield?.let { shield ->
-            val guard = defense.guard
-            val sx = hero.x + hero.unit * (if (fallen) 4f else -1 + guard * 17)
-            val sy = hero.y + hero.unit * (if (fallen) 32f else 22 - guard * 4)
-            val sw = hero.unit * if (fallen) 16f else 22f
-            withTransform({ rotate(if (fallen) 70f else 0f, Offset(sx + sw / 2, sy + sw / 2)) }) {
-                if (!with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash) })
-                    sprite(gearSprite(shield), sx, sy, sw, detailPose = "idle_0")
+            val bone = if (MotionArtwork.loaded) MotionArtwork.shoulder(heroFrame) else Offset(23f, 23f)
+            val shoulder = Offset(hero.x + hero.unit * bone.x, hero.y + hero.unit * bone.y)
+            val limbScale = MotionArtwork.bodyScale(heroFrame)
+            val overhead = if(attacking)pose.armLift else sin(clock*.0026f)*.4f
+            val wantedHand =
+                shoulder +
+                    Offset(
+                        hero.unit *
+                            (4 +
+                                if (attacking) pose.reach * (if (kind == Kind.SPEAR) 3 else 7)
+                                else defense.guard * 8),
+                        hero.unit *
+                            (10 - (if (attacking) pose.advance * 5 else defense.guard * 17) - overhead) * limbScale,
+                    )
+            val gripAngle = if (attacking) pose.angle else 25f + defense.guard * 65f
+            val leftBone = MotionArtwork.leftShoulder(heroFrame)
+            val leftShoulder = Offset(hero.x + hero.unit * leftBone.x, hero.y + hero.unit * leftBone.y)
+            val fallen = heroFrame.startsWith("death_")
+            fun point(p: Offset)=ArmKinematics.Point(p.x,p.y)
+            fun offset(p: ArmKinematics.Point)=Offset(p.x,p.y)
+            fun wristShift(angle: Float): Offset {
+                val rad=angle*PI.toFloat()/180
+                return Offset(-sin(rad),cos(rad))*hero.unit*1.25f
             }
-            // The hand wraps the inward-facing strap, so it belongs above the shield's back.
-            with(MotionArtwork) { grip(supportHand,hero.unit,offAngle,1f,metalSleeves) }
+            val supportShift=Offset(sin(gripAngle*PI.toFloat()/180),-cos(gripAngle*PI.toFloat()/180))*hero.unit*4f
+            val rightShift=wristShift(gripAngle)
+            val requested=if(weapon?.twoHanded==true) offset(ArmKinematics.sharedTarget(point(shoulder),point(leftShoulder),
+                point(wantedHand+rightShift),point(supportShift),hero.unit*12.8f)) else wantedHand+rightShift
+            val rightArm=ArmKinematics.solve(point(shoulder),point(requested),hero.unit*6.5f,hero.unit*6.5f)
+            val rightWrist=offset(rightArm.wrist)
+            val hand=rightWrist-rightShift
+            val offAngle=if(shield!=null) (if(fallen)65f else -10f + defense.guard*28f - if(attacking)pose.reach*8f else 0f) else if(weapon?.twoHanded==true)gripAngle else if(offWeapon!=null)-gripAngle*.65f else 0f
+            val requestedSupport = when {
+                shield != null -> leftShoulder + Offset(hero.unit * (if(fallen)5f else 1f + defense.guard*8f), hero.unit * (if(fallen)5f else 9f - defense.guard*7f))
+                weapon?.twoHanded == true -> hand+supportShift
+                offWeapon != null -> leftShoulder+Offset(hero.unit*(2+if(attacking)pose.reach*5 else 0f),hero.unit*(10-overhead*.5f))
+                else -> Offset(hero.x+hero.unit*7,hero.y+hero.unit*31)
+            }
+            val leftArm=ArmKinematics.solve(point(leftShoulder),point(requestedSupport+wristShift(offAngle)),hero.unit*6.5f,hero.unit*6.5f)
+            val leftWrist=offset(leftArm.wrist)
+            val supportHand=leftWrist-wristShift(offAngle)
+            if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
+            arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
+            arm(shoulder, rightWrist, hero.unit, metal = metalSleeves)
+            if (kind != null) {
+                if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
+                    val chain = weapon?.variantId == "chainwhip"
+                    val thorn = weapon?.variantId == "thornwhip"
+                    val whipColor = when { chain -> pale; thorn -> mint; weapon?.variantId == "flexiblewhip" -> muted; else -> amber }
+                    val target = Offset(w * .71f, h * .60f)
+                    var previous = hand
+                    for (i in 1..28) {
+                        val t = i / 28f
+                        val end =
+                            hand +
+                                (target - hand) * (t * pose.reach.coerceIn(.15f, 1f)) +
+                                Offset(
+                                    0f,
+                                    sin(t * PI * 2 + elapsed * .018).toFloat() *
+                                        30 *
+                                        sin(t * PI).toFloat(),
+                                )
+                        drawLine(whipColor, previous, end, if (chain) 4f else 3f)
+                        if (chain && i % 2 == 0) drawCircle(ink, 1.5f, end)
+                        if (thorn && i % 4 == 0) drawLine(mint, end, end + Offset(4f, -6f), 2f)
+                        previous = end
+                    }
+                    heldWeapon(kind, hand, hero.unit, pose.angle, gear = weapon)
+                } else
+                    heldWeapon(
+                        kind,
+                        hand,
+                        hero.unit,
+                        if (attacking) pose.angle else 25f + defense.guard * 65f,
+                        gear = weapon,
+                    )
+            }
+            offWeapon?.let { heldWeapon(it.kind, supportHand, hero.unit, -gripAngle * .65f, gear = it) }
+            with(MotionArtwork) { grip(hand, hero.unit, gripAngle, 1f, metalSleeves) }
+            if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, if(weapon?.twoHanded == true)gripAngle else if(offWeapon != null)-gripAngle*.65f else 0f, 1f, metalSleeves) }
+            shield?.let { shield ->
+                // Shield, bent forearm and fist share the actual lower handle as their pivot.
+                withTransform({ rotate(offAngle,supportHand) }) {
+                    if (!with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.82f-defense.guard*.10f) })
+                        sprite(gearSprite(shield),supportHand.x-hero.unit*9,supportHand.y-hero.unit*14,hero.unit*18,detailPose="idle_0")
+                }
+                // The inward face belongs behind the forearm and fingers, never on top of them.
+                arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
+                withTransform({ rotate(offAngle,supportHand) }) {
+                    with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.82f-defense.guard*.10f,braceOnly=true) }
+                }
+                with(MotionArtwork) { grip(supportHand,hero.unit,offAngle,1f,metalSleeves) }
+            }
+        }
+        if (defending && motion!!.action == "dodge") {
+            for (i in 1..3) drawLine(
+                mint.copy(alpha = .22f * defense.retreat),
+                Offset(heroX + heroWidth + i * 8, heroBase - heroWidth * .5f + i * 9),
+                Offset(heroX + heroWidth + 25 + i * 8, heroBase - heroWidth * .5f + i * 9),
+                2f,
+            )
+        }
+        if (attacking && motion!!.action == "strong") {
+            drawCircle(
+                amber.copy(alpha = .35f * pose.impact),
+                heroWidth * .7f,
+                Offset(heroX + heroWidth * .7f, heroBase - heroWidth * .6f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(4f),
+            )
         }
     }
-    if (defending && motion!!.action == "dodge") {
-        for (i in 1..3) drawLine(
-            mint.copy(alpha = .22f * defense.retreat),
-            Offset(heroX + heroWidth + i * 8, heroBase - heroWidth * .5f + i * 9),
-            Offset(heroX + heroWidth + 25 + i * 8, heroBase - heroWidth * .5f + i * 9),
-            2f,
-        )
-    }
-    if (attacking && motion!!.action == "strong") {
-        drawCircle(
-            amber.copy(alpha = .35f * pose.impact),
-            heroWidth * .7f,
-            Offset(heroX + heroWidth * .7f, heroBase - heroWidth * .6f),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(4f),
-        )
-    }
-    if (campEncounter) return
+    if (campEncounter) { paintHero(); return }
     if (npcEncounter) {
         val width=min(w*.30f,stageHeight*.44f)
         val x=w*.73f-width/2
@@ -282,6 +286,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         val type=if(s.encounter==Event.MERCHANT) "merchant" else NpcInteractions.role(s).sprite
         contactShadow(x,baseline+3,width)
         with(PresentationArtwork) { person(type,x,baseline,width) }
+        paintHero()
         return
     }
     if (chestEncounter) {
@@ -289,6 +294,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         val baseline = stageTop + stageHeight * .72f
         contactShadow(w * .64f, baseline + 2, chestWidth)
         with(NarrativeArtwork) { paintChest(s.chestLoot != null, w * .64f, baseline, chestWidth) }
+        paintHero()
         return
     }
     val species = MonsterCatalog.describe(enemy, s.floor)
@@ -378,6 +384,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
         pixelRect(Color(0xff3c524a), ex, baseline - 5, unit * 32, 5f)
         sprite("coin", ex + unit * 12, baseline - 35, 32f)
     }
+    paintHero()
     if (monsterAttacking && enemy.intent == EnemyIntent.FLURRY) {
         for (i in 0..2) drawLine(
             amber.copy(alpha = monsterPose.impact * .8f),

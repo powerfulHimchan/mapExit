@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.powerfulhimchan.mapexit.core.*
@@ -67,11 +68,63 @@ internal object PreparationArtwork {
         withTransform({ rotate(angle,Offset(x+width/2,y+height/2)) }) { paint(r,x,y,width,height,tint) }
         return true
     }
-    fun DrawScope.paintShield(item: Gear, hand: Offset, unit: Float, tint: Color? = null): Boolean {
+    /** Coordinates are measured on each cropped inward-facing shield image (lower grip). */
+    internal fun shieldGrip(item: Gear): Offset = when(rearKey(item)) {
+        "armor_buckler" -> Offset(.51f,.54f)
+        "armor_tower" -> Offset(.51f,.73f)
+        "armor_spiked" -> Offset(.50f,.68f)
+        else -> Offset(.53f,.69f)
+    }
+    fun DrawScope.paintShield(item: Gear, hand: Offset, unit: Float, tint: Color? = null, foreshorten: Float = 1f, braceOnly: Boolean = false): Boolean {
         val r = rear(item) ?: return false
-        val scale = min(unit*22/r.size.width,unit*27/r.size.height)
-        val width = r.size.width*scale; val height = r.size.height*scale
-        paint(r,hand.x-width/2,hand.y-height/2,width,height,tint)
+        val scale = min(unit*18/r.size.width,unit*23/r.size.height)
+        val width = r.size.width*scale*foreshorten; val height = r.size.height*scale
+        val grip=shieldGrip(item)
+        val x=hand.x-width*grip.x;val y=hand.y-height*grip.y
+        if(braceOnly) {
+            if(rearKey(item)=="armor_buckler") return true
+            val strap=if(rearKey(item)=="armor_spiked") .40f else .35f
+            androidx.compose.ui.graphics.drawscope.clipRect(x+width*.40f,y+height*(strap-.035f),x+width*.62f,y+height*(strap+.035f)) {
+                paint(r,x,y,width,height,tint)
+            }
+        } else paint(r,x,y,width,height,tint)
+        return true
+    }
+
+    /** Fit the same rear material to head/torso landmarks and to each leg independently. */
+    fun DrawScope.paintFitted(item: Gear,x: Float,y: Float,unit: Float,pose: String,tint: Color?): Boolean {
+        val patches=EquipmentFit.patches(item.kind,pose) ?: return false
+        val r=rear(item) ?: return false
+        for(patch in patches) {
+            val f=patch.source
+            val source=floatArrayOf(f[0]*r.size.width,f[1]*r.size.height,f[2]*r.size.width,f[1]*r.size.height,
+                f[2]*r.size.width,f[3]*r.size.height,f[0]*r.size.width,f[3]*r.size.height)
+            val target=FloatArray(8)
+            for(i in 0..3) EquipmentFit.point(patch.corners,i*2,x,y,unit,pose).let { target[i*2]=it.x;target[i*2+1]=it.y }
+            // A helmet follows the skull without inheriting the torso's tilt a second time.
+            if(item.kind==Kind.HEAD) {
+                val w=target[2]-target[0];val h=target[5]-target[1]
+                if(item.variantId=="headband")
+                    paint(r,target[0]+w*.05f,target[1]+h*.45f,w*.9f,h*.32f,tint)
+                else paint(r,target[0],target[1],w,h,tint)
+                continue
+            }
+            val matrix=android.graphics.Matrix()
+            check(matrix.setPolyToPoly(source,0,target,0,4))
+            val clip=android.graphics.Path().apply {
+                moveTo(target[0],target[1]);for(i in 1..3)lineTo(target[i*2],target[i*2+1]);close()
+            }
+            drawIntoCanvas { canvas ->
+                val native=canvas.nativeCanvas
+                native.save();native.clipPath(clip);native.concat(matrix)
+                val paint=android.graphics.Paint().apply {
+                    isFilterBitmap=false;isAntiAlias=false
+                    colorFilter=tint?.let { android.graphics.PorterDuffColorFilter(it.toArgb(),android.graphics.PorterDuff.Mode.SRC_ATOP) }
+                }
+                native.drawBitmap(r.image.asAndroidBitmap(),0f,0f,paint)
+                native.restore()
+            }
+        }
         return true
     }
     fun DrawScope.paintIcon(action: String): Boolean {
