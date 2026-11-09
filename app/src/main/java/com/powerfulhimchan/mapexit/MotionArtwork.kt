@@ -32,6 +32,7 @@ internal object MotionArtwork {
         assets = Assets(decode(R.drawable.combat_hero_motion).asImageBitmap(), decode(R.drawable.combat_monster_motion).asImageBitmap(), decode(R.drawable.combat_equipment_motion), decode(R.drawable.combat_arena_refined).asImageBitmap(), decode(R.drawable.combat_arms_046).asImageBitmap())
         ObstacleArtwork.load(resources)
         NarrativeArtwork.load(resources)
+        PreparationArtwork.load(resources)
     }
 
     fun has(type: String, pose: String = "idle_0"): Boolean = when {
@@ -102,7 +103,8 @@ internal object MotionArtwork {
         paint(f, x + f.logicalX * unit, y, f.size.width / f.nativeScale * unit, f.size.height / f.nativeScale * unit, flash, opacity)
         return true
     }
-    fun DrawScope.paintWorn(item: Gear, x: Float, y: Float, width: Float, height: Float, flash: Color?, angle: Float = 0f): Boolean {
+    fun DrawScope.paintWorn(item: Gear, x: Float, y: Float, width: Float, height: Float, flash: Color?, angle: Float = 0f, back: Boolean = false): Boolean {
+        if (back && with(PreparationArtwork) { paintWorn(item,x,y,width,height,flash,angle) }) return true
         val type = gearSprite(item)
         val index = gearIndex[base(type)] ?: return false
         val f = gear(type, badge = false) ?: return false

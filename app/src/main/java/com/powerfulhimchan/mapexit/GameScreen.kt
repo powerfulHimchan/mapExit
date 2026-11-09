@@ -486,7 +486,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 }
             }
             if (surface || s.mode == Mode.INHERIT)
-                item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(142.dp)) }
+                item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(156.dp)) }
             if (surface) {
                 item { PreparationMenuGrid(vm) }
                 item {

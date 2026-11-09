@@ -42,12 +42,16 @@ internal fun DrawScope.drawChestEncounter(s: State, clock: Long, battleTop: Floa
     drawBattleActors(s, clock, null, battleTop, chestEncounter = true)
 }
 
-private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?, battleTop: Float, chestEncounter: Boolean = false) {
+internal fun DrawScope.drawPreparationCamp(s: State, clock: Long) {
+    drawBattleActors(s,clock,null,0f,campEncounter=true)
+}
+
+private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisual?, battleTop: Float, chestEncounter: Boolean = false, campEncounter: Boolean = false) {
     val motion = visual?.takeIf { it.active(clock) }
     val scene = motion?.scene ?: s
-    // The inert placeholder supplies no game state or combat: the renderer returns after the hero.
+    // The inert placeholder supplies no game state or combat: prop scenes return after the hero.
     val enemy = scene.enemy ?: s.enemy ?: s.battleResult?.enemy
-        ?: if (chestEncounter) Enemy("상자", 1.0, 1.0, 0.0, 0.0, 0.0) else return
+        ?: if (chestEncounter || campEncounter) Enemy("장면", 1.0, 1.0, 0.0, 0.0, 0.0) else return
     val elapsed =
         motion?.let { (clock - it.startedAt).coerceAtLeast(0) } ?: BattleAnimation.DURATION_MS
     val attacking = motion?.impact?.target == ImpactTarget.ENEMY
@@ -79,20 +83,20 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val w = size.width
     val h = size.height
     // Fit painted actors into the arena below the measured information panel.
-    val stageTop = h * (battleTop + .04f).coerceAtMost(.79f)
+    val stageTop = if (campEncounter) 0f else h * (battleTop + .04f).coerceAtMost(.79f)
     val stageHeight = (h * .94f - stageTop).coerceAtLeast(h * .15f)
     val heroFloor = stageTop + stageHeight * .92f
-    arena(clock, floor = s.floor)
+    if (campEncounter) with(PreparationArtwork) { paintCamp(clock) } else arena(clock, floor = s.floor)
     val heroRecoil = if (playerDamage) BattleAnimation.reaction(elapsed) else 0f
     val heroFrame = SpriteFrames.hero(motion?.action, kind, if (defending && elapsed < BattleAnimation.HIT_MS) defenseTime else poseTime, clock,
         damaged = playerDamage, dead = s.hp <= 0 && elapsed >= BattleAnimation.HIT_MS)
     val metalSleeves = Equipment.equipped(scene).any { it.kind == Kind.BODY && it.variantId in listOf("chainmail", "platearmor") }
     val defense = BattleAnimation.defense(if (defending) motion!!.action else "", defenseTime)
     val dodge = defense.retreat
-    val heroWidth = min(w * .34f, stageHeight * .48f)
+    val heroWidth = min(w * (if(campEncounter).22f else .34f), stageHeight * .48f)
     val advanceDistance=w*.17f+(5-spriteUnit(heroWidth)).coerceAtLeast(0f)*10
     val heroX =
-        w * .18f + (if (attacking) pose.advance * advanceDistance else 0f) -
+        (if(campEncounter) w*.49f-heroWidth/2 else w*.18f) + (if (attacking) pose.advance * advanceDistance else 0f) -
             heroRecoil * 15 -
             dodge * w * .11f
     val heroBase =
@@ -208,8 +212,11 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             val sy = hero.y + hero.unit * (if (fallen) 32f else 22 - guard * 4)
             val sw = hero.unit * if (fallen) 16f else 22f
             withTransform({ rotate(if (fallen) 70f else 0f, Offset(sx + sw / 2, sy + sw / 2)) }) {
-                sprite(gearSprite(shield), sx, sy, sw, detailPose = "idle_0")
+                if (!with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash) })
+                    sprite(gearSprite(shield), sx, sy, sw, detailPose = "idle_0")
             }
+            // The hand wraps the inward-facing strap, so it belongs above the shield's back.
+            with(MotionArtwork) { grip(supportHand,hero.unit,offAngle,1f,metalSleeves) }
         }
     }
     if (defending && motion!!.action == "dodge") {
@@ -228,6 +235,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             style = androidx.compose.ui.graphics.drawscope.Stroke(4f),
         )
     }
+    if (campEncounter) return
     if (chestEncounter) {
         val chestWidth = min(w * .30f, stageHeight * .48f)
         val baseline = stageTop + stageHeight * .72f
@@ -238,24 +246,31 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val species = MonsterCatalog.describe(enemy, s.floor)
     val type = species.sprite
     val family = species.family
-    val enemyWidth = min(w * (if (enemy.boss) .38f else .28f), stageHeight * (if (enemy.boss) .44f else .25f))
+    // Grow both dimensions from 0.47 by 1.5; exceptionally tall bosses still fit the clear arena.
+    val desiredWidth = min(w * (if (enemy.boss) .38f else .28f), stageHeight * (if (enemy.boss) .44f else .25f)) * 1.5f
+    val heightPerWidth = spriteHeight(type,32f,detailed=MotionArtwork.loaded)/32f
+    val enemyWidth = min(desiredWidth,min(stageHeight*.90f/heightPerWidth,(w-32f)/1.5f))
     val unit = if (MotionArtwork.loaded) (enemyWidth / 32).coerceAtLeast(.25f) else spriteUnit(enemyWidth)
     val advance = if (monsterAttacking) monsterPose.advance else 0f
     val recoil = if (enemyDamage) BattleAnimation.reaction(elapsed) else 0f
-    val enemyHome=min(w*.64f,w-32*unit-50)
-    val ex=(enemyHome-advance*w*.30f).coerceAtMost(w-32*unit-(if(enemy.boss)50 else 28))+recoil*16
+    // Painted cells extend 8 logical pixels left and 40 right of their nominal origin.
+    val leftLimit = unit*8+12
+    val rightLimit = (w-unit*40-12).coerceAtLeast(leftLimit)
+    val enemyHome=(w*.64f).coerceIn(leftLimit,rightLimit)
+    val ex=(enemyHome-advance*w*.30f+recoil*16).coerceIn(leftLimit,rightLimit)
     val jump =
         if (monsterAttacking && family in listOf("slime", "boss") && elapsed <= BattleAnimation.HIT_MS)
             sin(elapsed.toFloat() / BattleAnimation.HIT_MS * PI).toFloat() * stageHeight * .10f
         else 0f
-    val baseline =
+    val homeBaseline =
         stageTop + stageHeight * (if (family == "bat") .43f else .65f) + advance * stageHeight * .14f - jump +
             if (showingTell) tell.bob * h * tellWeight else 0f
+    val baseline = max(homeBaseline,stageTop+spriteHeight(type,enemyWidth,detailed=MotionArtwork.loaded)+stageHeight*.04f)
     val ey = baseline - spriteHeight(type, enemyWidth, detailed = MotionArtwork.loaded)
     val death=if(s.mode==Mode.VICTORY) if(motion==null)1f else BattleAnimation.smooth((elapsed-BattleAnimation.HIT_MS-80)/360f) else 0f
     val opacity=1-death
     val dead=death>=1f
-    contactShadow(ex, stageTop + stageHeight * .66f + advance * stageHeight * .14f, unit * 32)
+    contactShadow(ex, if(family=="bat")stageTop+stageHeight*.72f else baseline+3, unit * 32)
     if (enemy.boss && s.floor == 50 && s.cycle > 1 && !dead) {
         drawOval(Color(0xFFAC80DA).copy(alpha = .16f * opacity),Offset(ex-unit*3,ey-unit*3),Size(unit*38,baseline-ey+unit*7))
         for(i in 0..4) pixelRect(Color(0xFFB38AE0).copy(alpha=.55f*opacity),ex+unit*(i*8-1),ey+unit*(8+i*4),unit*2,unit*6)
