@@ -212,6 +212,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             val leftArm=ArmKinematics.solve(point(leftShoulder),point(requestedSupport+wristShift(offAngle)),hero.unit*6.5f,hero.unit*6.5f)
             val leftWrist=offset(leftArm.wrist)
             val supportHand=leftWrist-wristShift(offAngle)
+            val shieldMount=shield?.let { PreparationArtwork.mountShield(it,supportHand,offset(leftArm.elbow)) }
             if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
             arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
             arm(shoulder, rightWrist, hero.unit, metal = metalSleeves)
@@ -252,18 +253,13 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             with(MotionArtwork) { grip(hand, hero.unit, gripAngle, 1f, metalSleeves) }
             if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, if(weapon?.twoHanded == true)gripAngle else if(offWeapon != null)-gripAngle*.65f else 0f, 1f, metalSleeves) }
             shield?.let { shield ->
-                // Shield, bent forearm and fist share the actual lower handle as their pivot.
-                withTransform({ rotate(offAngle,supportHand) }) {
-                    if (!with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.76f+defense.guard*.10f) })
-                        sprite(gearSprite(shield),supportHand.x-hero.unit*8,supportHand.y-hero.unit*13,hero.unit*16,detailPose="idle_0")
-                }
+                if(shieldMount!=null) with(PreparationArtwork) { paintShield(shield,shieldMount,flash) }
+                else sprite(gearSprite(shield),supportHand.x-hero.unit*8,supportHand.y-hero.unit*13,hero.unit*16,detailPose="idle_0")
                 // Only the lower arm crosses the inward face. Repainting the shoulder here
                 // makes the shield look strapped to the character's back.
                 arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves, forearmOnly = true)
-                withTransform({ rotate(offAngle,supportHand) }) {
-                    with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.76f+defense.guard*.10f,braceOnly=true) }
-                }
-                with(MotionArtwork) { grip(supportHand,hero.unit,offAngle,1f,metalSleeves) }
+                if(shieldMount!=null) with(PreparationArtwork) { paintShield(shield,shieldMount,flash,braceOnly=true) }
+                with(MotionArtwork) { grip(supportHand,hero.unit,shieldMount?.angle ?: offAngle,1f,metalSleeves) }
             }
         }
         if (defending && motion!!.action == "dodge") {
