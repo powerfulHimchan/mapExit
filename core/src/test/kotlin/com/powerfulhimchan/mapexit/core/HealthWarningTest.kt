@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HealthWarningTest {
+    @Test fun edgeWarningBreathesSlowlyAndRespectsReducedMotion() {
+        assertEquals(0f,HealthWarning.edgePulse(0),0f)
+        assertEquals(1f,HealthWarning.edgePulse(1000),.0001f)
+        for(clock in listOf(-1L,0L,500L,1000L,1999L)) {
+            assertEquals(HealthWarning.edgePulse(clock),HealthWarning.edgePulse(clock+2000),.0001f)
+            assertEquals(.45f,HealthWarning.edgePulse(clock,false),0f)
+        }
+        assertTrue(kotlin.math.abs(HealthWarning.edgePulse(1999)-HealthWarning.edgePulse(2000))<.001f)
+    }
     @Test fun thresholdUsesEquippedMaximumAndExcludesDeathSurfaceAndInvalidValues() {
         assertTrue(HealthWarning.active(36.0, 360.0, 1))
         assertFalse(HealthWarning.active(36.001, 360.0, 1))
