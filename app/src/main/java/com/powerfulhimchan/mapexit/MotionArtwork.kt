@@ -144,7 +144,7 @@ internal object MotionArtwork {
     private fun armPose(a: Offset, b: Offset, unit: Float): ArmKinematics.Pose =
         ArmKinematics.solve(ArmKinematics.Point(a.x,a.y),ArmKinematics.Point(b.x,b.y),unit*6.5f,unit*6.5f)
 
-    fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float, metal: Boolean = false): Boolean {
+    fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float, metal: Boolean = false, forearmOnly: Boolean = false): Boolean {
         val image=assets?.arms ?: return false
         val pose=armPose(a,b,unit)
         val elbow=Offset(pose.elbow.x,pose.elbow.y);val wrist=Offset(pose.wrist.x,pose.wrist.y)
@@ -157,7 +157,8 @@ internal object MotionArtwork {
             }
         }
         val base=if(metal)3 else 0
-        segment(a,elbow,base,unit*4.5f);segment(elbow,wrist,base+1,unit*3.5f)
+        if (!forearmOnly) segment(a,elbow,base,unit*4.5f)
+        segment(elbow,wrist,base+1,unit*3.5f)
         return true
     }
     fun DrawScope.grip(hand: Offset, unit: Float, angle: Float, opacity: Float, metal: Boolean = false) {

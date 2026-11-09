@@ -9,11 +9,13 @@ import com.powerfulhimchan.mapexit.core.*
 import com.powerfulhimchan.mapexit.core.State
 import kotlin.math.*
 
-private fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float = 1f, metal: Boolean = false) {
-    if (with(MotionArtwork) { arm(a, b, unit, opacity, metal) }) return
+private fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float = 1f, metal: Boolean = false, forearmOnly: Boolean = false) {
+    if (with(MotionArtwork) { arm(a, b, unit, opacity, metal, forearmOnly) }) return
     val elbow = (a+b)*.5f+Offset(-unit*1.5f,unit*3)
-    drawLine(Color(0xff273a52).copy(alpha=opacity.coerceIn(0f,1f)), a, elbow, unit * 5)
-    drawLine(Color(0xff4b6477).copy(alpha=opacity.coerceIn(0f,1f)), a, elbow, unit * 3)
+    if (!forearmOnly) {
+        drawLine(Color(0xff273a52).copy(alpha=opacity.coerceIn(0f,1f)), a, elbow, unit * 5)
+        drawLine(Color(0xff4b6477).copy(alpha=opacity.coerceIn(0f,1f)), a, elbow, unit * 3)
+    }
     drawLine(Color(0xffc4a285).copy(alpha=opacity.coerceIn(0f,1f)), elbow, b, unit * 3)
     pixelRect(Color(0xffead1ae).copy(alpha=opacity.coerceIn(0f,1f)), b.x - unit, b.y - unit, unit * 3, unit * 3)
 }
@@ -198,9 +200,11 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             val rightArm=ArmKinematics.solve(point(shoulder),point(requested),hero.unit*6.5f,hero.unit*6.5f)
             val rightWrist=offset(rightArm.wrist)
             val hand=rightWrist-rightShift
-            val offAngle=if(shield!=null) (if(fallen)65f else -10f + defense.guard*28f - if(attacking)pose.reach*8f else 0f) else if(weapon?.twoHanded==true)gripAngle else if(offWeapon!=null)-gripAngle*.65f else 0f
+            val offAngle=if(shield!=null) (if(fallen)65f else -6f + defense.guard*18f - if(attacking)pose.reach*8f else 0f) else if(weapon?.twoHanded==true)gripAngle else if(offWeapon!=null)-gripAngle*.65f else 0f
             val requestedSupport = when {
-                shield != null -> leftShoulder + Offset(hero.unit * (if(fallen)5f else 1f + defense.guard*8f), hero.unit * (if(fallen)5f else 9f - defense.guard*7f))
+                // Hang beside the left hip, not across the back. Guard lifts the same hand
+                // towards the left chest; the upper rim stays below the face.
+                shield != null -> leftShoulder + Offset(hero.unit * (if(fallen)5f else -4f + defense.guard*5f), hero.unit * (if(fallen)5f else 11.5f - defense.guard*4f))
                 weapon?.twoHanded == true -> hand+supportShift
                 offWeapon != null -> leftShoulder+Offset(hero.unit*(2+if(attacking)pose.reach*5 else 0f),hero.unit*(10-overhead*.5f))
                 else -> Offset(hero.x+hero.unit*7,hero.y+hero.unit*31)
@@ -250,13 +254,14 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             shield?.let { shield ->
                 // Shield, bent forearm and fist share the actual lower handle as their pivot.
                 withTransform({ rotate(offAngle,supportHand) }) {
-                    if (!with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.82f-defense.guard*.10f) })
-                        sprite(gearSprite(shield),supportHand.x-hero.unit*9,supportHand.y-hero.unit*14,hero.unit*18,detailPose="idle_0")
+                    if (!with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.76f+defense.guard*.10f) })
+                        sprite(gearSprite(shield),supportHand.x-hero.unit*8,supportHand.y-hero.unit*13,hero.unit*16,detailPose="idle_0")
                 }
-                // The inward face belongs behind the forearm and fingers, never on top of them.
-                arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
+                // Only the lower arm crosses the inward face. Repainting the shoulder here
+                // makes the shield look strapped to the character's back.
+                arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves, forearmOnly = true)
                 withTransform({ rotate(offAngle,supportHand) }) {
-                    with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.82f-defense.guard*.10f,braceOnly=true) }
+                    with(PreparationArtwork) { paintShield(shield,supportHand,hero.unit,flash,foreshorten=.76f+defense.guard*.10f,braceOnly=true) }
                 }
                 with(MotionArtwork) { grip(supportHand,hero.unit,offAngle,1f,metalSleeves) }
             }

@@ -78,7 +78,8 @@ internal object PreparationArtwork {
     }
     fun DrawScope.paintShield(item: Gear, hand: Offset, unit: Float, tint: Color? = null, foreshorten: Float = 1f, braceOnly: Boolean = false): Boolean {
         val r = rear(item) ?: return false
-        val scale = min(unit*18/r.size.width,unit*23/r.size.height)
+        // A hand-held shield reaches shoulder to knee, leaving the back and face readable.
+        val scale = min(unit*16/r.size.width,unit*20/r.size.height)
         val width = r.size.width*scale*foreshorten; val height = r.size.height*scale
         val grip=shieldGrip(item)
         val x=hand.x-width*grip.x;val y=hand.y-height*grip.y
