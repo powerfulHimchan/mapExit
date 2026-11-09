@@ -1,6 +1,8 @@
 package com.powerfulhimchan.mapexit.core
 
 import kotlin.math.exp
+import kotlin.math.cos
+import kotlin.math.PI
 
 /** Pure presentation values: never change HP, equipment, turns or save data. */
 object HealthWarning {
@@ -9,6 +11,10 @@ object HealthWarning {
 
     fun active(hp: Double, maxHp: Double, floor: Int): Boolean =
         floor > 0 && hp.isFinite() && maxHp.isFinite() && maxHp > 0 && hp > 0 && hp <= maxHp * THRESHOLD
+
+    /** One quiet breath every two seconds for the screen edge, without a flash or wrap jump. */
+    fun edgePulse(clock: Long, animate: Boolean = true): Float =
+        if (!animate) .45f else ((1 - cos(Math.floorMod(clock, 2000L) * PI / 1000)) * .5).toFloat()
 
     /** Two soft beats per cycle, with a long quiet interval instead of flashing. */
     fun pulse(clock: Long, animate: Boolean = true): Float {

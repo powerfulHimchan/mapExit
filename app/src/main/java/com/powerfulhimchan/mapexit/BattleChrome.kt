@@ -56,10 +56,10 @@ internal fun Modifier.battlePanel(edge: Color = bronze, pressed: Boolean = false
     }
 
 @Composable
-internal fun rememberWarningPulse(clock: Long): Float {
+internal fun rememberWarningPulse(clock: Long, edge: Boolean = false): Float {
     var animate by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) { animate = (coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f) > 0f }
-    return HealthWarning.pulse(clock, animate)
+    return if(edge) HealthWarning.edgePulse(clock, animate) else HealthWarning.pulse(clock, animate)
 }
 
 @Composable
@@ -82,7 +82,7 @@ internal fun HealthHeart(danger: Boolean, pulse: Float) {
 internal fun HealthMeter(fraction: Float, danger: Boolean, pulse: Float) {
     Canvas(Modifier.fillMaxWidth().height(7.dp)) {
         drawRect(Color(0xFF17121B))
-        drawRect(bronze.copy(alpha = .65f), style = Stroke(1f))
+        drawRect(if(danger) scarlet.copy(alpha = .65f+pulse*.3f) else bronze.copy(alpha = .65f), style = Stroke(1f))
         val fill = if (danger) Color(0xFFFF675E) else if (fraction < .3f) red else mint
         drawRect(Brush.verticalGradient(listOf(fill, fill.copy(alpha = .65f))), Offset(1f, 1f), Size(((size.width - 2) * fraction.coerceIn(0f, 1f)).coerceAtLeast(0f), (size.height - 2).coerceAtLeast(1f)))
         if (danger) {
@@ -104,9 +104,14 @@ internal fun HealthMeter(fraction: Float, danger: Boolean, pulse: Float) {
 internal fun LowHealthVignette(s: State, clock: Long, modifier: Modifier) {
     if (!HealthWarning.active(s.hp, Equipment.stats(s).hp, s.floor)) return
     if (s.mode !in listOf(Mode.EXPLORE, Mode.MOVING, Mode.COMBAT_ATTACK, Mode.COMBAT_DEFEND, Mode.TRAP, Mode.TRAP_GUIDE, Mode.ENCOUNTER, Mode.VICTORY, Mode.FLOOR_CLEAR)) return
-    val pulse = rememberWarningPulse(clock)
+    val pulse = rememberWarningPulse(clock, edge = true)
     Canvas(modifier) {
-        val color = Color(0xFFB51C38).copy(alpha = .12f + pulse * .22f)
+        drawWarningEdges(pulse)
+    }
+}
+
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWarningEdges(pulse: Float) {
+        val color = Color(0xFFC51C38).copy(alpha = .16f + pulse * .23f)
         val clear = Color.Transparent
         val side = size.width * .075f
         val cap = min(size.height * .045f, size.width * .09f)
@@ -114,5 +119,13 @@ internal fun LowHealthVignette(s: State, clock: Long, modifier: Modifier) {
         drawRect(Brush.horizontalGradient(listOf(clear, color), startX = size.width - side, endX = size.width), topLeft = Offset(size.width - side, 0f), size = Size(side, size.height))
         drawRect(Brush.verticalGradient(listOf(color, clear), endY = cap), size = Size(size.width, cap))
         drawRect(Brush.verticalGradient(listOf(clear, color), startY = size.height - cap, endY = size.height), topLeft = Offset(0f, size.height - cap), size = Size(size.width, cap))
-    }
+        val inset=2f
+        val length=min(18f,min(size.width,size.height)*.045f)
+        val accent=Color(0xFFFF5262).copy(alpha=.35f+pulse*.45f)
+        for(right in listOf(false,true)) for(bottom in listOf(false,true)) {
+            val x=if(right)size.width-inset else inset
+            val y=if(bottom)size.height-inset else inset
+            drawLine(accent,Offset(x,y),Offset(x+if(right)-length else length,y),2f)
+            drawLine(accent,Offset(x,y),Offset(x,y+if(bottom)-length else length),2f)
+        }
 }
