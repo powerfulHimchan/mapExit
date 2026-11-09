@@ -667,3 +667,6 @@ emit_obstacle_art(check='--check' in sys.argv)
 
 from preparation_art import emit as emit_preparation_art
 emit_preparation_art(check='--check' in sys.argv)
+
+from social_art import emit as emit_social_art
+emit_social_art(check='--check' in sys.argv)

@@ -13,6 +13,10 @@ import kotlin.math.floor
 /** Small authored glyphs retain crisp edges and remain supplementary to the text labels. */
 @Composable
 internal fun StatArt(stat: Stat, modifier: Modifier = Modifier) {
+    if(PresentationArtwork.loaded) {
+        Canvas(modifier.clearAndSetSemantics {}) { with(PresentationArtwork) { growthIcon(stat.name) } }
+        return
+    }
     val rows =
         when (stat) {
             Stat.HP ->
@@ -103,6 +107,13 @@ internal fun StatArt(stat: Stat, modifier: Modifier = Modifier) {
             else -> Color(0xffa2c9eb)
         }
     PixelGlyph(rows, color, modifier)
+}
+
+@Composable
+internal fun GrowthRecoveryArt(modifier: Modifier = Modifier) {
+    if(PresentationArtwork.loaded)
+        Canvas(modifier.clearAndSetSemantics {}) { with(PresentationArtwork) { growthIcon("HEAL") } }
+    else ItemArt(com.powerfulhimchan.mapexit.core.Kind.POTION,modifier)
 }
 
 @Composable

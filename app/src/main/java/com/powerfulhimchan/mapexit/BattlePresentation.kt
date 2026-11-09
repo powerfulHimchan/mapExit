@@ -32,7 +32,7 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
     val time = clock.takeIf { it > 0 } ?: android.os.SystemClock.uptimeMillis()
     val s = vm.presentationState(time).copy()
     val motion = vm.battleVisual?.takeIf { it.active(time) }?.frame(time)
-    val inBattle = s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) || s.mode == Mode.ENCOUNTER && s.encounter == Event.CHEST || s.mode == Mode.EXPLORE && s.chestLoot != null
+    val inBattle = s.enemy != null || (s.mode == Mode.VICTORY && s.battleResult != null) || s.mode == Mode.ENCOUNTER || s.mode == Mode.EXPLORE && s.chestLoot != null
     val enemy =
         if (
             motion?.impact?.target == ImpactTarget.ENEMY &&

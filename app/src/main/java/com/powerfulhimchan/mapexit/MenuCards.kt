@@ -27,10 +27,14 @@ private fun Modifier.card(
     enabled: Boolean,
     label: String,
     compact: Boolean = false,
+    accessibilityState: String? = null,
     action: () -> Unit,
 ): Modifier =
     gameClickable(enabled = enabled, onClick = action)
-        .semantics(mergeDescendants = true) { contentDescription = label }
+        .semantics(mergeDescendants = true) {
+            contentDescription = label
+            if(accessibilityState!=null) stateDescription=accessibilityState
+        }
         .padding(if (compact) 6.dp else 12.dp)
 
 internal fun LazyListScope.growthCards(vm: GameModel) {
@@ -104,7 +108,7 @@ internal fun LazyListScope.growthCards(vm: GameModel) {
                     },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    ItemArt(Kind.POTION, Modifier.size(if (narrow) 24.dp else 30.dp))
+                    GrowthRecoveryArt(Modifier.size(if (narrow) 24.dp else 30.dp))
                     Text("체력 모두 회복", color = pale, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
                     Text("${s.hp.roundToInt()} / ${current.hp.roundToInt()}", color = pale, fontSize = 12.sp)
                     Text(if (s.hp >= current.hp) "체력 가득 참" else "→ 최대 체력", color = if (enabled) mint else muted, fontSize = 10.sp)
@@ -180,13 +184,15 @@ internal fun LazyListScope.tradeCards(vm: GameModel, menu: String) {
                 val enabled = choice != null
                 val affordable = menu == "sell" || gold >= price
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().card(enabled, choice?.label ?: gear.name) {
+                    Modifier.weight(1f).fillMaxHeight().card(enabled, choice?.label ?: gear.name,
+                        accessibilityState=if(menu=="shop") "구매 가격 ${price}G" else null) {
                         choice?.let(vm::choose)
                     },
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     ItemArt(gear, Modifier.size(if(menu=="shop")36.dp else 48.dp))
                     Text(stack.displayName,color=if(menu=="shop" || affordable)pale else red,fontSize=14.sp,fontWeight=FontWeight.Bold,lineHeight=18.sp)
+                    if(menu=="shop") Text("${price}G",color=if(affordable)amber else red,fontSize=14.sp,fontWeight=FontWeight.Bold)
                     if(menu=="sell") {
                         if (gear.inherited) Text("◆ 계승 장비", color = amber, fontSize = 11.sp)
                         if (stack.equippedCount > 0) Text(
