@@ -63,9 +63,33 @@ internal object NativeEquipment057 {
     fun clearHead(pixels: IntArray,original: IntArray,w: Int,h: Int,head: Head) {
         val cloth=clothMask(original,w,h);val a=head.area
         val slope=tan(head.angle.coerceIn(-65f,65f)*PI.toFloat()/180)
+        val eligible=BooleanArray(original.size)
         for(y in 0 until h)for(x in 0 until w) {
             val i=y*w+x
-            if(x>=a[0]-8 && x<=a[0]+a[2]+8 && y>=a[1]-8 && y<head.neck.y+(x-head.neck.x)*slope+2 && !cloth[i] && hypot(x-head.neck.x,y-head.neck.y)>3f)pixels[i]=0
+            eligible[i]=original[i] ushr 24>0 && x>=a[0]-32 && x<=a[0]+a[2]+32 && y>=a[1]-20 &&
+                y<head.neck.y+(x-head.neck.x)*slope+2 && !cloth[i] && hypot(x-head.neck.x,y-head.neck.y)>3f
+        }
+        // Follow connected hair/face pixels beyond the old rectangular head box.
+        // Separate raised hands remain intact because they are not part of the head.
+        val seen=BooleanArray(original.size);val queue=java.util.ArrayDeque<Int>()
+        for(y in 0 until h)for(x in 0 until w) {
+            val start=y*w+x;if(!eligible[start] || seen[start])continue
+            val component=mutableListOf<Int>();queue.add(start);seen[start]=true
+            var core=false;var top=h;var sx=0f
+            while(queue.isNotEmpty()) {
+                val i=queue.removeFirst();val xx=i%w;val yy=i/w
+                component.add(i);top=min(top,yy);sx+=xx
+                if(xx>=a[0]+a[2]*.20f && xx<=a[0]+a[2]*.80f && yy<a[1]+a[3]*.80f)core=true
+                for(dy in -1..1)for(dx in -1..1) {
+                    val nx=xx+dx;val ny=yy+dy
+                    if(nx !in 0 until w || ny !in 0 until h)continue
+                    val n=ny*w+nx
+                    if(eligible[n] && !seen[n]) { seen[n]=true;queue.add(n) }
+                }
+            }
+            val cx=sx/component.size
+            val hairSpeck=component.size<32 && top<a[1]+a[3]*.62f && cx>=a[0]-20 && cx<=a[0]+a[2]+20
+            if(core || hairSpeck)for(i in component)pixels[i]=0
         }
     }
     @Synchronized fun dressed(key: String,items: List<Gear>,layout: Layout,raw: ()->Bitmap): Dressed {
