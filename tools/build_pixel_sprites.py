@@ -670,3 +670,5 @@ emit_preparation_art(check='--check' in sys.argv)
 
 from social_art import emit as emit_social_art
 emit_social_art(check='--check' in sys.argv)
+from camp_walk_art import emit as emit_camp_walk_art
+emit_camp_walk_art(check='--check' in sys.argv)
