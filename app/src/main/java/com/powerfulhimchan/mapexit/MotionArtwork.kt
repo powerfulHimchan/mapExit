@@ -159,27 +159,37 @@ internal object MotionArtwork {
     private fun armPose(a: Offset, b: Offset, unit: Float): ArmKinematics.Pose =
         ArmKinematics.solve(ArmKinematics.Point(a.x,a.y),ArmKinematics.Point(b.x,b.y),unit*6.5f,unit*6.5f)
 
-    fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float, metal: Boolean = false, forearmOnly: Boolean = false): Boolean {
+    fun DrawScope.arm(a: Offset, b: Offset, unit: Float, opacity: Float, metal: Boolean = false, forearmOnly: Boolean = false): Boolean =
+        paintArm(armPose(a,b,unit),unit,opacity,metal,forearmOnly)
+
+    /** Render the supplied joints directly; do not solve a rear arm a second time. */
+    fun DrawScope.paintArm(pose: ArmKinematics.Pose, unit: Float, opacity: Float = 1f,
+        metal: Boolean = false, forearmOnly: Boolean = false, upperOnly: Boolean = false,
+        rear: Boolean = false, mirror: Boolean = false): Boolean {
         val image=assets?.arms ?: return false
-        val pose=armPose(a,b,unit)
+        val shoulder=Offset(pose.shoulder.x,pose.shoulder.y)
         val elbow=Offset(pose.elbow.x,pose.elbow.y);val wrist=Offset(pose.wrist.x,pose.wrist.y)
         fun segment(start: Offset,end: Offset,index: Int,width: Float) {
             val delta=end-start
-            withTransform({ rotate(atan2(delta.y,delta.x)*180f/PI.toFloat()-90f,start) }) {
-                // Each source is vertical; its top cap is the joint pivot. Only 1px overlap.
-                paint(Frame(image,IntOffset(index*32,0),IntSize(32,64)),start.x-width/2,start.y-unit*.5f,
-                    width,hypot(delta.x,delta.y)+unit,null,opacity)
+            withTransform({
+                rotate(atan2(delta.y,delta.x)*180f/PI.toFloat()-90f,start)
+                if(mirror)scale(-1f,1f,start)
+            }) {
+                // Rear upper sleeves sit below the native shoulder cap. The cuff ends
+                // at the actual wrist, leaving the glove's cuff to overlap that joint.
+                paint(Frame(image,IntOffset(index*32,0),IntSize(32,64)),start.x-width/2,start.y-unit*.4f,
+                    width,hypot(delta.x,delta.y)+unit*.8f,null,opacity)
             }
         }
         val base=if(metal)3 else 0
-        if (!forearmOnly) segment(a,elbow,base,unit*4.5f)
-        segment(elbow,wrist,base+1,unit*3.5f)
+        if (!forearmOnly) segment(shoulder,elbow,base,unit*(if(rear)3.8f else 4.5f))
+        if (!upperOnly) segment(elbow,wrist,base+1,unit*(if(rear)3.2f else 3.5f))
         return true
     }
-    fun DrawScope.grip(hand: Offset, unit: Float, angle: Float, opacity: Float, metal: Boolean = false) {
+    fun DrawScope.grip(hand: Offset, unit: Float, angle: Float, opacity: Float, metal: Boolean = false, mirror: Boolean = false) {
         val image=assets?.arms ?: return
-        withTransform({ rotate(angle,hand) }) {
-            // Wrist is below the compact fist; its centre coincides with the weapon handle.
+        withTransform({ rotate(angle,hand);if(mirror)scale(-1f,1f,hand) }) {
+            // The source cuff is below the compact fist; its centre coincides with the weapon handle.
             paint(Frame(image,IntOffset((if(metal)5 else 2)*32,0),IntSize(32,32)),
                 hand.x-unit*1.8f,hand.y-unit*1.7f,unit*3.6f,unit*3.6f,null,opacity)
         }
