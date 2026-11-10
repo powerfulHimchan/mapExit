@@ -18,7 +18,7 @@ internal object NativeEquipment057 {
     }
     fun green(c: Int): Boolean {
         val r=c shr 16 and 255;val g=c shr 8 and 255;val b=c and 255
-        return c ushr 24>0 && g>25 && g>r*1.06f && g>b*1.04f
+        return c ushr 24>96 && g>25 && g>r*1.06f && g>b*1.04f
     }
     private fun mask(w: Int,h: Int,polygons: List<List<Float>>): IntArray {
         val b=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val canvas=android.graphics.Canvas(b)
@@ -33,8 +33,10 @@ internal object NativeEquipment057 {
     private fun clothMask(original: IntArray,w: Int,h: Int): BooleanArray {
         val m=BooleanArray(original.size)
         for(i in original.indices)if(green(original[i])) {
-            val x=i%w;val y=i/w
-            for(yy in max(0,y-1)..min(h-1,y+1))for(xx in max(0,x-1)..min(w-1,x+1))m[yy*w+xx]=true
+            val x=i%w;val y=i/w;var neighbors=0
+            for(yy in max(0,y-1)..min(h-1,y+1))for(xx in max(0,x-1)..min(w-1,x+1))if(green(original[yy*w+xx]))neighbors++
+            // Isolated greenish antialias pixels in hair are not pieces of the tunic.
+            if(neighbors>=3)for(yy in max(0,y-1)..min(h-1,y+1))for(xx in max(0,x-1)..min(w-1,x+1))m[yy*w+xx]=true
         }
         return m
     }
