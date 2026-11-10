@@ -156,6 +156,9 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                 Offset(heroX + heroWidth / 2, heroBase),
             )
         }) {
+            val bodyUnit = if (MotionArtwork.loaded) (heroWidth / 32).coerceAtLeast(.25f) else spriteUnit(heroWidth)
+            hero = HeroPose(heroX, heroBase - bodyUnit * 48, bodyUnit)
+            fun paintBody() {
             hero =
                 adventurer(
                     scene,
@@ -169,6 +172,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                     stride = if(attacking)pose.stride else -defense.retreat*.5f,
                     detailPose = heroFrame,
                 )
+            }
             val bone = if (MotionArtwork.loaded) MotionArtwork.shoulder(heroFrame) else Offset(23f, 23f)
             val shoulder = Offset(hero.x + hero.unit * bone.x, hero.y + hero.unit * bone.y)
             val limbScale = MotionArtwork.bodyScale(heroFrame)
@@ -214,7 +218,20 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             val supportHand=leftWrist-wristShift(offAngle)
             val shieldMount=shield?.let { PreparationArtwork.mountShield(it,supportHand,offset(leftArm.elbow)) }
             if(attacking && kind!=null) weaponTrail(kind,hand,hero.unit,elapsed,motion?.action=="strong")
+            // Rear view: the shield and its holding arm are farther from the viewer
+            // than the torso. Paint the whole off-hand assembly first; the body then
+            // occludes its inner edge in combat, guard poses and NPC conversations.
+            shield?.let { shield ->
+                if(shieldMount!=null) with(PreparationArtwork) { paintShield(shield,shieldMount,flash) }
+                else sprite(gearSprite(shield),supportHand.x-hero.unit*8,supportHand.y-hero.unit*13,hero.unit*16,detailPose="idle_0")
+            }
             arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
+            if(shield!=null) {
+                if(shieldMount!=null) with(PreparationArtwork) { paintShield(shield,shieldMount,flash,braceOnly=true) }
+                with(MotionArtwork) { grip(supportHand,hero.unit,shieldMount?.angle ?: offAngle,1f,metalSleeves) }
+            }
+            paintBody()
+            if(shield==null) arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves)
             arm(shoulder, rightWrist, hero.unit, metal = metalSleeves)
             if (kind != null) {
                 if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
@@ -252,15 +269,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             offWeapon?.let { heldWeapon(it.kind, supportHand, hero.unit, -gripAngle * .65f, gear = it) }
             with(MotionArtwork) { grip(hand, hero.unit, gripAngle, 1f, metalSleeves) }
             if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, if(weapon?.twoHanded == true)gripAngle else if(offWeapon != null)-gripAngle*.65f else 0f, 1f, metalSleeves) }
-            shield?.let { shield ->
-                if(shieldMount!=null) with(PreparationArtwork) { paintShield(shield,shieldMount,flash) }
-                else sprite(gearSprite(shield),supportHand.x-hero.unit*8,supportHand.y-hero.unit*13,hero.unit*16,detailPose="idle_0")
-                // Only the lower arm crosses the inward face. Repainting the shoulder here
-                // makes the shield look strapped to the character's back.
-                arm(leftShoulder, leftWrist, hero.unit, metal = metalSleeves, forearmOnly = true)
-                if(shieldMount!=null) with(PreparationArtwork) { paintShield(shield,shieldMount,flash,braceOnly=true) }
-                with(MotionArtwork) { grip(supportHand,hero.unit,shieldMount?.angle ?: offAngle,1f,metalSleeves) }
-            }
+
         }
         if (defending && motion!!.action == "dodge") {
             for (i in 1..3) drawLine(
