@@ -272,8 +272,6 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             }
             rearArm(rightArm,hero.unit,metalSleeves,upperOnly=true)
             paintBody()
-            if(shield==null)rearArm(leftArm,hero.unit,metalSleeves,forearmOnly=true,mirror=true)
-            rearArm(rightArm,hero.unit,metalSleeves,forearmOnly=true)
             if (kind != null) {
                 if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
                     val chain = weapon?.variantId == "chainwhip"
@@ -308,6 +306,10 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                     )
             }
             offWeapon?.let { heldWeapon(it.kind, supportHand, hero.unit, -gripAngle * .65f, gear = it) }
+            // Viewer depth: all held weapons are behind both forearms and gripping
+            // hands. In particular a crossguard or shaft cannot paint over a wrist.
+            if(shield==null)rearArm(leftArm,hero.unit,metalSleeves,forearmOnly=true,mirror=true)
+            rearArm(rightArm,hero.unit,metalSleeves,forearmOnly=true)
             with(MotionArtwork) { grip(hand, hero.unit, rightArm.gloveAngle, 1f, metalSleeves) }
             if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, leftArm.gloveAngle, 1f, metalSleeves, mirror=true) }
 
