@@ -71,11 +71,19 @@ internal object PreparationArtwork {
     }
     /** Dress the existing body silhouette at native resolution, rather than layering a
      * differently shaped inventory coat over it. Hair, limbs, belt and body size are retained. */
-    fun dressedBody(item: Gear, body: Bitmap, pose: String): Bitmap? {
+    fun dressedBody(item: Gear, body: Bitmap, pose: String): Bitmap? = dressNative(item,body,
+        EquipmentFit.coat(pose),EquipmentFit.torso(pose),EquipmentFit.belt(pose),
+        MotionAtlas.worn[EquipmentFit.cell(pose)][0],EquipmentFit.bob(pose))
+
+    fun dressedObstacleBody(item: Gear,body: Bitmap,pose: String): Bitmap? {
+        val f=ObstacleFit056.forPose(pose)
+        return dressNative(item,body,f.coat,f.torso,f.belt,f.head.take(4).map { it.toInt() }.toIntArray(),0f)
+    }
+    private fun dressNative(item: Gear,body: Bitmap,coatPoints: List<Float>,torsoPoints: List<Float>,
+        beltPoints: List<Float>,head: IntArray,bob: Float): Bitmap? {
         val material=rear(item) ?: return null
         val width=body.width;val height=body.height
         val original=IntArray(width*height);body.getPixels(original,0,width,0,0,width,height)
-        val bob=EquipmentFit.bob(pose)
         fun path(points: List<Float>)=android.graphics.Path().apply {
             moveTo(points[0],points[1]+bob)
             for(i in 2 until points.size step 2)lineTo(points[i],points[i+1]+bob)
@@ -86,7 +94,7 @@ internal object PreparationArtwork {
             android.graphics.Canvas(bitmap).drawPath(path(points),android.graphics.Paint().apply { color=android.graphics.Color.WHITE;isAntiAlias=false })
             return IntArray(width*height).also { bitmap.getPixels(it,0,width,0,0,width,height);bitmap.recycle() }
         }
-        val coat=mask(EquipmentFit.coat(pose));val belt=mask(EquipmentFit.belt(pose))
+        val coat=mask(coatPoints);val belt=mask(beltPoints)
         fun greenCloth(color: Int): Boolean {
             val r=android.graphics.Color.red(color);val g=android.graphics.Color.green(color);val b=android.graphics.Color.blue(color)
             return color ushr 24>0 && g>25 && g>r*1.06f && g>b*1.04f
@@ -111,13 +119,12 @@ internal object PreparationArtwork {
         val fitted=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).apply {
             setPixels(backing,0,width,0,0,width,height)
         }
-        val target=EquipmentFit.torso(pose).toFloatArray()
+        val target=torsoPoints.toFloatArray()
         for(i in 1 until target.size step 2)target[i]+=bob
         val source=floatArrayOf(0f,0f,material.size.width.toFloat(),0f,material.size.width.toFloat(),material.size.height.toFloat(),0f,material.size.height.toFloat())
         val matrix=android.graphics.Matrix();check(matrix.setPolyToPoly(source,0,target,0,4))
         android.graphics.Canvas(fitted).drawBitmap(material.image.asAndroidBitmap(),matrix,android.graphics.Paint().apply { isFilterBitmap=false;isAntiAlias=false })
         val pixels=IntArray(width*height);fitted.getPixels(pixels,0,width,0,0,width,height);fitted.recycle()
-        val head=MotionAtlas.worn[EquipmentFit.cell(pose)][0]
         for(i in pixels.indices) {
             val px=i%width;val py=i/width-bob
             val inHead=px>=head[0] && px<head[0]+head[2] && py>=head[1] && py<head[1]+head[3]-5
@@ -128,6 +135,36 @@ internal object PreparationArtwork {
         }
         return Bitmap.createBitmap(pixels,width,height,Bitmap.Config.ARGB_8888)
     }
+    /** Project a rear material onto native obstacle landmarks, independently per limb. */
+    fun DrawScope.paintNativePatch(item: Gear,patch: EquipmentFit.Patch,x: Float,y: Float,scale: Float,tint: Color?): Boolean {
+        val r=rear(item) ?: return false
+        val f=patch.source
+        val source=floatArrayOf(f[0]*r.size.width,f[1]*r.size.height,f[2]*r.size.width,f[1]*r.size.height,
+            f[2]*r.size.width,f[3]*r.size.height,f[0]*r.size.width,f[3]*r.size.height)
+        val target=patch.corners.mapIndexed { i,v -> (if(i%2==0)x else y)+v*scale }.toFloatArray()
+        val matrix=android.graphics.Matrix();if(!matrix.setPolyToPoly(source,0,target,0,4))return false
+        val outline=android.graphics.Path().apply {
+            moveTo(target[0],target[1]);for(i in 1..3)lineTo(target[i*2],target[i*2+1]);close()
+        }
+        drawIntoCanvas { canvas ->
+            val c=canvas.nativeCanvas;c.save();c.clipPath(outline);c.concat(matrix)
+            c.drawBitmap(r.image.asAndroidBitmap(),0f,0f,android.graphics.Paint().apply {
+                isFilterBitmap=false;isAntiAlias=false
+                colorFilter=tint?.let { android.graphics.PorterDuffColorFilter(it.toArgb(),android.graphics.PorterDuff.Mode.SRC_ATOP) }
+            });c.restore()
+        }
+        return true
+    }
+    fun DrawScope.paintObstacleHelmet(item: Gear,pose: String,x: Float,y: Float,scale: Float,tint: Color?) {
+        val h=ObstacleFit056.forPose(pose).head
+        val top=if(item.variantId=="headband")h[1]+h[3]*.46f else h[1]
+        val height=if(item.variantId=="headband")h[3]*.22f else h[3]
+        val corners=listOf(h[0],top,h[0]+h[2],top,h[0]+h[2],top+height,h[0],top+height)
+        withTransform({rotate(h[4],Offset(x+(h[0]+h[2]/2)*scale,y+(h[1]+h[3]/2)*scale))}) {
+            paintNativePatch(item,EquipmentFit.Patch(listOf(0f,0f,1f,1f),corners),x,y,scale,tint)
+        }
+    }
+
     /** Coordinates are measured on each cropped inward-facing shield image (lower grip). */
     internal fun shieldGrip(item: Gear): Offset = when(rearKey(item)) {
         "armor_buckler" -> Offset(.51f,.54f)

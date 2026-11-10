@@ -1,10 +1,12 @@
 package com.powerfulhimchan.mapexit
 
 import android.content.res.Resources
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.powerfulhimchan.mapexit.core.*
@@ -14,6 +16,9 @@ import kotlin.math.roundToInt
 internal object ObstacleArtwork {
     private var parts: ImageBitmap? = null
     private var heroes: ImageBitmap? = null
+    private val dressed=object : LinkedHashMap<String,ImageBitmap>(36,.75f,true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String,ImageBitmap>?)=size>36
+    }
     @Synchronized fun load(resources: Resources) {
         if (parts != null) return
         fun decode(id: Int) = requireNotNull(BitmapFactory.decodeResource(resources,id,BitmapFactory.Options().apply { inScaled=false })).asImageBitmap()
@@ -30,36 +35,42 @@ internal object ObstacleArtwork {
     fun DrawScope.hero(s: State,center: Float,baseline: Float,width: Float,pose: String,tint: Color?=null) {
         val image=heroes ?: return
         val index=ObstacleAtlas.poses.indexOf(pose).coerceAtLeast(0)
-        val extent=width*1.5f;val x=center-extent/2;val y=baseline-extent
+        val extent=width*1.5f;val x=center-extent/2;val y=baseline-extent;val scale=extent/192
+        val items=Equipment.equipped(s)
+        val armor=items.firstOrNull { it.kind==Kind.BODY }
+        val key="$pose:${armor?.variantId}:${armor?.tier}"
+        val art=dressed.getOrPut(key) {
+            val raw=Bitmap.createBitmap(image.asAndroidBitmap(),index%4*192,index/4*192,192,192)
+            val result=armor?.let { PreparationArtwork.dressedObstacleBody(it,raw,pose) }
+            if(result!=null) { raw.recycle();result.asImageBitmap() } else raw.asImageBitmap()
+        }
+        val fit=ObstacleFit056.forPose(pose)
+        val helmet=items.firstOrNull { it.kind==Kind.HEAD }
+        fun outline(points: List<Float>)=Path().apply {
+            moveTo(x+points[0]*scale,y+points[1]*scale)
+            for(i in 2 until points.size step 2)lineTo(x+points[i]*scale,y+points[i+1]*scale)
+            close()
+        }
+        fun paintBody() {
+            drawImage(art,srcSize=IntSize(192,192),dstOffset=IntOffset(x.roundToInt(),y.roundToInt()),
+                dstSize=IntSize(extent.roundToInt().coerceAtLeast(1),extent.roundToInt().coerceAtLeast(1)),
+                filterQuality=FilterQuality.None,colorFilter=tint?.let { ColorFilter.tint(it,BlendMode.SrcAtop) })
+        }
         contactShadow(center-width/2,baseline+3,width)
-        drawImage(image,srcOffset=IntOffset(index%4*192,index/4*192),srcSize=IntSize(192,192),
-            dstOffset=IntOffset(x.roundToInt(),y.roundToInt()),dstSize=IntSize(extent.roundToInt().coerceAtLeast(1),extent.roundToInt().coerceAtLeast(1)),
-            filterQuality=FilterQuality.None,colorFilter=tint?.let { ColorFilter.tint(it,BlendMode.SrcAtop) })
-        // Pose-aware bounds, in the shared 192px cell. The base figure remains unarmed.
-        val head=when(pose) {
-            "crouch"->floatArrayOf(98f,87f,53f,44f)
-            "land","rise"->floatArrayOf(87f,54f,57f,48f)
-            "push_right"->floatArrayOf(84f,25f,57f,48f)
-            "push_left"->floatArrayOf(51f,25f,57f,48f)
-            "jump"->floatArrayOf(83f,38f,57f,48f)
-            else->floatArrayOf(65f,12f,62f,52f)
+        if(helmet!=null && helmet.variantId!="headband") {
+            val h=fit.head
+            val head=outline(listOf(h[0],h[1],h[0]+h[2],h[1],h[0]+h[2],h[1]+h[3],h[0],h[1]+h[3]))
+            clipPath(head,ClipOp.Difference) { paintBody() }
+        } else paintBody()
+        items.firstOrNull { it.kind==Kind.PANTS }?.let { item ->
+            for(patch in ObstacleFit056.patches(Kind.PANTS,pose))with(PreparationArtwork) { paintNativePatch(item,patch,x,y,scale,tint) }
+            // The coat hem is nearer than the trousers and follows the native silhouette.
+            clipPath(outline(fit.coat)) { paintBody() }
         }
-        val body=when(pose) {
-            "crouch"->floatArrayOf(51f,119f,80f,35f)
-            "land","rise"->floatArrayOf(53f,91f,78f,43f)
-            "jump"->floatArrayOf(57f,82f,79f,46f)
-            "push_right","push_left"->floatArrayOf(57f,77f,78f,54f)
-            else->floatArrayOf(62f,67f,68f,72f)
-        }
-        for(item in Equipment.equipped(s)) {
-            val b=when(item.kind) {
-                Kind.HEAD->head
-                Kind.BODY->body
-                Kind.PANTS->if(pose=="crouch") floatArrayOf(48f,147f,77f,24f) else floatArrayOf(60f,130f,76f,35f)
-                Kind.BOOTS->if(pose=="jump") floatArrayOf(55f,151f,76f,32f) else floatArrayOf(49f,164f,93f,24f)
-                else->continue
-            }
-            with(MotionArtwork) { paintWorn(item,x+b[0]/192*extent,y+b[1]/192*extent,b[2]/192*extent,b[3]/192*extent,tint) }
+        helmet?.let { with(PreparationArtwork) { paintObstacleHelmet(it,pose,x,y,scale,tint) } }
+        // Foreground boots are last; each foot follows its own bent or raised shin.
+        items.firstOrNull { it.kind==Kind.BOOTS }?.let { item ->
+            for(patch in ObstacleFit056.patches(Kind.BOOTS,pose))with(PreparationArtwork) { paintNativePatch(item,patch,x,y,scale,tint) }
         }
     }
 }

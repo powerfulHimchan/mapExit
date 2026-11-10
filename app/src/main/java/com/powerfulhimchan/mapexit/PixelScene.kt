@@ -116,6 +116,7 @@ internal fun DrawScope.adventurer(
     shadow: Boolean = true,
     stride: Float = 0f,
     detailPose: String? = null,
+    deferBoots: Boolean = false,
 ): HeroPose {
     val unit = if (detailPose != null && MotionArtwork.loaded) (width / 32).coerceAtLeast(.25f) else spriteUnit(width)
     val actual = unit * 32
@@ -140,7 +141,8 @@ internal fun DrawScope.adventurer(
         clipPath(path,ClipOp.Difference) { paintBody() }
     } else paintBody()
 
-    Equipment.equipped(s).forEach { gear ->
+    Equipment.equipped(s).sortedBy { when(it.kind) { Kind.PANTS->0;Kind.BODY->1;Kind.HEAD->2;Kind.BOOTS->4;else->3 } }.forEach { gear ->
+        if(deferBoots && gear.kind==Kind.BOOTS)return@forEach
         // A front pendant and palm-side rings are occluded by a rear-facing body.
         if (back && gear.kind in listOf(Kind.NECKLACE,Kind.RING)) return@forEach
         if(back && detailPose!=null && MotionArtwork.loaded && gear.kind==Kind.BODY) return@forEach
@@ -198,6 +200,13 @@ internal fun DrawScope.adventurer(
         }
     }
     return HeroPose(x, y, unit)
+}
+
+/** Final actor layer, independent of equipment insertion order or arm overlap. */
+internal fun DrawScope.paintForegroundBoots(s: State,hero: HeroPose,pose: String,tint: Color?) {
+    val boots=Equipment.equipped(s).firstOrNull { it.kind==Kind.BOOTS } ?: return
+    if(with(PreparationArtwork) { paintFitted(boots,hero.x,hero.y,hero.unit,pose,tint) })return
+    with(MotionArtwork) { paintWorn(boots,hero.x+hero.unit*7,hero.y+hero.unit*41,hero.unit*19,hero.unit*6,tint,back=true) }
 }
 
 internal fun DrawScope.drawScene(
