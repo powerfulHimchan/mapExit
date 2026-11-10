@@ -74,6 +74,18 @@ class AnimationEquipment056Test {
             assertTrue(BattlePose056.frame(null,Kind.SWORD,ms,1000,true,false).startsWith("hit_"))
         }
     }
+    @Test fun armSocketsStayInsideThePaintedSleevesThroughEveryBodyPose() {
+        MotionArtwork.load(context.resources)
+        val sheet=requireNotNull(BitmapFactory.decodeResource(context.resources,R.drawable.combat_hero_motion,BitmapFactory.Options().apply { inScaled=false }))
+        for((index,pose) in MotionAtlas.heroPoses.withIndex()) {
+            for(socket in listOf(MotionArtwork.shoulder(pose),MotionArtwork.leftShoulder(pose))) {
+                val x=index%12*192+(socket.x*4+32).toInt()
+                val y=index/12*192+(socket.y*4).toInt()
+                assertTrue("$pose arm socket must overlap its native sleeve",sheet.getPixel(x,y) ushr 24>128)
+            }
+        }
+        sheet.recycle()
+    }
     @Test fun obstacleClothingPreservesEveryNativeAlphaAndEachPoseHasItsOwnFeet() {
         MotionArtwork.load(context.resources)
         val sheet=requireNotNull(BitmapFactory.decodeResource(context.resources,R.drawable.obstacle_hero_046,BitmapFactory.Options().apply { inScaled=false }))
