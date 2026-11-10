@@ -63,6 +63,51 @@ class AShieldReview051Test {
             }
         }
     }
+    @Test fun rearArmCuffsPointToTheirElbowsAcrossAllWeaponPoses() {
+        val right=androidx.compose.ui.geometry.Offset(23f,23f)
+        val left=androidx.compose.ui.geometry.Offset(12f,22f)
+        for(kind in listOf(Kind.SWORD,Kind.SPEAR,Kind.HAMMER,Kind.CLAW,Kind.WHIP))
+            for(strong in listOf(false,true)) for(ms in 0L..760L step 8) {
+                val motion=BattleAnimation.pose(kind,ms,strong)
+                val wanted=right+androidx.compose.ui.geometry.Offset(4+motion.reach*7,10-motion.advance*5-motion.armLift)
+                val radians=Math.toRadians(motion.angle.toDouble())
+                val shift=androidx.compose.ui.geometry.Offset(kotlin.math.sin(radians).toFloat()*4,-kotlin.math.cos(radians).toFloat()*4)
+                fun point(p: androidx.compose.ui.geometry.Offset)=ArmKinematics.Point(p.x,p.y)
+                val shared=ArmKinematics.sharedTarget(point(right),point(left),point(wanted),point(shift),12f)
+                val hand=if(kind in listOf(Kind.SPEAR,Kind.HAMMER))androidx.compose.ui.geometry.Offset(shared.x,shared.y) else wanted
+                val near=RearArmRig.solve(right,hand,1f,1f)
+                val far=RearArmRig.solve(left,near.hand+shift,1f,-1f)
+                for(arm in listOf(near,far)) {
+                    assertTrue((arm.joints.elbow-arm.joints.shoulder).length()<=6.55f)
+                    assertTrue((arm.joints.wrist-arm.joints.elbow).length()<=6.55f)
+                    val e=androidx.compose.ui.geometry.Offset(arm.joints.elbow.x,arm.joints.elbow.y)
+                    val towardElbow=(e-arm.hand)/(e-arm.hand).getDistance()
+                    val angle=Math.toRadians(arm.gloveAngle.toDouble())
+                    val cuff=androidx.compose.ui.geometry.Offset(-kotlin.math.sin(angle).toFloat(),kotlin.math.cos(angle).toFloat())
+                    assertTrue("A rear glove cuff must meet the forearm, not follow the blade",cuff.x*towardElbow.x+cuff.y*towardElbow.y>.999f)
+                }
+                if(kind in listOf(Kind.SPEAR,Kind.HAMMER))assertTrue((far.hand-near.hand-shift).getDistance()<.001f)
+            }
+        val near=RearArmRig.solve(right,right+androidx.compose.ui.geometry.Offset(4f,10f),1f,1f)
+        val far=RearArmRig.solve(left,left+androidx.compose.ui.geometry.Offset(-4f,10f),1f,-1f)
+        assertTrue("Right elbow stays outside the back",near.joints.elbow.x>right.x)
+        assertTrue("Left elbow bends the opposite way",far.joints.elbow.x<left.x)
+    }
+    @Test fun redrawingRearWristPreservesTheApprovedShieldAnchors() {
+        val shoulder=androidx.compose.ui.geometry.Offset(100f,100f)
+        for(guard in listOf(0f,.5f,1f)) {
+            val offAngle=-6f+guard*18f
+            val radians=Math.toRadians(offAngle.toDouble())
+            val shift=androidx.compose.ui.geometry.Offset(-kotlin.math.sin(radians).toFloat(),kotlin.math.cos(radians).toFloat())*1.25f
+            val target=shoulder+androidx.compose.ui.geometry.Offset(-4f+guard*5,11.5f-guard*4)
+            val old=ArmKinematics.solve(ArmKinematics.Point(100f,100f),ArmKinematics.Point(target.x+shift.x,target.y+shift.y),6.5f,6.5f)
+            val elbow=androidx.compose.ui.geometry.Offset(old.elbow.x,old.elbow.y)
+            val hand=androidx.compose.ui.geometry.Offset(old.wrist.x,old.wrist.y)-shift
+            val rear=RearArmRig.anchored(shoulder,elbow,hand,1f)
+            assertEquals(hand,rear.hand)
+            assertEquals(old.elbow,rear.joints.elbow)
+        }
+    }
     private fun equip(e: GameEngine,kind: Kind,variant: String) {
         val item=ItemFactory.create(e.state,kind,variantId=variant).copy(tier=1)
         e.state.inventory.add(item)
@@ -108,6 +153,22 @@ class AShieldReview051Test {
                 export("$steel-$shield-$action",image.asAndroidBitmap())
             }
             assertEquals(saved,SaveCodec.encode(e.state))
+        }
+    }
+    @Test fun rearArmsRenderTwoHandedWeaponActions() {
+        MotionArtwork.load(context.resources)
+        for(kind in listOf(Kind.SPEAR,Kind.HAMMER)) for(action in listOf("idle","attack","strong","guard","dodge")) {
+            val e=battle(true)
+            e.state.equipment.remove(Slot.LEFT)
+            equip(e,kind,if(kind==Kind.SPEAR)"longspear" else "warhammer")
+            val defending=action in listOf("guard","dodge")
+            val visual=if(action=="idle")null else BattleVisual(e.state.battleSnapshot(),action,1000,
+                BattleImpact(50,if(defending)ImpactTarget.PLAYER else ImpactTarget.ENEMY,0,ImpactOutcome.MISS))
+            val image=ImageBitmap(480,640)
+            CanvasDrawScope().draw(Density(1f),LayoutDirection.Ltr,Canvas(image),Size(480f,640f)) {
+                drawScene(e.state,if(action=="idle")1000 else 1350,battle=visual,battleTop=.26f)
+            }
+            export("rear-${kind.name.lowercase()}-$action",image.asAndroidBitmap())
         }
     }
     private fun has(node: AccessibilityNodeInfo?,label: String): Boolean {
