@@ -131,8 +131,18 @@ internal object MotionArtwork {
         return true
     }
 
-    fun shoulder(pose: String): Offset = MotionAtlas.heroShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, (it[1]+EquipmentFit.bob(pose)) * .25f) }
-    fun leftShoulder(pose: String): Offset = MotionAtlas.heroLeftShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, (it[1]+EquipmentFit.bob(pose)) * .25f) }
+    // Socket centres on the painted sleeve caps. The old crouch/attack landmarks
+    // lay outside the body silhouette and left the upper sleeve detached in motion.
+    private val rightSockets=listOf(Offset(123f,90f),Offset(116f,93f),Offset(123f,99f),Offset(123f,111f),
+        Offset(112f,115f),Offset(112f,76f),Offset(91f,128f),Offset(130f,90f))
+    private val leftSockets=listOf(Offset(80f,88f),Offset(80f,89f),Offset(88f,85f),Offset(86f,99f),
+        Offset(92f,101f),Offset(65f,72f),Offset(57f,130f),Offset(87f,88f))
+    private fun socket(points: List<Offset>,pose: String): Offset {
+        val p=points[EquipmentFit.cell(pose)]
+        return Offset((p.x-32f)*.25f,(p.y+EquipmentFit.bob(pose))*.25f)
+    }
+    fun shoulder(pose: String): Offset = socket(rightSockets,pose)
+    fun leftShoulder(pose: String): Offset = socket(leftSockets,pose)
     fun bodyScale(pose: String) = if (pose.startsWith("death_")) .55f else 1f
     data class WornPlacement(val area: List<Float>, val angle: Float)
     fun wornPlacement(kind: Kind, pose: String): WornPlacement? {
