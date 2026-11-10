@@ -53,7 +53,7 @@ internal object ObstacleFit056 {
     fun forPose(pose: String)=fits[ObstacleAtlas.poses.indexOf(pose).coerceAtLeast(0)]
     private fun bone(a: Offset,b: Offset,widthA: Float,widthB: Float): List<Float> {
         val d=b-a;val normal=Offset(-d.y,d.x)/d.getDistance().coerceAtLeast(.01f)
-        val p=listOf(a+normal*widthA/2,a-normal*widthA/2,b-normal*widthB/2,b+normal*widthB/2)
+        val p=listOf(a+normal*widthA/2f,a-normal*widthA/2f,b-normal*widthB/2f,b+normal*widthB/2f)
         return p.flatMap { listOf(it.x,it.y) }
     }
     fun patches(kind: Kind,pose: String): List<EquipmentFit.Patch> {
