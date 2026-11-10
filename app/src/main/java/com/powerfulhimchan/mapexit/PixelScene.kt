@@ -121,7 +121,11 @@ internal fun DrawScope.adventurer(
     val actual = unit * 32
     val y = baseline - unit * 48
     if(shadow) contactShadow(x, baseline + 3, actual)
-    fun paintBody() = combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
+    val bodyArmor=Equipment.equipped(s).firstOrNull { it.kind==Kind.BODY }
+    fun paintBody() {
+        if(back && detailPose!=null && bodyArmor!=null && with(MotionArtwork) { paintDressedBody(bodyArmor,detailPose,x,y,unit,hitTint) }) return
+        combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
+    }
     val helmet = Equipment.equipped(s).firstOrNull { it.kind==Kind.HEAD && it.variantId!="headband" }
     val head = if(back && detailPose!=null && helmet!=null) EquipmentFit.patches(Kind.HEAD,detailPose)?.firstOrNull() else null
     if(head!=null) {
@@ -139,6 +143,7 @@ internal fun DrawScope.adventurer(
     Equipment.equipped(s).forEach { gear ->
         // A front pendant and palm-side rings are occluded by a rear-facing body.
         if (back && gear.kind in listOf(Kind.NECKLACE,Kind.RING)) return@forEach
+        if(back && detailPose!=null && MotionArtwork.loaded && gear.kind==Kind.BODY) return@forEach
         val placement = detailPose?.let { MotionArtwork.wornPlacement(gear.kind, it) }
         val area = placement?.area ?: when (gear.kind) {
             Kind.HEAD -> listOf(6f, 0f, 20f, 16f)
