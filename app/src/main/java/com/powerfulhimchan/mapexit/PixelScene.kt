@@ -123,26 +123,22 @@ internal fun DrawScope.adventurer(
     val y = baseline - unit * 48
     if(shadow) contactShadow(x, baseline + 3, actual)
     val bodyArmor=Equipment.equipped(s).firstOrNull { it.kind==Kind.BODY }
-    fun paintBody() {
-        if(back && detailPose!=null && bodyArmor!=null && with(MotionArtwork) { paintDressedBody(bodyArmor,detailPose,x,y,unit,hitTint) }) return
-        combatBody(if (back) "heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
+    val helmet=Equipment.equipped(s).firstOrNull { it.kind==Kind.HEAD && it.variantId!="headband" }
+    val connectedHead=back && detailPose!=null && MotionArtwork.loaded && helmet!=null
+    if(connectedHead)with(PreparationArtwork) {
+        // Native atlas origin is 32px to the left of the logical actor origin.
+        paintConnectedHelmet(helmet!!,NativeEquipment057.battleHead(detailPose!!),x-unit*8,y,unit*.25f,hitTint)
     }
-    val helmet = Equipment.equipped(s).firstOrNull { it.kind==Kind.HEAD && it.variantId!="headband" }
-    val head = if(back && detailPose!=null && helmet!=null) EquipmentFit.patches(Kind.HEAD,detailPose)?.firstOrNull() else null
-    if(head!=null) {
-        val path=Path()
-        for(i in 0..3) {
-            val p=EquipmentFit.point(head.corners,i*2,x,y,unit,detailPose!!)
-            // Keep the original neck/collar visible below a fitted helmet.
-            val py=if(i>=2)p.y-(head.corners[5]-head.corners[1])*unit*.025f else p.y
-            if(i==0)path.moveTo(p.x,py) else path.lineTo(p.x,py)
-        }
-        path.close()
-        clipPath(path,ClipOp.Difference) { paintBody() }
-    } else paintBody()
+    fun paintBody() {
+        if(back && detailPose!=null && (bodyArmor!=null || connectedHead) &&
+            with(MotionArtwork) { paintDressedBody(bodyArmor,detailPose,x,y,unit,hitTint,headless=connectedHead) })return
+        combatBody(if(back)"heroBack" else "hero",x,y,actual,hitTint,articulated,stride,detailPose=detailPose)
+    }
+    paintBody()
 
     Equipment.equipped(s).sortedBy { when(it.kind) { Kind.PANTS->0;Kind.BODY->1;Kind.HEAD->2;Kind.BOOTS->4;else->3 } }.forEach { gear ->
         if(deferBoots && gear.kind==Kind.BOOTS)return@forEach
+        if(connectedHead && gear.kind==Kind.HEAD)return@forEach
         // A front pendant and palm-side rings are occluded by a rear-facing body.
         if (back && gear.kind in listOf(Kind.NECKLACE,Kind.RING)) return@forEach
         if(back && detailPose!=null && MotionArtwork.loaded && gear.kind==Kind.BODY) return@forEach

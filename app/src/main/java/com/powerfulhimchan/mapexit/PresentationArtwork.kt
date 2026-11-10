@@ -1,6 +1,7 @@
 package com.powerfulhimchan.mapexit
 
 import android.content.res.Resources
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
@@ -15,13 +16,13 @@ import kotlin.math.*
 
 /** Front and rear views have separate artwork; all dialogue roles share the combat pixel filter. */
 internal object PresentationArtwork {
-    private data class Assets(val people: ImageBitmap, val icons: ImageBitmap)
+    private data class Assets(val people: ImageBitmap, val icons: ImageBitmap,val walk: Bitmap)
     @Volatile private var assets: Assets? = null
     val loaded get() = assets != null
     @Synchronized fun load(resources: Resources) {
         if (assets != null) return
         fun decode(id: Int) = requireNotNull(BitmapFactory.decodeResource(resources,id,BitmapFactory.Options().apply { inScaled=false })).asImageBitmap()
-        assets=Assets(decode(R.drawable.social_people_049),decode(R.drawable.growth_icons_049))
+        assets=Assets(decode(R.drawable.social_people_049),decode(R.drawable.growth_icons_049),decode(R.drawable.camp_walk_057).asAndroidBitmap())
     }
     fun DrawScope.person(type: String,x: Float,baseline: Float,width: Float): Boolean {
         val a=assets ?: return false
@@ -32,37 +33,53 @@ internal object PresentationArtwork {
             dstSize=IntSize(width.roundToInt().coerceAtLeast(1),(width*1.5f).roundToInt().coerceAtLeast(1)),filterQuality=FilterQuality.None)
         return true
     }
-    fun DrawScope.frontBody(s: State,x: Float,baseline: Float,width: Float,stride: Float=0f): HeroPose {
-        val unit=width/32; val y=baseline-unit*48
+    fun campFrame(clock: Long,direction: Int): Int = if(direction==0)-1 else
+        ((Math.floorMod(clock-1600,560L)/140).toInt()+if(direction<0)4 else 0)
+    private val walkRight=listOf(Offset(85f,73f),Offset(89f,70f),Offset(95f,77f),Offset(87f,69f),
+        Offset(91f,66f),Offset(91f,64f),Offset(91f,71f),Offset(91f,65f))
+    private val walkLeft=listOf(Offset(102f,67f),Offset(105f,65f),Offset(108f,71f),Offset(104f,65f),
+        Offset(105f,71f),Offset(107f,69f),Offset(107f,78f),Offset(108f,70f))
+    fun campShoulder(clock: Long,direction: Int,right: Boolean): Offset {
+        val i=campFrame(clock,direction)
+        if(i<0)return if(right)Offset(8.5f,19f) else Offset(23.5f,19f)
+        val p=if(right)walkRight[i] else walkLeft[i]
+        return Offset((p.x-32f)/4,p.y/4)
+    }
+    private fun dressedCamp(s: State,clock: Long,direction: Int): NativeEquipment057.Dressed? {
+        val a=assets ?: return null;val i=campFrame(clock,direction)
+        return NativeEquipment057.dressed("camp:$i",Equipment.equipped(s),
+            if(i<0)NativeEquipment057.front else NativeEquipment057.side(i)) {
+            if(i<0)Bitmap.createBitmap(a.people.asAndroidBitmap(),0,0,128,192)
+            else Bitmap.createBitmap(a.walk,i%4*192,i/4*192,192,192)
+        }
+    }
+    private fun DrawScope.campLayer(s: State,x: Float,baseline: Float,width: Float,clock: Long,direction: Int,feetOnly: Boolean) {
+        val body=dressedCamp(s,clock,direction) ?: return
+        val i=campFrame(clock,direction);val layout=if(i<0)NativeEquipment057.front else NativeEquipment057.side(i)
+        val scale=width/128;val left=x-if(i<0)0f else scale*32;val top=baseline-scale*192
+        val helmet=Equipment.equipped(s).firstOrNull { it.kind==Kind.HEAD }
+        if(!feetOnly && helmet!=null && helmet.variantId!="headband") {
+            val h=layout.head;val hw=h.area[2]*scale;val hh=h.area[3]*scale*1.08f
+            val neck=Offset(left+h.neck.x*scale,top+h.neck.y*scale)
+            withTransform({if(direction>0)scale(-1f,1f,neck)}) {
+                with(MotionArtwork) { paintWorn(helmet,neck.x-hw*.5f,neck.y-hh*.88f,hw,hh,null,back=false) }
+            }
+        }
+        val image=if(feetOnly)body.boots else body.body
+        drawImage(image,srcSize=IntSize(image.width,image.height),dstOffset=IntOffset(left.roundToInt(),top.roundToInt()),
+            dstSize=IntSize((image.width*scale).roundToInt(),(image.height*scale).roundToInt()),filterQuality=FilterQuality.None)
+        if(!feetOnly && helmet?.variantId=="headband") {
+            val h=layout.head.area
+            with(MotionArtwork) { paintWorn(helmet,left+h[0]*scale,top+(h[1]+h[3]*.45f)*scale,h[2]*scale,h[3]*.25f*scale,null,back=false) }
+        }
+    }
+    fun DrawScope.frontBody(s: State,x: Float,baseline: Float,width: Float,stride: Float=0f,clock: Long=0,direction: Int=0): HeroPose {
         contactShadow(x,baseline+3,width)
-        val split=y+unit*32
-        fun legs(paint: DrawScope.()->Unit) {
-            for(side in 0..1) {
-                val step=if(side==0)stride else -stride
-                withTransform({translate(step*unit*1.2f,-abs(step)*unit*.55f)}) {
-                    clipRect(x+side*unit*16,split,x+(side+1)*unit*16,baseline+unit) { paint() }
-                }
-            }
-        }
-        if(abs(stride)>.001f) {
-            clipRect(x,y,x+width,split) { person("hero_front",x,baseline,width) }
-            legs { person("hero_front",x,baseline,width) }
-        } else person("hero_front",x,baseline,width)
-        // Coordinates are in the fitted 32x48 front cell, independent of rear battle poses.
-        for(item in Equipment.equipped(s).sortedBy { if(it.kind==Kind.BOOTS)1 else 0 }) {
-            val b=when(item.kind) {
-                Kind.HEAD->floatArrayOf(7f,1f,18f,15f)
-                Kind.BODY->floatArrayOf(7.8f,15.7f,16.4f,18.0f)
-                Kind.PANTS->floatArrayOf(9.2f,32.7f,13.6f,10.5f)
-                Kind.BOOTS->floatArrayOf(7f,40.6f,18f,6.4f)
-                Kind.NECKLACE->floatArrayOf(13f,18f,6f,7f)
-                else->continue
-            }
-            // Front ornaments and steel-tier colours come from the original front equipment.
-            fun DrawScope.paintGear() { with(MotionArtwork) { paintWorn(item,x+b[0]*unit,y+b[1]*unit,b[2]*unit,b[3]*unit,null,back=false) } }
-            if(item.kind in listOf(Kind.PANTS,Kind.BOOTS) && abs(stride)>.001f)legs { paintGear() } else paintGear()
-        }
-        return HeroPose(x,y,unit)
+        campLayer(s,x,baseline,width,clock,direction,false)
+        return HeroPose(x,baseline-width*1.5f,width/32)
+    }
+    fun DrawScope.frontBoots(s: State,x: Float,baseline: Float,width: Float,clock: Long,direction: Int) {
+        campLayer(s,x,baseline,width,clock,direction,true)
     }
     fun DrawScope.growthIcon(key: String): Boolean {
         val a=assets ?: return false

@@ -16,9 +16,6 @@ import kotlin.math.roundToInt
 internal object ObstacleArtwork {
     private var parts: ImageBitmap? = null
     private var heroes: ImageBitmap? = null
-    private val dressed=object : LinkedHashMap<String,ImageBitmap>(36,.75f,true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String,ImageBitmap>?)=size>36
-    }
     @Synchronized fun load(resources: Resources) {
         if (parts != null) return
         fun decode(id: Int) = requireNotNull(BitmapFactory.decodeResource(resources,id,BitmapFactory.Options().apply { inScaled=false })).asImageBitmap()
@@ -37,40 +34,23 @@ internal object ObstacleArtwork {
         val index=ObstacleAtlas.poses.indexOf(pose).coerceAtLeast(0)
         val extent=width*1.5f;val x=center-extent/2;val y=baseline-extent;val scale=extent/192
         val items=Equipment.equipped(s)
-        val armor=items.firstOrNull { it.kind==Kind.BODY }
-        val key="$pose:${armor?.variantId}:${armor?.tier}"
-        val art=dressed.getOrPut(key) {
-            val raw=Bitmap.createBitmap(image.asAndroidBitmap(),index%4*192,index/4*192,192,192)
-            val result=armor?.let { PreparationArtwork.dressedObstacleBody(it,raw,pose) }
-            if(result!=null) { raw.recycle();result.asImageBitmap() } else raw.asImageBitmap()
+        val layout=NativeEquipment057.obstacle(pose)
+        val dressed=NativeEquipment057.dressed("obstacle:$pose",items,layout) {
+            Bitmap.createBitmap(image.asAndroidBitmap(),index%4*192,index/4*192,192,192)
         }
-        val fit=ObstacleFit056.forPose(pose)
         val helmet=items.firstOrNull { it.kind==Kind.HEAD }
-        fun outline(points: List<Float>)=Path().apply {
-            moveTo(x+points[0]*scale,y+points[1]*scale)
-            for(i in 2 until points.size step 2)lineTo(x+points[i]*scale,y+points[i+1]*scale)
-            close()
+        contactShadow(center-width/2,baseline+3,width)
+        if(helmet!=null && helmet.variantId!="headband")with(PreparationArtwork) {
+            paintConnectedHelmet(helmet,layout.head,x,y,scale,tint)
         }
-        fun paintBody() {
-            drawImage(art,srcSize=IntSize(192,192),dstOffset=IntOffset(x.roundToInt(),y.roundToInt()),
+        fun paint(part: ImageBitmap) {
+            drawImage(part,srcSize=IntSize(192,192),dstOffset=IntOffset(x.roundToInt(),y.roundToInt()),
                 dstSize=IntSize(extent.roundToInt().coerceAtLeast(1),extent.roundToInt().coerceAtLeast(1)),
                 filterQuality=FilterQuality.None,colorFilter=tint?.let { ColorFilter.tint(it,BlendMode.SrcAtop) })
         }
-        contactShadow(center-width/2,baseline+3,width)
-        if(helmet!=null && helmet.variantId!="headband") {
-            val h=fit.head
-            val head=outline(listOf(h[0],h[1],h[0]+h[2],h[1],h[0]+h[2],h[1]+h[3],h[0],h[1]+h[3]))
-            clipPath(head,ClipOp.Difference) { paintBody() }
-        } else paintBody()
-        items.firstOrNull { it.kind==Kind.PANTS }?.let { item ->
-            for(patch in ObstacleFit056.patches(Kind.PANTS,pose))with(PreparationArtwork) { paintNativePatch(item,patch,x,y,scale,tint) }
-            // The coat hem is nearer than the trousers and follows the native silhouette.
-            clipPath(outline(fit.coat)) { paintBody() }
-        }
-        helmet?.let { with(PreparationArtwork) { paintObstacleHelmet(it,pose,x,y,scale,tint) } }
-        // Foreground boots are last; each foot follows its own bent or raised shin.
-        items.firstOrNull { it.kind==Kind.BOOTS }?.let { item ->
-            for(patch in ObstacleFit056.patches(Kind.BOOTS,pose))with(PreparationArtwork) { paintNativePatch(item,patch,x,y,scale,tint) }
-        }
+        paint(dressed.body)
+        if(helmet?.variantId=="headband")with(PreparationArtwork) { paintObstacleHelmet(helmet,pose,x,y,scale,tint) }
+        // Same native foot pixels, redrawn in the foreground; never a larger boot icon.
+        paint(dressed.boots)
     }
 }

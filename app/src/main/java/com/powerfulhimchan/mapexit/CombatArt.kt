@@ -93,37 +93,47 @@ internal fun DrawScope.drawPreparationCamp(s: State, clock: Long) {
     val shield=items.firstOrNull { it.kind==Kind.SHIELD }
     val metal=items.any { it.kind==Kind.BODY && it.variantId in listOf("chainmail","platearmor") }
     val motion=CampMotion056.sample(clock,weapon?.kind)
+    val direction=CampMotion056.direction(clock)
     val width=min(size.width*.22f,size.height*.94f*.48f)
     val unit=width/32
-    val baseline=size.height*.865f-motion.bob*unit
+    val baseline=size.height*.865f-(if(direction==0)motion.bob else 0f)*unit
     val x=size.width*(.49f+motion.travel)-width/2
     val y=baseline-unit*48
-    withTransform({rotate(motion.lean,Offset(x+width/2,baseline))}) {
-        val rightShoulder=Offset(x+unit*8.5f,y+unit*19f)
-        val leftShoulder=Offset(x+unit*23.5f,y+unit*19f)
-        val radians=motion.angle*PI.toFloat()/180
+    withTransform({rotate(if(direction==0)motion.lean else 0f,Offset(x+width/2,baseline))}) {
+        val rightShoulder=Offset(x,y)+PresentationArtwork.campShoulder(clock,direction,true)*unit
+        val leftShoulder=Offset(x,y)+PresentationArtwork.campShoulder(clock,direction,false)*unit
+        val angle=if(direction==0)motion.angle else direction*23f
+        val radians=angle*PI.toFloat()/180
         val supportShift=Offset(sin(radians),-cos(radians))*unit*4f
         fun point(p: Offset)=ArmKinematics.Point(p.x,p.y)
-        val wanted=rightShoulder+Offset(-unit*(2.5f+motion.reach*4f),unit*(10-motion.armLift-motion.reach*2))
+        val wanted=rightShoulder+if(direction==0)Offset(-unit*(2.5f+motion.reach*4f),unit*(10-motion.armLift-motion.reach*2))
+            else Offset(direction*unit*4,unit*9)
         val shared=if(weapon?.twoHanded==true)ArmKinematics.sharedTarget(point(rightShoulder),point(leftShoulder),point(wanted),point(supportShift),unit*12) else point(wanted)
-        val near=RearArmRig.solve(rightShoulder,Offset(shared.x,shared.y),unit,-1f)
-        val farTarget=if(weapon?.twoHanded==true)near.hand+supportShift else leftShoulder+Offset(unit*2,unit*10)
-        val far=RearArmRig.solve(leftShoulder,farTarget,unit,1f)
+        val near=RearArmRig.solve(rightShoulder,Offset(shared.x,shared.y),unit,if(direction==0)-1f else direction.toFloat())
+        val farTarget=if(weapon?.twoHanded==true)near.hand+supportShift else leftShoulder+Offset(unit*(if(direction==0)2f else direction*2f),unit*10)
+        val far=RearArmRig.solve(leftShoulder,farTarget,unit,if(direction==0)1f else -direction.toFloat())
+        fun paintRight() {
+            weapon?.let { heldWeapon(it.kind,near.hand,unit,angle,gear=it) }
+            rearArm(near,unit,metal,forearmOnly=true,mirror=true)
+            with(MotionArtwork) { grip(near.hand,unit,near.gloveAngle,1f,metal,mirror=true) }
+        }
+        fun paintLeft() {
+            off?.let { heldWeapon(it.kind,far.hand,unit,-angle,gear=it) }
+            rearArm(far,unit,metal,forearmOnly=true)
+            with(MotionArtwork) { grip(far.hand,unit,far.gloveAngle,1f,metal) }
+            shield?.let {
+                val w=unit*(if(direction==0)20 else 14)
+                sprite(gearSprite(it),far.hand.x-w/2,far.hand.y-w*.75f,w,detailPose="idle_0")
+            }
+        }
         rearArm(near,unit,metal,upperOnly=true,mirror=true)
         rearArm(far,unit,metal,upperOnly=true)
-        with(PresentationArtwork) { frontBody(s,x,baseline,width,motion.stride) }
-        weapon?.let { heldWeapon(it.kind,near.hand,unit,motion.angle,gear=it) }
-        off?.let { heldWeapon(it.kind,far.hand,unit,-motion.angle,gear=it) }
-        rearArm(near,unit,metal,forearmOnly=true,mirror=true)
-        rearArm(far,unit,metal,forearmOnly=true)
-        with(MotionArtwork) {
-            grip(near.hand,unit,near.gloveAngle,1f,metal,mirror=true)
-            grip(far.hand,unit,far.gloveAngle,1f,metal)
-        }
-        shield?.let {
-            val w=unit*20
-            sprite(gearSprite(it),far.hand.x-w/2,far.hand.y-unit*15,w,detailPose="idle_0")
-        }
+        if(direction<0)paintRight()
+        if(direction>0)paintLeft()
+        with(PresentationArtwork) { frontBody(s,x,baseline,width,motion.stride,clock,direction) }
+        if(direction>=0)paintRight()
+        if(direction<=0)paintLeft()
+        with(PresentationArtwork) { frontBoots(s,x,baseline,width,clock,direction) }
     }
 }
 

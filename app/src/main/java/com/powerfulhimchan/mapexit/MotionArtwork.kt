@@ -107,12 +107,19 @@ internal object MotionArtwork {
         paint(f, x + f.logicalX * unit, y, f.size.width / f.nativeScale * unit, f.size.height / f.nativeScale * unit, flash, opacity)
         return true
     }
-    @Synchronized fun DrawScope.paintDressedBody(item: Gear,pose: String,x: Float,y: Float,unit: Float,flash: Color?): Boolean {
+    @Synchronized fun DrawScope.paintDressedBody(item: Gear?,pose: String,x: Float,y: Float,unit: Float,flash: Color?,headless: Boolean=false): Boolean {
         val original=frame("heroBack",pose) ?: return false
-        val key="${item.variantId}:${item.tier}:$pose"
+        val key="${item?.variantId}:${item?.tier}:$pose:$headless"
         val dressed=dressedCache[key] ?: run {
             val body=Bitmap.createBitmap(original.image.asAndroidBitmap(),original.offset.x,original.offset.y,original.size.width,original.size.height)
-            val fitted=PreparationArtwork.dressedBody(item,body,pose) ?: return false
+            var fitted=if(item!=null)PreparationArtwork.dressedBody(item,body,pose) ?: return false else body.copy(Bitmap.Config.ARGB_8888,true)
+            if(headless) {
+                val raw=IntArray(body.width*body.height);val pixels=IntArray(raw.size)
+                body.getPixels(raw,0,body.width,0,0,body.width,body.height)
+                fitted.getPixels(pixels,0,body.width,0,0,body.width,body.height)
+                NativeEquipment057.clearHead(pixels,raw,body.width,body.height,NativeEquipment057.battleHead(pose))
+                fitted.recycle();fitted=Bitmap.createBitmap(pixels,body.width,body.height,Bitmap.Config.ARGB_8888)
+            }
             body.recycle()
             original.copy(image=fitted.asImageBitmap(),offset=IntOffset.Zero).also { dressedCache[key]=it }
         }

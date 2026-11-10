@@ -210,6 +210,16 @@ internal object PreparationArtwork {
         return true
     }
 
+    /** The helmet and collar share one anatomical neck pivot, including leaning frames. */
+    fun DrawScope.paintConnectedHelmet(item: Gear,head: NativeEquipment057.Head,x: Float,y: Float,nativeScale: Float,tint: Color?) {
+        val r=rear(item) ?: return
+        val neck=Offset(x+head.neck.x*nativeScale,y+head.neck.y*nativeScale)
+        val height=head.area[3]*nativeScale
+        val width=height*r.size.width/r.size.height
+        withTransform({rotate(head.angle,neck)}) {
+            paint(r,neck.x-width*.5f,neck.y-height*.90f,width,height,tint)
+        }
+    }
     /** Fit the same rear material to head/torso landmarks and to each leg independently. */
     fun DrawScope.paintFitted(item: Gear,x: Float,y: Float,unit: Float,pose: String,tint: Color?): Boolean {
         val patches=EquipmentFit.patches(item.kind,pose) ?: return false

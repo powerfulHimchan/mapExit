@@ -10,6 +10,12 @@ internal object CampMotion056 {
     const val PERIOD = 16000L
     data class Pose(val travel: Float,val stride: Float,val bob: Float,val lean: Float,
         val angle: Float,val reach: Float,val armLift: Float)
+    fun direction(clock: Long): Int = when(Math.floorMod(clock,PERIOD)) {
+        in 1600L..3999L -> -1
+        in 4000L..6399L -> 1
+        in 6400L..8499L -> -1
+        else -> 0
+    }
     fun sample(clock: Long,kind: Kind?): Pose {
         val t=Math.floorMod(clock,PERIOD)
         fun between(start: Long,end: Long,a: Float,b: Float): Float =
