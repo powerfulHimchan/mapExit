@@ -36,7 +36,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
-            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.powerfulhimchan.mapexit.AShieldReview051Test --no-daemon
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.powerfulhimchan.mapexit.AShieldReview051Test,com.powerfulhimchan.mapexit.AnimationEquipment056Test --no-daemon
             mkdir -p app/build/equipment-preview
             adb pull /sdcard/Download/ app/build/equipment-preview/
       - uses: actions/upload-artifact@v4
