@@ -47,7 +47,7 @@ class AnimationEquipment056Test {
     }
     private fun export(name: String,bitmap: Bitmap) {
         val values=android.content.ContentValues().apply {
-            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME,"mapexit-review056-$name.png")
+            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME,if(name.startsWith("live-camp")) "mapexit-fix041-$name.png" else "mapexit-review056-$name.png")
             put(android.provider.MediaStore.MediaColumns.MIME_TYPE,"image/png")
             put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,android.os.Environment.DIRECTORY_DOWNLOADS)
             put(android.provider.MediaStore.MediaColumns.IS_PENDING,1)
@@ -159,4 +159,68 @@ class AnimationEquipment056Test {
             SystemClock.sleep(650);export("phone-obstacle",requireNotNull(instrumentation.uiAutomation.takeScreenshot()))
         }
     }
+
+    @Test fun actualPreparationAnimatesWithoutInputAndResumesAfterBackground() {
+        launchGame().use { scenario ->
+            scenario.onGameActivity { a ->
+                a.game.engine=engine()
+                a.game.storyPlaybackEnabled=false
+                a.startGame()
+                a.game.refresh()
+                assertTrue(a.game.active)
+                assertEquals(Mode.SURFACE,a.game.engine.state.mode)
+            }
+            fun sceneBounds(): android.graphics.Rect {
+                fun find(node: android.view.accessibility.AccessibilityNodeInfo): android.graphics.Rect? {
+                    if(node.contentDescription?.toString()=="메인 장면")
+                        return android.graphics.Rect().also { node.getBoundsInScreen(it) }
+                    for(i in 0 until node.childCount) {
+                        val child=node.getChild(i) ?: continue
+                        find(child)?.let { return it }
+                    }
+                    return null
+                }
+                return requireNotNull(find(requireNotNull(instrumentation.uiAutomation.rootInActiveWindow)))
+            }
+            fun changesOverTime(label: String) {
+                SystemClock.sleep(800)
+                val bounds=sceneBounds()
+                assertTrue(bounds.width()>100 && bounds.height()>100)
+                val frames=mutableListOf<Bitmap>()
+                repeat(8) { index ->
+                    // The live Activity advances its own clock; never set a render time or send input.
+                    SystemClock.sleep(380)
+                    val screen=requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+                    export("live-camp-$label-$index",screen)
+                    frames+=Bitmap.createBitmap(screen,
+                        bounds.left+bounds.width()/5,bounds.top+bounds.height()/5,
+                        bounds.width()*3/5,bounds.height()*3/4)
+                    screen.recycle()
+                }
+                val first=frames.first()
+                val largestChange=frames.drop(1).maxOf { frame ->
+                    var changed=0
+                    for(y in 0 until first.height step 2)for(x in 0 until first.width step 2) {
+                        val a=first.getPixel(x,y);val b=frame.getPixel(x,y)
+                        // Ignore the small brightness pulse of the background torches.
+                        val difference=maxOf(kotlin.math.abs((a shr 16 and 255)-(b shr 16 and 255)),
+                            kotlin.math.abs((a shr 8 and 255)-(b shr 8 and 255)),
+                            kotlin.math.abs((a and 255)-(b and 255)))
+                        if(difference>32)changed++
+                    }
+                    changed
+                }
+                frames.forEach { it.recycle() }
+                assertTrue("Live preparation hero must animate without input ($label): $largestChange changed pixels",largestChange>100)
+                scenario.onGameActivity { a -> assertEquals(Mode.SURFACE,a.game.engine.state.mode) }
+            }
+            changesOverTime("initial")
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+            scenario.onGameActivity { a -> assertFalse(a.game.active) }
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            scenario.onGameActivity { a -> assertTrue(a.game.active) }
+            changesOverTime("resumed")
+        }
+    }
 }
+
