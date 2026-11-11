@@ -6,8 +6,8 @@ android {
         applicationId = "com.powerfulhimchan.mapexit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 50
-        versionName = "0.50.0"
+        versionCode = 51
+        versionName = "0.51.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -33,3 +33,4 @@ dependencies {
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }
+
