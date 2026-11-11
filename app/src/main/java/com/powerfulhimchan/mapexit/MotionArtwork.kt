@@ -107,12 +107,19 @@ internal object MotionArtwork {
         paint(f, x + f.logicalX * unit, y, f.size.width / f.nativeScale * unit, f.size.height / f.nativeScale * unit, flash, opacity)
         return true
     }
-    @Synchronized fun DrawScope.paintDressedBody(item: Gear,pose: String,x: Float,y: Float,unit: Float,flash: Color?): Boolean {
+    @Synchronized fun DrawScope.paintDressedBody(item: Gear?,pose: String,x: Float,y: Float,unit: Float,flash: Color?,headless: Boolean=false): Boolean {
         val original=frame("heroBack",pose) ?: return false
-        val key="${item.variantId}:${item.tier}:$pose"
+        val key="${item?.variantId}:${item?.tier}:$pose:$headless"
         val dressed=dressedCache[key] ?: run {
             val body=Bitmap.createBitmap(original.image.asAndroidBitmap(),original.offset.x,original.offset.y,original.size.width,original.size.height)
-            val fitted=PreparationArtwork.dressedBody(item,body,pose) ?: return false
+            var fitted=if(item!=null)PreparationArtwork.dressedBody(item,body,pose) ?: return false else body.copy(Bitmap.Config.ARGB_8888,true)
+            if(headless) {
+                val raw=IntArray(body.width*body.height);val pixels=IntArray(raw.size)
+                body.getPixels(raw,0,body.width,0,0,body.width,body.height)
+                fitted.getPixels(pixels,0,body.width,0,0,body.width,body.height)
+                NativeEquipment057.clearHead(pixels,raw,body.width,body.height,NativeEquipment057.battleHead(pose))
+                fitted.recycle();fitted=Bitmap.createBitmap(pixels,body.width,body.height,Bitmap.Config.ARGB_8888)
+            }
             body.recycle()
             original.copy(image=fitted.asImageBitmap(),offset=IntOffset.Zero).also { dressedCache[key]=it }
         }
@@ -131,8 +138,18 @@ internal object MotionArtwork {
         return true
     }
 
-    fun shoulder(pose: String): Offset = MotionAtlas.heroShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, (it[1]+EquipmentFit.bob(pose)) * .25f) }
-    fun leftShoulder(pose: String): Offset = MotionAtlas.heroLeftShoulders[heroIndex[pose] ?: 0].let { Offset(it[0] * .25f, (it[1]+EquipmentFit.bob(pose)) * .25f) }
+    // Socket centres on the painted sleeve caps. The old crouch/attack landmarks
+    // lay outside the body silhouette and left the upper sleeve detached in motion.
+    private val rightSockets=listOf(Offset(123f,90f),Offset(116f,93f),Offset(123f,99f),Offset(123f,111f),
+        Offset(112f,115f),Offset(112f,76f),Offset(91f,128f),Offset(130f,90f))
+    private val leftSockets=listOf(Offset(80f,88f),Offset(80f,89f),Offset(88f,85f),Offset(86f,99f),
+        Offset(92f,101f),Offset(65f,72f),Offset(57f,130f),Offset(87f,88f))
+    private fun socket(points: List<Offset>,pose: String): Offset {
+        val p=points[EquipmentFit.cell(pose)]
+        return Offset((p.x-32f)*.25f,(p.y+EquipmentFit.bob(pose))*.25f)
+    }
+    fun shoulder(pose: String): Offset = socket(rightSockets,pose)
+    fun leftShoulder(pose: String): Offset = socket(leftSockets,pose)
     fun bodyScale(pose: String) = if (pose.startsWith("death_")) .55f else 1f
     data class WornPlacement(val area: List<Float>, val angle: Float)
     fun wornPlacement(kind: Kind, pose: String): WornPlacement? {

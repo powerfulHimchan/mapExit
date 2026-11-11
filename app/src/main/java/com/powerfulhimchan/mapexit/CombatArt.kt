@@ -87,39 +87,53 @@ internal fun DrawScope.drawChestEncounter(s: State, clock: Long, battleTop: Floa
 internal fun DrawScope.drawPreparationCamp(s: State, clock: Long) {
     if(!PresentationArtwork.loaded) { drawBattleActors(s,clock,null,0f,campEncounter=true);return }
     with(PreparationArtwork) { paintCamp(clock) }
-    val width=min(size.width*.22f,size.height*.94f*.48f)
-    val baseline=size.height*.865f
-    val x=size.width*.49f-width/2
-    val hero=with(PresentationArtwork) { frontBody(s,x,baseline,width) }
     val items=Equipment.equipped(s)
     val weapon=items.firstOrNull { it.weapon && it.id==s.equipment[Slot.RIGHT] } ?: items.firstOrNull { it.weapon }
     val off=items.firstOrNull { it.weapon && it.id!=weapon?.id && it.id==s.equipment[Slot.LEFT] }
     val shield=items.firstOrNull { it.kind==Kind.SHIELD }
     val metal=items.any { it.kind==Kind.BODY && it.variantId in listOf("chainmail","platearmor") }
-    // In a front view the player's right arm is on the viewer's left.
-    val rightShoulder=Offset(x+hero.unit*8.5f,hero.y+hero.unit*19f)
-    val leftShoulder=Offset(x+hero.unit*23.5f,hero.y+hero.unit*19f)
-    val angle=-20f
-    val axis=Offset(sin(angle*PI.toFloat()/180),-cos(angle*PI.toFloat()/180))
-    val supportShift=axis*hero.unit*4f
-    fun point(p: Offset)=ArmKinematics.Point(p.x,p.y)
-    fun offset(p: ArmKinematics.Point)=Offset(p.x,p.y)
-    val wanted=Offset(x+hero.unit*6,hero.y+hero.unit*30)
-    val target=if(weapon?.twoHanded==true)offset(ArmKinematics.sharedTarget(point(rightShoulder),point(leftShoulder),point(wanted),point(supportShift),hero.unit*12.8f)) else wanted
-    val right=ArmKinematics.solve(point(rightShoulder),point(target),hero.unit*6.5f,hero.unit*6.5f)
-    val hand=offset(right.wrist)
-    val support=if(weapon?.twoHanded==true)hand+supportShift else Offset(x+hero.unit*26,hero.y+hero.unit*30)
-    val left=ArmKinematics.solve(point(leftShoulder),point(support),hero.unit*6.5f,hero.unit*6.5f)
-    val leftHand=offset(left.wrist)
-    arm(rightShoulder,hand,hero.unit,metal=metal)
-    arm(leftShoulder,leftHand,hero.unit,metal=metal)
-    weapon?.let { heldWeapon(it.kind,hand,hero.unit,angle,gear=it) }
-    off?.let { heldWeapon(it.kind,leftHand,hero.unit,20f,gear=it) }
-    with(MotionArtwork) { grip(hand,hero.unit,angle,1f,metal);grip(leftHand,hero.unit,if(weapon?.twoHanded==true)angle else 20f,1f,metal) }
-    shield?.let {
-        // The shield's outer face is visible from the front; the same hand holds its rear strap.
-        val w=hero.unit*20
-        sprite(gearSprite(it),leftHand.x-w/2,leftHand.y-hero.unit*15,w,detailPose="idle_0")
+    val motion=CampMotion056.sample(clock,weapon?.kind)
+    val direction=CampMotion056.direction(clock)
+    val width=min(size.width*.22f,size.height*.94f*.48f)
+    val unit=width/32
+    val baseline=size.height*.865f-(if(direction==0)motion.bob else 0f)*unit
+    val x=size.width*(.49f+motion.travel)-width/2
+    val y=baseline-unit*48
+    withTransform({rotate(if(direction==0)motion.lean else 0f,Offset(x+width/2,baseline))}) {
+        val rightShoulder=Offset(x,y)+PresentationArtwork.campShoulder(clock,direction,true)*unit
+        val leftShoulder=Offset(x,y)+PresentationArtwork.campShoulder(clock,direction,false)*unit
+        val angle=if(direction==0)motion.angle else direction*23f
+        val radians=angle*PI.toFloat()/180
+        val supportShift=Offset(sin(radians),-cos(radians))*unit*4f
+        fun point(p: Offset)=ArmKinematics.Point(p.x,p.y)
+        val wanted=rightShoulder+if(direction==0)Offset(-unit*(2.5f+motion.reach*4f),unit*(10-motion.armLift-motion.reach*2))
+            else Offset(direction*unit*4,unit*9)
+        val shared=if(weapon?.twoHanded==true)ArmKinematics.sharedTarget(point(rightShoulder),point(leftShoulder),point(wanted),point(supportShift),unit*12) else point(wanted)
+        val near=RearArmRig.solve(rightShoulder,Offset(shared.x,shared.y),unit,if(direction==0)-1f else direction.toFloat())
+        val farTarget=if(weapon?.twoHanded==true)near.hand+supportShift else leftShoulder+Offset(unit*(if(direction==0)2f else direction*2f),unit*10)
+        val far=RearArmRig.solve(leftShoulder,farTarget,unit,if(direction==0)1f else -direction.toFloat())
+        fun paintRight() {
+            weapon?.let { heldWeapon(it.kind,near.hand,unit,angle,gear=it) }
+            rearArm(near,unit,metal,forearmOnly=true,mirror=true)
+            with(MotionArtwork) { grip(near.hand,unit,near.gloveAngle,1f,metal,mirror=true) }
+        }
+        fun paintLeft() {
+            off?.let { heldWeapon(it.kind,far.hand,unit,-angle,gear=it) }
+            rearArm(far,unit,metal,forearmOnly=true)
+            with(MotionArtwork) { grip(far.hand,unit,far.gloveAngle,1f,metal) }
+            shield?.let {
+                val w=unit*(if(direction==0)20 else 14)
+                sprite(gearSprite(it),far.hand.x-w/2,far.hand.y-w*.75f,w,detailPose="idle_0")
+            }
+        }
+        rearArm(near,unit,metal,upperOnly=true,mirror=true)
+        rearArm(far,unit,metal,upperOnly=true)
+        if(direction<0)paintRight()
+        if(direction>0)paintLeft()
+        with(PresentationArtwork) { frontBody(s,x,baseline,width,motion.stride,clock,direction) }
+        if(direction>=0)paintRight()
+        if(direction<=0)paintLeft()
+        with(PresentationArtwork) { frontBoots(s,x,baseline,width,clock,direction) }
     }
 }
 
@@ -169,7 +183,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
     val heroFloor = stageTop + stageHeight * .92f
     if (campEncounter) with(PreparationArtwork) { paintCamp(clock) } else arena(clock, floor = s.floor)
     val heroRecoil = if (playerDamage) BattleAnimation.reaction(elapsed) else 0f
-    val heroFrame = SpriteFrames.hero(motion?.action, kind, if (defending && elapsed < BattleAnimation.HIT_MS) defenseTime else poseTime, clock,
+    val heroFrame = BattlePose056.frame(motion?.action, kind, if (defending && elapsed < BattleAnimation.HIT_MS) defenseTime else poseTime, clock,
         damaged = playerDamage, dead = s.hp <= 0 && elapsed >= BattleAnimation.HIT_MS)
     val metalSleeves = Equipment.equipped(scene).any { it.kind == Kind.BODY && it.variantId in listOf("chainmail", "platearmor") }
     val defense = BattleAnimation.defense(if (defending) motion!!.action else "", defenseTime)
@@ -211,6 +225,7 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                         shadow = false,
                         stride = if(attacking)pose.stride else -defense.retreat*.5f,
                         detailPose = heroFrame,
+                        deferBoots = true,
                     )
             }
             val bone = if (MotionArtwork.loaded) MotionArtwork.shoulder(heroFrame) else Offset(23f, 23f)
@@ -221,11 +236,10 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                 shoulder +
                     Offset(
                         hero.unit *
-                            (4 +
-                                if (attacking) pose.reach * (if (kind == Kind.SPEAR) 3 else 7)
-                                else defense.guard * 8),
+                            (if(weapon?.twoHanded==true) -2f+(if(attacking)pose.reach*2f else defense.guard*2f)
+                             else 3.5f+(if(attacking)pose.reach*6f else defense.guard*1.5f)),
                         hero.unit *
-                            (10 - (if (attacking) pose.advance * 5 else defense.guard * 17) - overhead) * limbScale,
+                            (10 - (if (attacking) pose.advance * 3 else defense.guard * 8) - overhead*.65f) * limbScale,
                     )
             val gripAngle = if (attacking) pose.angle else 25f + defense.guard * 65f
             val leftBone = MotionArtwork.leftShoulder(heroFrame)
@@ -246,13 +260,13 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
             val requestedSupport = when {
                 // Hang beside the left hip, not across the back. Guard lifts the same hand
                 // towards the left chest; the upper rim stays below the face.
-                shield != null -> leftShoulder + Offset(hero.unit * (if(fallen)5f else -4f + defense.guard*5f), hero.unit * (if(fallen)5f else 11.5f - defense.guard*4f))
+                shield != null -> leftShoulder + Offset(hero.unit * (if(fallen)5f else -4f-defense.guard), hero.unit * (if(fallen)5f else 11.5f-defense.guard*7f))
                 weapon?.twoHanded == true -> hand+supportShift
                 offWeapon != null -> leftShoulder+Offset(hero.unit*(2+if(attacking)pose.reach*5 else 0f),hero.unit*(10-overhead*.5f))
                 else -> Offset(hero.x+hero.unit*7,hero.y+hero.unit*31)
             }
-            // Keep the approved shield mount exactly where it was. Its measured grip
-            // and brace remain fixed; only the wrist/glove connection is redrawn.
+            // The same measured grip and brace constrain the raised guard as well as
+            // the relaxed hand, so the shield never rotates away from its forearm.
             val mountArm=if(shield!=null)ArmKinematics.solve(point(leftShoulder),point(requestedSupport+wristShift(offAngle)),hero.unit*6.5f,hero.unit*6.5f) else null
             val leftArm=if(mountArm!=null)RearArmRig.anchored(leftShoulder,offset(mountArm.elbow),offset(mountArm.wrist)-wristShift(offAngle),hero.unit)
                 else RearArmRig.solve(leftShoulder,requestedSupport,hero.unit,side=-1f)
@@ -271,47 +285,54 @@ private fun DrawScope.drawBattleActors(s: State, clock: Long, visual: BattleVisu
                 with(MotionArtwork) { grip(supportHand,hero.unit,leftArm.gloveAngle,1f,metalSleeves,mirror=true) }
             }
             rearArm(rightArm,hero.unit,metalSleeves,upperOnly=true)
-            paintBody()
-            if (kind != null) {
-                if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
-                    val chain = weapon?.variantId == "chainwhip"
-                    val thorn = weapon?.variantId == "thornwhip"
-                    val whipColor = when { chain -> pale; thorn -> mint; weapon?.variantId == "flexiblewhip" -> muted; else -> amber }
-                    val target = Offset(w * .71f, h * .60f)
-                    var previous = hand
-                    for (i in 1..28) {
-                        val t = i / 28f
-                        val end =
-                            hand +
-                                (target - hand) * (t * pose.reach.coerceIn(.15f, 1f)) +
-                                Offset(
-                                    0f,
-                                    sin(t * PI * 2 + elapsed * .018).toFloat() *
-                                        30 *
-                                        sin(t * PI).toFloat(),
-                                )
-                        drawLine(whipColor, previous, end, if (chain) 4f else 3f)
-                        if (chain && i % 2 == 0) drawCircle(ink, 1.5f, end)
-                        if (thorn && i % 4 == 0) drawLine(mint, end, end + Offset(4f, -6f), 2f)
-                        previous = end
-                    }
-                    heldWeapon(kind, hand, hero.unit, pose.angle, gear = weapon)
-                } else
-                    heldWeapon(
-                        kind,
-                        hand,
-                        hero.unit,
-                        if (attacking) pose.angle else 25f + defense.guard * 65f,
-                        gear = weapon,
-                    )
+            fun paintHeldArms() {
+                if (kind != null) {
+                    if (attacking && kind == Kind.WHIP && elapsed in 150..570) {
+                        val chain = weapon?.variantId == "chainwhip"
+                        val thorn = weapon?.variantId == "thornwhip"
+                        val whipColor = when { chain -> pale; thorn -> mint; weapon?.variantId == "flexiblewhip" -> muted; else -> amber }
+                        val target = Offset(w * .71f, h * .60f)
+                        var previous = hand
+                        for (i in 1..28) {
+                            val t = i / 28f
+                            val end =
+                                hand +
+                                    (target - hand) * (t * pose.reach.coerceIn(.15f, 1f)) +
+                                    Offset(
+                                        0f,
+                                        sin(t * PI * 2 + elapsed * .018).toFloat() *
+                                            30 *
+                                            sin(t * PI).toFloat(),
+                                    )
+                            drawLine(whipColor, previous, end, if (chain) 4f else 3f)
+                            if (chain && i % 2 == 0) drawCircle(ink, 1.5f, end)
+                            if (thorn && i % 4 == 0) drawLine(mint, end, end + Offset(4f, -6f), 2f)
+                            previous = end
+                        }
+                        heldWeapon(kind, hand, hero.unit, pose.angle, gear = weapon)
+                    } else
+                        heldWeapon(
+                            kind,
+                            hand,
+                            hero.unit,
+                            if (attacking) pose.angle else 25f + defense.guard * 65f,
+                            gear = weapon,
+                        )
+                }
+                offWeapon?.let { heldWeapon(it.kind, supportHand, hero.unit, -gripAngle * .65f, gear = it) }
+                // Viewer depth: all held weapons are behind both forearms and gripping
+                // hands. In particular a crossguard or shaft cannot paint over a wrist.
+                if(shield==null)rearArm(leftArm,hero.unit,metalSleeves,forearmOnly=true,mirror=true)
+                rearArm(rightArm,hero.unit,metalSleeves,forearmOnly=true)
+                with(MotionArtwork) { grip(hand, hero.unit, rightArm.gloveAngle, 1f, metalSleeves) }
+                if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, leftArm.gloveAngle, 1f, metalSleeves, mirror=true) }
             }
-            offWeapon?.let { heldWeapon(it.kind, supportHand, hero.unit, -gripAngle * .65f, gear = it) }
-            // Viewer depth: all held weapons are behind both forearms and gripping
-            // hands. In particular a crossguard or shaft cannot paint over a wrist.
-            if(shield==null)rearArm(leftArm,hero.unit,metalSleeves,forearmOnly=true,mirror=true)
-            rearArm(rightArm,hero.unit,metalSleeves,forearmOnly=true)
-            with(MotionArtwork) { grip(hand, hero.unit, rightArm.gloveAngle, 1f, metalSleeves) }
-            if (shield == null) with(MotionArtwork) { grip(supportHand, hero.unit, leftArm.gloveAngle, 1f, metalSleeves, mirror=true) }
+            // A two-handed grip is on the far chest plane in this rear view. The
+            // body occludes both hands and forearms wherever their silhouettes meet.
+            if(weapon?.twoHanded==true)paintHeldArms()
+            paintBody()
+            if(weapon?.twoHanded!=true)paintHeldArms()
+            paintForegroundBoots(scene,hero,heroFrame,flash)
 
         }
         if (defending && motion!!.action == "dodge") {
