@@ -171,7 +171,7 @@ fun MapExitScreen(vm: GameModel) {
                     if (s.mode == Mode.SURFACE && vm.currentImpact?.target == ImpactTarget.PLAYER) {
                         Text("받은 피해 ${vm.currentImpact!!.label()}", color = red, fontSize = 16.sp)
                     }
-                    PreparationScreen(vm, Modifier.weight(1f))
+                    PreparationScreen(vm, clock, Modifier.weight(1f))
                 } else {
                     DungeonScreen(vm, clock, Modifier.weight(1f))
                 }
@@ -409,7 +409,7 @@ internal fun ActionButton(vm: GameModel, index: Int, b: ContextButton, modifier:
 }
 
 @Composable
-private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
+private fun PreparationScreen(vm: GameModel, clock: Long, modifier: Modifier) {
     vm.revision
     val e = vm.engine
     val s = e.state
@@ -486,7 +486,7 @@ private fun PreparationScreen(vm: GameModel, modifier: Modifier) {
                 }
             }
             if (surface || s.mode == Mode.INHERIT)
-                item { PixelCanvas(s, 0, Modifier.fillMaxWidth().height(156.dp)) }
+                item { PixelCanvas(s, clock, Modifier.fillMaxWidth().height(156.dp)) }
             if (surface) {
                 item { PreparationMenuGrid(vm) }
                 item {
@@ -715,3 +715,4 @@ private fun sceneMessage(s: State): String =
         s.mode == Mode.TRAP -> s.trap?.prompt() ?: "함정"
         else -> s.message
     }
+
