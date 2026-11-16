@@ -96,10 +96,17 @@ internal fun DrawScope.drawPreparationCamp(s: State, clock: Long) {
     val direction=CampMotion056.direction(clock)
     val width=min(size.width*.22f,size.height*.94f*.48f)
     val unit=width/32
-    val baseline=size.height*.865f-(if(direction==0)motion.bob else 0f)*unit
+    val floor=size.height*.865f
     val x=size.width*(.49f+motion.travel)-width/2
+    val scale=width/128
+    val left=x-if(direction==0)0f else scale*32
+    val angle=if(direction==0)motion.lean else 0f
+    val pivot=Offset(x+width/2,floor)
+    val planted=GroundContact053.place(PresentationArtwork.campFootprint(clock,direction),left,scale,floor,pivot.x,angle)
+    val baseline=planted.top+192*scale
     val y=baseline-unit*48
-    withTransform({rotate(if(direction==0)motion.lean else 0f,Offset(x+width/2,baseline))}) {
+    with(GroundContact053) { shadow(planted) }
+    withTransform({translate(0f,planted.shiftY);rotate(angle,pivot)}) {
         val rightShoulder=Offset(x,y)+PresentationArtwork.campShoulder(clock,direction,true)*unit
         val leftShoulder=Offset(x,y)+PresentationArtwork.campShoulder(clock,direction,false)*unit
         val angle=if(direction==0)motion.angle else direction*23f

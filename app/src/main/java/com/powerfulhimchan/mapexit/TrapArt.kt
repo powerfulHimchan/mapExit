@@ -146,9 +146,8 @@ private fun DrawScope.drawPhysicalChallenge(s: State, t: TrapState) {
     val tint = if (result && !t.success) red else null
     if (ducking) crouchingAdventurer(s,heroX,floor,32*spriteUnit(heroWidth),tint)
     else with(ObstacleArtwork) { hero(s,heroX+16*spriteUnit(heroWidth),floor-jumpY,32*spriteUnit(heroWidth),
-        if(result && !t.success)"hit" else if(jumping && motion in .1f.. .8f)"jump" else if(jumping && motion<1f)"land" else "idle",tint) }
+        if(result && !t.success)"hit" else if(jumping && motion in .1f.. .8f)"jump" else if(jumping && motion<1f)"land" else "idle",tint,ground=floor) }
     if (jumping) {
-        contactShadow(heroX, floor + 4, spriteUnit(heroWidth)*32)
         for (i in 0..2) pixelRect(
             edge.copy(alpha = .5f),
             heroX - 6 - i * 6,
