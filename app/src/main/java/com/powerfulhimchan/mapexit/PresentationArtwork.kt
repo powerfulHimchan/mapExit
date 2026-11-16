@@ -18,11 +18,20 @@ import kotlin.math.*
 internal object PresentationArtwork {
     private data class Assets(val people: ImageBitmap, val icons: ImageBitmap,val walk: Bitmap)
     @Volatile private var assets: Assets? = null
+    private var footprints: List<GroundContact053.Footprint> = emptyList()
     val loaded get() = assets != null
     @Synchronized fun load(resources: Resources) {
         if (assets != null) return
         fun decode(id: Int) = requireNotNull(BitmapFactory.decodeResource(resources,id,BitmapFactory.Options().apply { inScaled=false })).asImageBitmap()
-        assets=Assets(decode(R.drawable.social_people_049),decode(R.drawable.growth_icons_049),decode(R.drawable.camp_walk_057).asAndroidBitmap())
+        val people = decode(R.drawable.social_people_049)
+        val walk = decode(R.drawable.camp_walk_057).asAndroidBitmap()
+        footprints = (-1..7).map { i ->
+            val raw = if(i<0) Bitmap.createBitmap(people.asAndroidBitmap(),0,0,128,192)
+                else Bitmap.createBitmap(walk,i%4*192,i/4*192,192,192)
+            val layout = if(i<0) NativeEquipment057.front else NativeEquipment057.side(i)
+            GroundContact053.footprint(raw,layout.feet).also { raw.recycle() }
+        }
+        assets=Assets(people,decode(R.drawable.growth_icons_049),walk)
     }
     fun DrawScope.person(type: String,x: Float,baseline: Float,width: Float): Boolean {
         val a=assets ?: return false
@@ -35,6 +44,7 @@ internal object PresentationArtwork {
     }
     fun campFrame(clock: Long,direction: Int): Int = if(direction==0)-1 else
         ((Math.floorMod(clock-1600,560L)/140).toInt()+if(direction<0)4 else 0)
+    fun campFootprint(clock: Long,direction: Int) = footprints[campFrame(clock,direction)+1]
     private val walkRight=listOf(Offset(85f,73f),Offset(89f,70f),Offset(95f,77f),Offset(87f,69f),
         Offset(91f,66f),Offset(91f,64f),Offset(91f,71f),Offset(91f,65f))
     private val walkLeft=listOf(Offset(102f,67f),Offset(105f,65f),Offset(108f,71f),Offset(104f,65f),
@@ -74,7 +84,6 @@ internal object PresentationArtwork {
         }
     }
     fun DrawScope.frontBody(s: State,x: Float,baseline: Float,width: Float,stride: Float=0f,clock: Long=0,direction: Int=0): HeroPose {
-        contactShadow(x,baseline+3,width)
         campLayer(s,x,baseline,width,clock,direction,false)
         return HeroPose(x,baseline-width*1.5f,width/32)
     }
