@@ -44,7 +44,7 @@ object DungeonFixtures {
             Event.FORGE -> .66f
             Event.PORTAL -> .68f
             Event.CHALLENGE -> .45f
-            Event.TRAP -> .12f
+            Event.TRAP -> .50f
             else -> .60f
         }
         return minOf(worldHeight * focal / depth.coerceAtLeast(.12f), height * .56f, width * .56f / aspect)

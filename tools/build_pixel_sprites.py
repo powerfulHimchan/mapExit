@@ -672,3 +672,6 @@ from social_art import emit as emit_social_art
 emit_social_art(check='--check' in sys.argv)
 from camp_walk_art import emit as emit_camp_walk_art
 emit_camp_walk_art(check='--check' in sys.argv)
+
+from feedback_art_052 import emit as emit_feedback_art
+emit_feedback_art(check='--check' in sys.argv)
