@@ -11,9 +11,9 @@ internal object CampMotion056 {
     data class Pose(val travel: Float,val stride: Float,val bob: Float,val lean: Float,
         val angle: Float,val reach: Float,val armLift: Float)
     fun direction(clock: Long): Int = when(Math.floorMod(clock,PERIOD)) {
-        in 1600L..3999L -> -1
-        in 4000L..6399L -> 1
-        in 6400L..8499L -> -1
+        in 1600L..3799L -> -1
+        in 3800L..6799L -> 1
+        in 6800L..8499L -> -1
         else -> 0
     }
     fun sample(clock: Long,kind: Kind?): Pose {
@@ -22,9 +22,9 @@ internal object CampMotion056 {
             a+(b-a)*BattleAnimation.smooth((t-start).toFloat()/(end-start))
         val travel=when {
             t<1600 -> 0f
-            t<4000 -> between(1600,4000,0f,-.24f)
-            t<6400 -> between(4000,6400,-.24f,.24f)
-            t<8500 -> between(6400,8500,.24f,0f)
+            t<3800 -> between(1600,3800,0f,-.24f)
+            t<6800 -> between(3800,6800,-.24f,.24f)
+            t<8500 -> between(6800,8500,.24f,0f)
             else -> 0f
         }
         val walking=t in 1600..8499
