@@ -16,27 +16,23 @@ internal object GroundContact053 {
     data class Placement(val top: Float, val shiftY: Float, val feet: List<Foot>,
         val floor: Float, val elevation: Float, val scale: Float)
 
-    fun footprint(bitmap: Bitmap, polygons: List<List<Float>>): Footprint {
-        val feet = polygons.mapNotNull { polygon ->
-            val mask = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
-            val path = android.graphics.Path().apply {
-                moveTo(polygon[0], polygon[1])
-                for (i in 2 until polygon.size step 2) lineTo(polygon[i], polygon[i + 1])
-                close()
+    fun footprint(bitmap: Bitmap): Footprint {
+        val pixels=IntArray(bitmap.width*bitmap.height)
+        bitmap.getPixels(pixels,0,bitmap.width,0,0,bitmap.width,bitmap.height)
+        var bottom=bitmap.height-1
+        while(bottom>=0 && (0 until bitmap.width).none { pixels[bottom*bitmap.width+it] ushr 24>96 }) bottom--
+        require(bottom>=0) { "Native frame has no visible soles" }
+        val feet=mutableListOf<Foot>()
+        var start=-1
+        // The lowest opaque contour is the real support sole. Equipment masks may
+        // end above a bent boot's toe, so they must not define the floor plane.
+        for(x in 0..bitmap.width) {
+            val ink=x<bitmap.width && (max(0,bottom-1)..bottom).any { pixels[it*bitmap.width+x] ushr 24>96 }
+            if(ink && start<0) start=x
+            if(!ink && start>=0) {
+                feet+=Foot(start.toFloat(),x.toFloat(),bottom+1f);start=-1
             }
-            android.graphics.Canvas(mask).drawPath(path, android.graphics.Paint().apply { color = -1 })
-            var bottom = -1
-            for (y in 0 until bitmap.height) for (x in 0 until bitmap.width)
-                if (mask.getPixel(x,y) != 0 && bitmap.getPixel(x,y) ushr 24 > 96) bottom = max(bottom,y)
-            var left = bitmap.width; var right = -1
-            if (bottom >= 0) for (y in max(0,bottom-1)..bottom) for (x in 0 until bitmap.width)
-                if (mask.getPixel(x,y) != 0 && bitmap.getPixel(x,y) ushr 24 > 96) {
-                    left = min(left,x); right = max(right,x)
-                }
-            mask.recycle()
-            if (right < left) null else Foot(left.toFloat(), right + 1f, bottom + 1f)
         }
-        require(feet.isNotEmpty()) { "Native frame has no visible soles" }
         return Footprint(feet)
     }
 
@@ -68,7 +64,7 @@ internal object GroundContact053 {
         val lift = placement.elevation / placement.scale.coerceAtLeast(.01f)
         val spread = (1f-lift/300f).coerceIn(.55f,1f)
         val fade = (1f-lift/210f).coerceIn(.22f,1f)
-        val width = ((right-left)*.90f+placement.scale*8f).coerceAtLeast(placement.scale*18f)*spread
+        val width = ((right-left)*.90f+placement.scale*8f).coerceAtLeast(placement.scale*42f)*spread
         val height = (placement.scale*5.5f).coerceIn(2f,9f)*spread
         val center = (left+right)/2
         drawOval(Color.Black.copy(alpha=.16f*fade),Offset(center-width/2,placement.floor-height*.45f),Size(width,height))

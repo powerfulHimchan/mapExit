@@ -21,9 +21,9 @@ internal object ObstacleArtwork {
         if (parts != null) return
         fun decode(id: Int) = requireNotNull(BitmapFactory.decodeResource(resources,id,BitmapFactory.Options().apply { inScaled=false })).asImageBitmap()
         val heroSheet=decode(R.drawable.obstacle_hero_046)
-        footprints=ObstacleAtlas.poses.mapIndexed { i,pose ->
+        footprints=ObstacleAtlas.poses.mapIndexed { i,_ ->
             val raw=Bitmap.createBitmap(heroSheet.asAndroidBitmap(),i%4*192,i/4*192,192,192)
-            GroundContact053.footprint(raw,NativeEquipment057.obstacle(pose).feet).also { raw.recycle() }
+            GroundContact053.footprint(raw).also { raw.recycle() }
         }
         heroes=heroSheet;parts=decode(R.drawable.obstacle_parts_046)
     }

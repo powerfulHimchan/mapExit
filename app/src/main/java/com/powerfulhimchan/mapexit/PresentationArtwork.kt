@@ -28,8 +28,7 @@ internal object PresentationArtwork {
         footprints = (-1..7).map { i ->
             val raw = if(i<0) Bitmap.createBitmap(people.asAndroidBitmap(),0,0,128,192)
                 else Bitmap.createBitmap(walk,i%4*192,i/4*192,192,192)
-            val layout = if(i<0) NativeEquipment057.front else NativeEquipment057.side(i)
-            GroundContact053.footprint(raw,layout.feet).also { raw.recycle() }
+            GroundContact053.footprint(raw).also { raw.recycle() }
         }
         assets=Assets(people,decode(R.drawable.growth_icons_049),walk)
     }
