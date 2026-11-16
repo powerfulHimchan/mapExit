@@ -131,7 +131,7 @@ class Graphics052Test {
         }
         val e = GameEngine()
         val saved = SaveCodec.encode(e.state)
-        for (time in listOf(4000L, 6400L, 10000L)) {
+        for (time in listOf(3800L, 6800L, 10000L)) {
             val image = ImageBitmap(640, 400)
             CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(image), Size(640f, 400f)) {
                 drawScene(e.state, time)
