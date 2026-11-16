@@ -297,12 +297,6 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                     }
                     var popupHeight by remember { mutableStateOf(0.dp) }
                     val enemyHit = impact.target == ImpactTarget.ENEMY
-                    val avoided =
-                        impact.outcome in
-                            listOf(ImpactOutcome.DODGE, ImpactOutcome.MISS, ImpactOutcome.BLOCK)
-                    val popupColor =
-                        if (avoided) mint
-                        else if (!enemyHit) red else if (impact.critical) amber else pale
                     if (visible)
                         Column(
                             modifier =
@@ -328,74 +322,13 @@ internal fun ScenePresentation(vm: GameModel, clock: Long, modifier: Modifier) {
                                         scaleY=scaleX
                                     }
                                     .widthIn(max = maxWidth * .50f)
-                                    .background(ink.copy(alpha = .94f), RoundedCornerShape(6.dp))
-                                    .border(
-                                        if (impact.critical) 2.dp else 1.dp,
-                                        if (impact.critical) popupColor else line,
-                                        RoundedCornerShape(6.dp),
-                                    )
-                                    .padding(
-                                        horizontal = if (compactBattle) 6.dp else 8.dp,
-                                        vertical = if (compactBattle) 3.dp else 4.dp,
-                                    )
                                     .semantics(mergeDescendants = true) {
                                         contentDescription =
                                             "${if(enemyHit) "몬스터" else "플레이어"} 피해 ${impact.label()}"
                                     },
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            if (impact.outcome == ImpactOutcome.BLOCK)
-                                Text(
-                                    "완전 방어",
-                                    color = mint,
-                                    fontSize = if (compactBattle) 10.sp else 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            if (impact.critical)
-                                Text(
-                                    "치명타!",
-                                    color = popupColor,
-                                    fontSize = if (compactBattle) 10.sp else 14.sp,
-                                    fontWeight = FontWeight.Black,
-                                )
-                            if (impact.tactic.isNotEmpty())
-                                Text(
-                                    impact.tactic,
-                                    color = mint,
-                                    fontSize = if (compactBattle) 8.sp else 10.sp,
-                                )
-                            if (impact.luckyAttack)
-                                Text(
-                                    "행운 · 공격 강화",
-                                    color = mint,
-                                    fontSize = if (compactBattle) 8.sp else 10.sp,
-                                )
-                            if (impact.luckyCritical)
-                                Text(
-                                    "행운 · 치명 확률 강화",
-                                    color = mint,
-                                    fontSize = if (compactBattle) 8.sp else 10.sp,
-                                )
-                            Text(
-                                if (impact.outcome == ImpactOutcome.BLOCK) "0"
-                                else if (impact.outcome == ImpactOutcome.DODGE) "회피"
-                                else if (impact.outcome == ImpactOutcome.MISS) "빗나감"
-                                else "-${impact.amount}",
-                                color = popupColor,
-                                fontSize =
-                                    if (compactBattle) 18.sp
-                                    else if (impact.critical) 32.sp else 25.sp,
-                                lineHeight =
-                                    if (compactBattle) 22.sp
-                                    else if (impact.critical) 36.sp else 30.sp,
-                                fontWeight = FontWeight.Black,
-                            )
-                            if (impact.outcome == ImpactOutcome.GUARD && !impact.critical)
-                                Text(
-                                    "방어",
-                                    color = popupColor,
-                                    fontSize = if (compactBattle) 8.sp else 10.sp,
-                                )
+                            FeedbackArtwork052.Content(impact, compactBattle)
                         }
                 }
             }

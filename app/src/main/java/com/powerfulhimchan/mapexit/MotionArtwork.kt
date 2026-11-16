@@ -37,6 +37,8 @@ internal object MotionArtwork {
         NarrativeArtwork.load(resources)
         PreparationArtwork.load(resources)
         PresentationArtwork.load(resources)
+        FeedbackArtwork052.load(resources)
+        ExplorationArtwork052.load(resources)
     }
 
     fun has(type: String, pose: String = "idle_0"): Boolean = when {
@@ -58,6 +60,21 @@ internal object MotionArtwork {
             return tile(a.monsters, index * MotionAtlas.monsterPoses.size + phase, 24, 144, 144, MotionAtlas.monsterHeights[index], 3f, -8f)
         }
         return gear(type, badge = false)
+    }
+
+    /** Tight idle crop from the combat sheet, retaining each region's actual silhouette. */
+    fun explorationMonster(type: String): Bitmap? {
+        val f = frame(type, "idle_0") ?: return null
+        val source = f.image.asAndroidBitmap()
+        var left = f.size.width; var right = -1; var top = f.size.height; var bottom = -1
+        for (y in 0 until f.size.height) for (x in 0 until f.size.width) {
+            if (source.getPixel(f.offset.x + x, f.offset.y + y) ushr 24 > 96) {
+                left = minOf(left, x); right = maxOf(right, x)
+                top = minOf(top, y); bottom = maxOf(bottom, y)
+            }
+        }
+        if (right < left) return null
+        return Bitmap.createBitmap(source, f.offset.x + left, f.offset.y + top, right - left + 1, bottom - top + 1)
     }
 
     @Synchronized private fun gear(type: String, badge: Boolean): Frame? {

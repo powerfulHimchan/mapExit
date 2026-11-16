@@ -22,9 +22,9 @@ internal object CampMotion056 {
             a+(b-a)*BattleAnimation.smooth((t-start).toFloat()/(end-start))
         val travel=when {
             t<1600 -> 0f
-            t<4000 -> between(1600,4000,0f,-.105f)
-            t<6400 -> between(4000,6400,-.105f,.105f)
-            t<8500 -> between(6400,8500,.105f,0f)
+            t<4000 -> between(1600,4000,0f,-.24f)
+            t<6400 -> between(4000,6400,-.24f,.24f)
+            t<8500 -> between(6400,8500,.24f,0f)
             else -> 0f
         }
         val walking=t in 1600..8499

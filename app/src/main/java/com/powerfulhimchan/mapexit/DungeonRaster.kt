@@ -38,12 +38,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
     private val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     private val image = bitmap.asImageBitmap()
     private val assets = FineSprites.all.mapValues { Texture(it.value.bitmap.asAndroidBitmap()) }.toMutableMap().apply {
-        val plate=Bitmap.createBitmap(32,12,Bitmap.Config.ARGB_8888)
-        for(y in 2..10) for(x in 1..30) {
-            val edge=x in listOf(1,30) || y in listOf(2,10)
-            plate.setPixel(x,y,if(edge)0xff243b49.toInt() else if((x+y)%6==0)0xffa69b77.toInt() else 0xff63737a.toInt())
-        }
-        put("trap",Texture(plate))
+        for ((name, bitmap) in ExplorationArtwork052.all) put(name, Texture(bitmap))
     }
     private val wallDepth = FloatArray(width)
     private val rayX = FloatArray(width)
@@ -69,7 +64,7 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Texture(PixelMaterials.wall(Color(theme.ceiling), 8, theme)),
                 Texture(PixelMaterials.floor(theme)))
         }
-        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + cell.challengeMark * 67 + cell.npcRole.ordinal * 43 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
+        val geometry = map.cells.fold(1) { hash, cell -> hash * 31 + (if (cell.wall) 1 else 0) + cell.event.ordinal * 3 + cell.challengeMark * 67 + cell.trapType * 97 + cell.npcRole.ordinal * 43 + (cell.monsterId?.hashCode() ?: 0) + if (cell.resolved) 37 else 0 }
         if (lastMap === map && lastCamera == camera && lastGeometry == geometry && lastTheme == theme && lastVisibility == visibility && lastHideCurrentFeature == hideCurrentFeature && lastWallMarks == wallMarks) return image
         val dx = cos(camera.angle)
         val dy = sin(camera.angle)
@@ -177,14 +172,15 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 Event.NPC -> map.cell(fixture.x,fixture.y).npcRole.sprite
                 Event.MONSTER -> MonsterCatalog.find(map.cell(fixture.x,fixture.y).monsterId)?.sprite
                     ?: MonsterCatalog.forFloor(theme.ordinal * 10 + 1)[(fixture.x + fixture.y) % 6].sprite
-                Event.ELITE -> MonsterCatalog.special(theme.ordinal * 10 + 1, false).sprite
+                Event.ELITE -> MonsterCatalog.find(map.cell(fixture.x,fixture.y).monsterId)?.sprite
+                    ?: MonsterCatalog.special(theme.ordinal * 10 + 1, false).sprite
                 Event.FORGE -> "forge"
                 Event.PORTAL -> "challenge_portal"
                 Event.CHALLENGE -> ChallengeStages.featureSprite(map.cell(fixture.x, fixture.y))
-                Event.TRAP -> "trap"
+                Event.TRAP -> "trap_${map.cell(fixture.x,fixture.y).trapType.coerceIn(0,4)}"
                 else -> null
             } ?: return@forEach
-            val texture=assets.getValue(name)
+            val texture=assets[name] ?: return@forEach
             val depth=fixture.depth
             if (visibility < 12f && depth >= visibility) return@forEach
             val span=DungeonFixtures.spriteSpan(fixture.event,focal,depth,width,height,texture.width.toFloat()/texture.height)
@@ -206,7 +202,15 @@ internal class DungeonRaster(private val width: Int, private val height: Int) {
                 for(xx in max(0,ceil(left).toInt())..min(width-1,floor(left+spriteWidth).toInt())) {
                     if(depth>=wallDepth[xx]) continue
                     val color=texture.sample((xx+.5f-left)/spriteWidth,(yy+.5f-top)/span)
-                    if(color ushr 24 !=0) pixels[yy*width+xx]=shade(color,fog(light,depth))
+                    val alpha=color ushr 24
+                    if(alpha>0) {
+                        val lit=shade(color,fog(light,depth));val index=yy*width+xx
+                        if(alpha==255) pixels[index]=lit else {
+                            val bg=pixels[index];val inv=255-alpha
+                            fun channel(shift: Int)=(((lit ushr shift and 255)*alpha+(bg ushr shift and 255)*inv)/255) shl shift
+                            pixels[index]=(0xff shl 24) or channel(16) or channel(8) or channel(0)
+                        }
+                    }
                 }
             }
         }
