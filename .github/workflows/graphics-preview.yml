@@ -35,10 +35,7 @@ jobs:
           ram-size: 2048M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: |
-            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.powerfulhimchan.mapexit.Graphics052Test --no-daemon
-            mkdir -p app/build/graphics-preview
-            adb shell 'ls /sdcard/Download/mapexit-review052-*.png' | tr -d '\r' | while IFS= read -r path; do adb pull "$path" app/build/graphics-preview/; done
+          script: bash scripts/verify-graphics052.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
