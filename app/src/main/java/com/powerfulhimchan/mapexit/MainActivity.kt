@@ -20,6 +20,10 @@ import java.util.concurrent.TimeUnit
 class GameModel(app: Application) : AndroidViewModel(app) {
     private val saveFile = AtomicFile(File(app.filesDir, "mapexit-save-v1.json"))
     private val writer = Executors.newSingleThreadExecutor()
+    private val gameAudio = GameAudio(app)
+    internal val gameMusicPlaying: Boolean get() = gameAudio.isPlaying
+    internal val gameMusicCue: String? get() = gameAudio.currentMusic
+    fun resumeAudio() { gameAudio.resume(engine.state) }
     private var saveClock = 0L
     private val mapRandom = java.security.SecureRandom()
     private val downContext = arrayOf("", "")
@@ -198,6 +202,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             )
         dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = false)
         observedImpact = engine.state.impactSequence
+        gameAudio.observe(engine.state)
     }
 
     fun down(button: Int) {
@@ -242,6 +247,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
                 val action = engine.controls.buttons().getOrNull(button)?.choice?.action
                 val before = engine.state.battleSnapshot()
                 engine.press(button)
+                gameAudio.action(action)
                 animateBattle(action, before, now)
                 lastActionAt = now
             }
@@ -288,11 +294,13 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             ) {
                 goldNoticeSerial++
                 goldNoticeVisible = true
+                gameAudio.error()
                 return
             }
         }
         val before = engine.state.battleSnapshot()
         engine.choose(choice)
+        gameAudio.action(choice.action.takeIf { valid })
         animateBattle(choice.action, before, android.os.SystemClock.uptimeMillis())
         save()
         refresh()
@@ -305,9 +313,11 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         val item=engine.state.shop.find { it.id==itemId } ?: return
         if(engine.state.gold < Equipment.buyPrice(engine.state,item)*count) {
             goldNoticeSerial++; goldNoticeVisible=true
+            gameAudio.error()
             return
         }
         engine.purchase(itemId,count)
+        gameAudio.action("purchase")
         save(); refresh()
     }
 
@@ -345,6 +355,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
         if (mapExpanded) { closeMap(); return }
         if (storyScene != null) { closeStory(); return }
         engine.navigateBack()
+        gameAudio.action("back")
         save()
         refresh()
     }
@@ -362,6 +373,8 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             observedImpact = engine.state.impactSequence
             currentImpact = engine.state.lastImpact
         } else if (engine.state.lastImpact == null) currentImpact = null
+        gameAudio.observe(engine.state)
+        gameAudio.updateMusic(engine.state, battleBusy())
         revision++
     }
 
@@ -383,9 +396,11 @@ class GameModel(app: Application) : AndroidViewModel(app) {
             save()
         }
         if (animate) refresh()
+        gameAudio.updateMusic(engine.state, battleBusy())
     }
 
     fun pause() {
+        gameAudio.pause()
         active = false
         dungeonCamera.observe(engine.state, android.os.SystemClock.uptimeMillis(), animate = false)
         if (!mapExpanded) engine.pause()
@@ -420,6 +435,7 @@ class GameModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        gameAudio.close()
         writer.shutdown()
         super.onCleared()
     }
@@ -438,11 +454,13 @@ class MainActivity : ComponentActivity() {
         introMusic.stop()
         introVisible = false
         game.active = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        if (game.active) game.resumeAudio()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         game = ViewModelProvider(this)[GameModel::class.java]
+        volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         introVisible = savedInstanceState?.getBoolean("intro_visible", true) ?: true
         setContent {
             AchievementNotice(game)
@@ -460,6 +478,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (::game.isInitialized) game.active = !introVisible
         if (introVisible) introMusic.start()
+        else if (::game.isInitialized) game.resumeAudio()
     }
 
     override fun onPause() {
