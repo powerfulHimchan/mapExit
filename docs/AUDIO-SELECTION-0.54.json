@@ -1,0 +1,318 @@
+[
+  {
+    "key": "sword_normal",
+    "source": "01_sword_normal_01.wav",
+    "sample": 1,
+    "sha256": "9df40c2e9bee140de57f992d51215afecfacb67b7d0fda5ab357d2cd34cdb874"
+  },
+  {
+    "key": "sword_heavy",
+    "source": "02_sword_heavy_01.wav",
+    "sample": 1,
+    "sha256": "524b8c6ee76fe057803772477746152f78a2cad25c2050be051215e04ac656b9"
+  },
+  {
+    "key": "hammer_normal",
+    "source": "05_hammer_normal_01.wav",
+    "sample": 1,
+    "sha256": "0a8d50dafec1fec5d1d03a496a952e810f6e49b7a7b79a131d8311ea040c9370"
+  },
+  {
+    "key": "hammer_heavy",
+    "source": "06_hammer_heavy_02.wav",
+    "sample": 2,
+    "sha256": "55a9c0f78c34e7ed9b7555b1a7512ee1e1ee987b84a8841935b94efd2c516daf"
+  },
+  {
+    "key": "claw_normal",
+    "source": "07_claw_normal_01.wav",
+    "sample": 1,
+    "sha256": "d7367f765595fca564a8e3a06fa6a8b8d1f8e8943b38de98a6ac129e5518dc56"
+  },
+  {
+    "key": "claw_heavy",
+    "source": "08_claw_heavy_01.wav",
+    "sample": 1,
+    "sha256": "3ad86d1030ca7c549bb7f4c50fc08bbc27c76b0fbcb4cef0335746d88ee746f0"
+  },
+  {
+    "key": "whip_normal",
+    "source": "09_whip_normal_01.wav",
+    "sample": 1,
+    "sha256": "8f46b68cdba90591a4b579c90575b41704110d839a0a9716b57dfebb2ae2559d"
+  },
+  {
+    "key": "whip_heavy",
+    "source": "10_whip_heavy_01.wav",
+    "sample": 1,
+    "sha256": "f3cf1db29461049e5f6198a24e8b59063a8e9128891884f2e12de9e6fe5665c6"
+  },
+  {
+    "key": "monster_claw",
+    "source": "11_monster_claw_01.wav",
+    "sample": 1,
+    "sha256": "9ad79cbaf95feaf5292cac5cbafdacba7e39f05949e29f7d58981312c236dc4f"
+  },
+  {
+    "key": "monster_bite",
+    "source": "12_monster_bite_01.wav",
+    "sample": 1,
+    "sha256": "b902c10cd170a3b46e8cae7df6b04293669b6ad4eda8c710d221e63496ba913f"
+  },
+  {
+    "key": "monster_slam",
+    "source": "13_monster_slam_02.wav",
+    "sample": 2,
+    "sha256": "609669130fda27f05dbf8fb898d8129dde8d6f0d07b792100fa5230f2f2613a7"
+  },
+  {
+    "key": "monster_magic",
+    "source": "14_monster_magic_01.wav",
+    "sample": 1,
+    "sha256": "010a76eccd0b5fc9cbbd77c0f2949218bbbfcc3f3ea23bf16ce7bbcbaa1935ea"
+  },
+  {
+    "key": "monster_roar",
+    "source": "15_monster_roar_02.wav",
+    "sample": 2,
+    "sha256": "b8898d67ed0c50019ccfdb63a1ee1ca0ac5bbfa30b014f570bb2dafe63fb1dd0"
+  },
+  {
+    "key": "shield_block",
+    "source": "20_shield_block_01.wav",
+    "sample": 1,
+    "sha256": "43bb1971dd79fc76690f313304969092921c56f9c67ff3642d70c7aa88c980b6"
+  },
+  {
+    "key": "dodge",
+    "source": "21_dodge_01.wav",
+    "sample": 1,
+    "sha256": "15db3d15fdb0c3b72d6a08978ab443937361a25814f1946b8d65966986198b7f"
+  },
+  {
+    "key": "player_hit",
+    "source": "22_player_hit_01.wav",
+    "sample": 1,
+    "sha256": "e998c924e9210f4202d826b7c083a20b44c3f49fa31c25f4b204f028db2334fb"
+  },
+  {
+    "key": "enemy_defeat",
+    "source": "24_enemy_defeat_01.wav",
+    "sample": 1,
+    "sha256": "2c666fab03f07e575998d68b3798c0433c52a8095cd4f95be85310619aa7cbdd"
+  },
+  {
+    "key": "player_death",
+    "source": "25_player_death_01.wav",
+    "sample": 1,
+    "sha256": "fcb58ae5825a6f21e942fac648727f0bc55bbd50d19f1a07bf0bd8f0bd385255"
+  },
+  {
+    "key": "trap_blade",
+    "source": "26_trap_blade_01.wav",
+    "sample": 1,
+    "sha256": "6921460da0feb47e6883feb2d745eaec9c92cd06a2cc444a00ab64823bc2bd91"
+  },
+  {
+    "key": "trap_rock",
+    "source": "27_trap_rock_01.wav",
+    "sample": 1,
+    "sha256": "cca1622ef2b5fe7716f4f8a2c41762743f5a4e391f322ec19a4bb3dfd26d17d1"
+  },
+  {
+    "key": "trap_water",
+    "source": "28_trap_water_01.wav",
+    "sample": 1,
+    "sha256": "efbba670eba78d075ad7e9a7459574700403c8ff8f80be0e1dea32fb4268611c"
+  },
+  {
+    "key": "trap_fire",
+    "source": "29_trap_fire_01.wav",
+    "sample": 1,
+    "sha256": "83c2d9f0504d0aab415b5781ef8e1019e26e3b02f1da88a4f35e5e6410563fca"
+  },
+  {
+    "key": "chest_open",
+    "source": "30_chest_open_01.wav",
+    "sample": 1,
+    "sha256": "2c425fa96afa30404f82457377a11a916b962e8c929de2d086abc1af861ecfec"
+  },
+  {
+    "key": "coin_pickup",
+    "source": "31_coin_pickup_01.wav",
+    "sample": 1,
+    "sha256": "18925a5f6ffce7ca2b409a5545593f8b25ce6ffc9387069f03ecc2454c48c636"
+  },
+  {
+    "key": "potion_use",
+    "source": "32_potion_use_01.wav",
+    "sample": 1,
+    "sha256": "bc874b1be41bdd30c559db3c849621c31b23f6534cc7abf9151a5862e34bf9bc"
+  },
+  {
+    "key": "equip",
+    "source": "33_equip_01.wav",
+    "sample": 1,
+    "sha256": "f54a102adfaafe4b04be724fccffd73c3f3ab523d3bcb508f6f9528c3b76b58a"
+  },
+  {
+    "key": "enhance",
+    "source": "34_enhance_01.wav",
+    "sample": 1,
+    "sha256": "46893ab55ca8a500e5555e9dc457171145d35444f11f4b9acefaada623d5ecd9"
+  },
+  {
+    "key": "level_up",
+    "source": "35_level_up_01.wav",
+    "sample": 1,
+    "sha256": "f6c8db124573c0d3c3972eb8705fbb51739bfbd91f2c521d1ffa19379dcdcf84"
+  },
+  {
+    "key": "npc_encounter",
+    "source": "36_npc_encounter_01.wav",
+    "sample": 1,
+    "sha256": "4a9a70bd3943cbbfda5fc267cb960df4e96d4c06bd935a2d9ac5804794ae676b"
+  },
+  {
+    "key": "ui_select",
+    "source": "37_ui_select_01.wav",
+    "sample": 1,
+    "sha256": "f62afb596c7e390a6b5459dcac0f269c378eedd403eee00f2963f5b9b7b351fb"
+  },
+  {
+    "key": "ui_back",
+    "source": "38_ui_back_01.wav",
+    "sample": 1,
+    "sha256": "6894041302e30bc9a07b7855e3eddd326d432448f0b89e0ffaa07de669248b5e"
+  },
+  {
+    "key": "ui_error",
+    "source": "39_ui_error_01.wav",
+    "sample": 1,
+    "sha256": "a376ea6a5881f57e5c07d64189f1aa313ebd14ce0d6710627f290ed665da7325"
+  },
+  {
+    "key": "step_stone_l",
+    "source": "이동_돌바닥_01_L.wav",
+    "sample": 1,
+    "sha256": "e8413801ca85545f17e5f3d53ec16052ac51e154bf054f49a55f5f66686e277a"
+  },
+  {
+    "key": "step_stone_r",
+    "source": "이동_돌바닥_01_R.wav",
+    "sample": 1,
+    "sha256": "985170466a09eec563a851a508696703ca08756a0a6bf6603417b6f79e109d5c"
+  },
+  {
+    "key": "step_dirt_l",
+    "source": "이동_흙바닥_01_L.wav",
+    "sample": 1,
+    "sha256": "5121d0ee6d5fdf351d6565fa11a7c5bccf287d17b95ad07db7c1fcb9038b1118"
+  },
+  {
+    "key": "step_dirt_r",
+    "source": "이동_흙바닥_01_R.wav",
+    "sample": 1,
+    "sha256": "1aac1acf58b8e0c2e11d3bc1101eb1a0821a1ad2a809b76a26e37aa30af31090"
+  },
+  {
+    "key": "step_stairs_l",
+    "source": "이동_계단_01_L.wav",
+    "sample": 1,
+    "sha256": "c8fd0b4217aa3abec9ba6bf66673080aac12ec9ce45b786297f5a1c0075f2266"
+  },
+  {
+    "key": "step_stairs_r",
+    "source": "이동_계단_01_R.wav",
+    "sample": 1,
+    "sha256": "a5390cfbe314b84d263509ae851d7657e41fc49bf4adfbfb3efeedc6d3cc4420"
+  },
+  {
+    "key": "landing",
+    "source": "이동_착지_01.wav",
+    "sample": 1,
+    "sha256": "bb637c71d30ac3a5bb04f2f552d88c6cdcacdedb3863fdf114bc256d0d0f91cc"
+  },
+  {
+    "key": "spear_normal",
+    "source": "창_일반공격_01.wav",
+    "sample": 1,
+    "sha256": "6d0c7891132ebd7f7a6bcfee9b9ed7e655e19167202b7424c70b549d5d1e7568"
+  },
+  {
+    "key": "spear_heavy",
+    "source": "창_강공격_02.wav",
+    "sample": 2,
+    "sha256": "d45d79b21787dd14aec7a8bb7b40ea91249c5cab26d8125b9654fe3ffea56114"
+  },
+  {
+    "key": "critical",
+    "source": "치명타_01.wav",
+    "sample": 1,
+    "sha256": "348acb8353f6b70442984bfa6c5d6ca79d1fef8f3c6cc7248408d3bf91f51384"
+  },
+  {
+    "key": "dungeon_1",
+    "style": "B",
+    "bars": 16,
+    "bpm": 92,
+    "seconds": 41.73913043478261,
+    "sha256": "26860d274e99d9c18d8a0df5988961e01a3a18e1a9bc28e0cd8c328884c31407"
+  },
+  {
+    "key": "dungeon_2",
+    "style": "B",
+    "bars": 16,
+    "bpm": 100,
+    "seconds": 38.4,
+    "sha256": "cdacf511aae2e89b7449f6910fa7ec957072679be25e202220b565b41a2b75a9"
+  },
+  {
+    "key": "dungeon_3",
+    "style": "B",
+    "bars": 16,
+    "bpm": 112,
+    "seconds": 34.285714285714285,
+    "sha256": "dfb6dbc4d22fd163859979a1213c5cfe163fcc397d7b23b12c828d3ca403939d"
+  },
+  {
+    "key": "dungeon_4",
+    "style": "B",
+    "bars": 16,
+    "bpm": 84,
+    "seconds": 45.714285714285715,
+    "sha256": "65582a491bf0fe5c538cba0cef535bb1287e133e866370d99a4a05acc5e05aa7"
+  },
+  {
+    "key": "dungeon_5",
+    "style": "B",
+    "bars": 16,
+    "bpm": 108,
+    "seconds": 35.55555555555556,
+    "sha256": "0ca5b2107c2fe939804fa170975efad447155d683b1da98c19f8dd485cb5479d"
+  },
+  {
+    "key": "battle",
+    "style": "B",
+    "bars": 16,
+    "bpm": 144,
+    "seconds": 26.666666666666668,
+    "sha256": "f7ab4387ef7f49c7be6a6a5cb75b53837c57a616fc9fc25df38dce7f61ac23e5"
+  },
+  {
+    "key": "npc",
+    "style": "B",
+    "bars": 16,
+    "bpm": 88,
+    "seconds": 43.63636363636363,
+    "sha256": "2362e963f70e8a59dcb0f48b58319c8254bf78121769c169fe1e5864a4a41f12"
+  },
+  {
+    "key": "obstacle",
+    "style": "B",
+    "bars": 16,
+    "bpm": 132,
+    "seconds": 29.09090909090909,
+    "sha256": "3e922aaedcb6e51625eb83a8be4cfbe40431899ebb1bac2bb0f5291db182e075"
+  }
+]
