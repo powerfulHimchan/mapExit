@@ -1,0 +1,57 @@
+name: Audio and victory regression
+on:
+  pull_request:
+    paths:
+      - 'app/src/main/java/com/powerfulhimchan/mapexit/GameScreen.kt'
+      - 'app/src/androidTest/java/com/powerfulhimchan/mapexit/Audio054Test.kt'
+      - 'app/src/androidTest/java/com/powerfulhimchan/mapexit/LaunchTest.kt'
+      - '.github/workflows/audio-verification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Core tests, lint and APK
+        run: ./gradlew :core:test :app:lintDebug :app:assembleDebug --no-daemon
+      - name: Enable emulator acceleration
+        run: sudo chmod a+rw /dev/kvm
+      - name: Audio lifecycle and delayed victory frame
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          ram-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.powerfulhimchan.mapexit.Audio054Test,com.powerfulhimchan.mapexit.LaunchTest\#levelUpBannerAppearsAfterFinalStrikeAndOpensGrowthWithoutLosingVictory --no-daemon
+      - name: Build separate audio preview install
+        run: |
+          mkdir -p artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/OneMoreFloor-0.54.0-debug.apk
+          ./gradlew :app:assembleDebug -PaudioPreview=true --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/OneMoreFloor-0.54.0-audio-preview.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Audio-verification
+          path: |
+            core/build/reports/tests/test/
+            app/build/reports/lint-results-debug.*
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            artifacts/*.apk
