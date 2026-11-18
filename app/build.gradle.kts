@@ -6,9 +6,10 @@ android {
         applicationId = "com.powerfulhimchan.mapexit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 53
-        versionName = "0.53.0"
+        versionCode = 54
+        versionName = "0.54.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appLabel"] = "한 층만 더"
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
@@ -20,7 +21,16 @@ android {
         keyAlias = "androiddebugkey"
         keyPassword = "android"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    buildTypes {
+        getByName("debug") {
+            // Opt-in side-by-side QA install when the previous developer key is unavailable.
+            if (providers.gradleProperty("audioPreview").orNull == "true") {
+                applicationIdSuffix = ".audiopreview"
+                manifestPlaceholders["appLabel"] = "한 층만 더 · 오디오"
+            }
+        }
+        release { isMinifyEnabled = false }
+    }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 dependencies {
