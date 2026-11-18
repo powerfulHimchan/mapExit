@@ -79,6 +79,9 @@ fun MapExitScreen(vm: GameModel) {
             }
             delay(16)
         }
+        // A slow first composition can outlive the entire paused animation.
+        // Publish its terminal frame even when the loop never requested vsync.
+        clock = SystemClock.uptimeMillis()
     }
     LaunchedEffect(vm.currentImpact?.serial) {
         val event = vm.currentImpact ?: return@LaunchedEffect
