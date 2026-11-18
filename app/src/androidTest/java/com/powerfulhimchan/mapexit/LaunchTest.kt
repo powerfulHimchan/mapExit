@@ -1120,6 +1120,9 @@ class LaunchTest {
                 it.game.choose(Choice("공격", "attack"))
                 assertTrue(it.game.battleBusy())
                 assertEquals(LevelUpNotice(1, 2, 3), e.state.levelUpNotice)
+                // Force the first paused composition to miss the full animation.
+                // Its terminal frame must still expose the victory growth action.
+                SystemClock.sleep(it.game.battleVisual!!.duration + 150)
             }
             val banner = bounds("레벨 업 LV.1에서 LV.2")
             val scene = bounds("메인 장면")
